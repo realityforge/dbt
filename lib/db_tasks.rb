@@ -482,15 +482,18 @@ SQL
     dir = dirs.select{|dir| File.exists?(dir)}[0]
     return unless dir
     ordered_tables = table_ordering(schema)
+    mode = nil
     if ordered_tables
       files = []
       ordered_tables.each do |t|
         files += [t] if File.exist?("#{dir}/#{t}.yml")
       end
+      mode = "O"
     else
       files = Dir.glob(dir + "/*.yml").map { |f| File.basename(f, ".yml") }.split(/,/)
+      mode = "A"
     end
-    puts("Loading fixtures: #{files.join(',')}")
+    puts("Loading fixtures (#{mode}): #{files.join(',')}")
     Fixtures.create_fixtures(dir, files)
   end
 
