@@ -37,6 +37,7 @@ class DbTasks
   @@seen_schemas = {}
   @@filters = []
   @@default_schema = "default"
+  @@table_order_resolver = nil
 
   def self.init(schema, env)
     setup_connection(config_key(schema,env))
@@ -44,6 +45,10 @@ class DbTasks
 
   def self.add_filter( &block )
     @@filters << block
+  end
+
+  def self.define_table_order_resolver( &block )
+    @@table_order_resolver = block
   end
 
   def self.default_schema=(s)
@@ -253,10 +258,14 @@ SQL
   private
 
   def self.table_ordering(schema_key)
-    begin
-      return "#{schema_key.split('-').collect{|e|e.capitalize}.join('')}OrderedTables".constantize
-    rescue => e
-      return nil
+    if @@table_order_resolver
+      return @@table_order_resolver.call(schema_key)
+    else
+      begin
+        return "#{schema_key.split('-').collect { |e| e.capitalize }.join('')}OrderedTables".constantize
+      rescue => e
+        return nil
+      end
     end
   end
 
