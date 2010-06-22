@@ -13,7 +13,7 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 #   "central_development", "master_test" etc.
 
 # It should also be noted that the in some cases there is a database_key and
-# schema with the same name. This was due to legacy reasons and should be avoided 
+# schema with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
 require File.expand_path(File.dirname(__FILE__) + '/init_ar.rb')
@@ -70,14 +70,14 @@ class DbTasks
           check_db_env
           puts "**** Creating database: #{database_key} (Environment: #{DB_ENV}) ****"
         end
-        
-        task :pre_build => ['db:load_config','db:pre_build'] 
+
+        task :pre_build => ['db:load_config','db:pre_build']
 
         schemas.each do |schema|
           task :build => "post_schema_#{schema}"
-          
+
           task "post_schema_#{schema}" => "db:#{database_key}:build_schema_#{schema}"
-          
+
           task "build_schema_#{schema}" => "db:#{database_key}:pre_schema_#{schema}"
 
           task "pre_schema_#{schema}"
@@ -173,7 +173,7 @@ class DbTasks
       puts "Skipping import of schema #{schema}, as #{schema.capitalize}OrderedTables is not defined"
       return
     end
-    
+
     database_key = schema unless database_key
 
     # check the database configurations are set
@@ -538,7 +538,7 @@ SQL
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
   end
-  
+
   def self.datasets_for_schema( name )
     dataset_dirs = dirs_for_schema(name, 'datasets/')
     datasets = []
@@ -557,7 +557,7 @@ SQL
         datasets[dataset] << schema
       end
     end
-    datasets  
+    datasets
   end
 
   def self.dirs_for_schema(schema, subdir = nil)
