@@ -1,4 +1,4 @@
-require(File.dirname(__FILE__) + '/../lib/db_tasks')
+require File.expand_path(File.dirname(__FILE__) + '/../lib/db_tasks')
 
 def fixture_dir
   ENV['FIXTURE_DIR'] || "#{RAILS_ROOT}/tmp"
@@ -68,11 +68,15 @@ def tables_for_schema( schema = schema_name )
   tables
 end
 
+task :environment do
+  require(File.join(RAILS_ROOT, 'config', 'environment'))
+end
+
 desc 'Load a single fixture into the db from yaml fixtures.'
 task "db:load:fixture".to_sym => :environment do
   setup_conn
   table = ENV['FIXTURE']
-  raise "Missing FIXTURE environment var" if table.nil?;
+  raise "Missing FIXTURE environment var" if table.nil?
   puts "Loading Fixtures\nFIXTURE=#{table}\nFIXTURE_DIR=#{fixture_dir}\n"
   load_tables( [ table ] )
 end
