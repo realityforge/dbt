@@ -167,10 +167,9 @@ class DbTasks
   end
 
   def self.import(schema, env, database_key = nil)
-    begin
-      "#{schema.capitalize}OrderedTables".constantize
-    rescue => e
-      puts "Skipping import of schema #{schema}, as #{schema.capitalize}OrderedTables is not defined"
+    ordered_tables = table_ordering(schema)
+    unless ordered_tables
+      puts "Skipping import of schema #{schema_key}, as unable to determine table_ordering"
       return
     end
 
@@ -188,7 +187,7 @@ class DbTasks
 
     # Iterate over schema in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
-    tables = "#{schema.capitalize}OrderedTables".constantize.reject do |table|
+    tables = ordered_tables.reject do |table|
       fixture_for_creation(schema, table)
     end
     tables.reverse.each do |table|
@@ -218,16 +217,12 @@ class DbTasks
     current_database = get_config(key)['database']
     c = ActiveRecord::Base.connection
     c.transaction do
-      c.execute( "USE [#{current_database}]" )
-      const_sym = "#{schema.split('-').collect{|e|e.capitalize}.join('')}OrderedTables".to_sym
-      if Object.const_defined?( const_sym )
-        Object.const_get(const_sym).reverse.each do |t|
-          c.execute("DROP TABLE #{t.to_s}")
-        end
-      else
-        raise "Unknown schema #{schema}"
+      c.execute("USE [#{current_database}]")
+      ordered_tables = table_ordering(schema)
+      raise "Unknown schema #{schema}" unless ordered_tables
+      ordered_tables.reverse.each do |t|
+        c.execute("DROP TABLE #{t.to_s}")
       end
-
       c.execute("DROP SCHEMA [#{schema.capitalize}]")
     end
   end
@@ -257,7 +252,15 @@ SQL
 
   private
 
-  @@search_dirs = ["#{BASE_APP_DIR}/target/generated/databases", "#{BASE_APP_DIR}/databases" ]
+  def self.table_ordering(schema_key)
+    begin
+      return "#{schema_key.split('-').collect{|e|e.capitalize}.join('')}OrderedTables".constantize
+    rescue => e
+      return nil
+    end
+  end
+
+  @@search_dirs = ["#{BASE_APP_DIR}/databases/generated", "#{BASE_APP_DIR}/databases" ]
   def self.search_dirs
     @@search_dirs
   end
@@ -469,14 +472,14 @@ SQL
     require 'active_record/fixtures'
     dir = dirs.select{|dir| File.exists?(dir)}[0]
     return unless dir
-    const_sym = "#{schema.split('-').collect{|e|e.capitalize}.join('')}OrderedTables".to_sym
-    if Object.const_defined?( const_sym )
+    ordered_tables = table_ordering(schema)
+    if ordered_tables
       files = []
-      Object.const_get(const_sym).each do |t|
-        files += [t] if File.exist?( "#{dir}/#{t}.yml")
+      ordered_tables.each do |t|
+        files += [t] if File.exist?("#{dir}/#{t}.yml")
       end
     else
-      files = Dir.glob(dir + "/*.yml").map{|f| File.basename(f, ".yml")}.split(/,/)
+      files = Dir.glob(dir + "/*.yml").map { |f| File.basename(f, ".yml") }.split(/,/)
     end
     puts("Loading fixtures: #{files.join(',')}")
     Fixtures.create_fixtures(dir, files)
