@@ -5,7 +5,7 @@ def fixture_dir
 end
 
 def schema_name
-  schema = ENV["SCHEMA"] || "core"
+  ENV["SCHEMA"] || "core"
 end
 
 def dump_tables( tables )
