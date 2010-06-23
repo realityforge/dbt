@@ -228,7 +228,7 @@ class DbTasks
       ordered_tables.reverse.each do |t|
         c.execute("DROP TABLE #{t.to_s}")
       end
-      c.execute("DROP SCHEMA [#{schema.capitalize}]")
+      c.execute("DROP SCHEMA [#{schema}]")
     end
   end
 
@@ -262,7 +262,7 @@ SQL
       return @@table_order_resolver.call(schema_key)
     else
       begin
-        return "#{schema_key.split('-').collect { |e| e.capitalize }.join('')}OrderedTables".constantize
+        return "#{schema_key}OrderedTables".constantize
       rescue => e
         return nil
       end
