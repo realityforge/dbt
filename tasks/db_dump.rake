@@ -68,12 +68,12 @@ def tables_for_schema( schema = schema_name )
   tables
 end
 
-task :environment do
+task 'dbt:environment' do
   require(File.join(RAILS_ROOT, 'config', 'environment'))
 end
 
 desc 'Load a single fixture into the db from yaml fixtures.'
-task "db:load:fixture".to_sym => :environment do
+task "dbt:load:fixture".to_sym => 'dbt:environment' do
   setup_conn
   table = ENV['FIXTURE']
   raise "Missing FIXTURE environment var" if table.nil?
@@ -82,13 +82,13 @@ task "db:load:fixture".to_sym => :environment do
 end
 
 desc 'Load a fixtures for a schema into the db from yaml fixtures.'
-task "db:load:fixtures".to_sym => :environment do
+task "dbt:load:fixtures".to_sym => 'dbt:environment' do
   setup_conn
   load_tables(tables_for_schema, "#{DbTasks.databases_dir}/#{schema_name}/fixtures")
 end
 
 desc 'Dump a single fixture from the db to yaml fixture.'
-task "db:dump:fixture".to_sym => :environment do
+task "dbt:dump:fixture".to_sym => 'dbt:environment' do
   setup_conn
   table_name = ENV['FIXTURE']
   raise "Missing FIXTURE environment var" if table_name.nil?
@@ -96,7 +96,7 @@ task "db:dump:fixture".to_sym => :environment do
 end
 
 desc 'Dump the fixtures from all tables in a database to yaml fixtures.'
-task "db:dump:fixtures".to_sym => :environment do
+task "dbt:dump:fixtures".to_sym => 'dbt:environment' do
   setup_conn
   dump_tables(tables_for_schema)
 end

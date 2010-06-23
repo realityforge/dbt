@@ -61,7 +61,7 @@ class DbTasks
 
   def self.add_database( database_key, schemas, options = {} )
     database_key = database_key.to_s
-    namespace :db do
+    namespace :dbt do
       schemas.each do |schema|
         next if @@seen_schemas.include? schema
         @@seen_schemas[ schema ] = datasets_for_schema( schema )
@@ -69,21 +69,21 @@ class DbTasks
 
       namespace database_key do
         desc "Create initial #{database_key} database."
-        task :create => ['db:load_config', "db:#{database_key}:banner", "db:#{database_key}:pre_build", "db:#{database_key}:build", "db:#{database_key}:post_build"]
+        task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
 
-        task "db:#{database_key}:banner" do
+        task "dbt:#{database_key}:banner" do
           check_db_env
           puts "**** Creating database: #{database_key} (Environment: #{DB_ENV}) ****"
         end
 
-        task :pre_build => ['db:load_config','db:pre_build']
+        task :pre_build => ['dbt:load_config','dbt:pre_build']
 
         schemas.each do |schema|
           task :build => "post_schema_#{schema}"
 
-          task "post_schema_#{schema}" => "db:#{database_key}:build_schema_#{schema}"
+          task "post_schema_#{schema}" => "dbt:#{database_key}:build_schema_#{schema}"
 
-          task "build_schema_#{schema}" => "db:#{database_key}:pre_schema_#{schema}"
+          task "build_schema_#{schema}" => "dbt:#{database_key}:pre_schema_#{schema}"
 
           task "pre_schema_#{schema}"
         end
@@ -98,7 +98,7 @@ class DbTasks
         end
 
         desc "Import contents of #{database_key} database."
-        task :import => ['db:load_config'] do
+        task :import => ['dbt:load_config'] do
           check_db_env
           import_schemas = options[:import] || schemas
           import_schemas.each do |schema|
@@ -107,7 +107,7 @@ class DbTasks
         end
 
         desc "Drop #{database_key} database."
-        task :drop => ['db:load_config'] do
+        task :drop => ['dbt:load_config'] do
           check_db_env
           puts "**** Dropping database: #{database_key} ****"
           DbTasks.drop( database_key, DB_ENV )
@@ -132,11 +132,11 @@ class DbTasks
       end
 
       desc "Create all databases."
-      task :create => ["db:#{database_key}:create"] do
+      task :create => ["dbt:#{database_key}:create"] do
       end
 
       desc "Drop all databases."
-      task :drop => ["db:#{database_key}:drop"] do
+      task :drop => ["dbt:#{database_key}:drop"] do
       end
     end
   end
