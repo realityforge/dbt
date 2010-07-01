@@ -145,6 +145,7 @@ class DbTasks
     database_key = schema unless database_key
     key = config_key(database_key,env)
     physical_name = get_config(key)['database']
+    recreate = false if true == get_config(key)['nocreate']
     if recreate
       setup_connection("msdb", key)
       recreate_db(database_key, env, true)
