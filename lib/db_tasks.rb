@@ -413,7 +413,7 @@ SQL
   end
 
   def self.process_schema(database_key, schema, env)
-    create_schema_from_file( database_key, schema, env ) || create_schema_from_migrations( schema )
+    create_schema_from_file( database_key, schema, env )
 
     dirs = ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc']
     dirs.each do |dir|
@@ -439,25 +439,8 @@ SQL
     false
   end
 
-  def self.create_schema_from_migrations(schema)
-    dirs_for_schema(schema, 'migrations').each do |dir|
-      if File.exist?(dir)
-        migrate_db(dir)
-        return true
-      end
-    end
-    false
-  end
-
   def self.check_dir(name, dir)
     raise "#{name} in missing dir #{dir}" unless File.exists?(dir)
-  end
-
-  def self.migrate_db(migrations_dir)
-    check_dir('migrate', migrations_dir)
-    puts "Migrating: #{migrations_dir}\n"
-    ActiveRecord::Migrator.migrate(migrations_dir, nil)
-    drop_schema_info
   end
 
   def self.load_db_schema(schema_file)
