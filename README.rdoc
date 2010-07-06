@@ -1,0 +1,59 @@
+= dbt
+
+The dbt plugin is designed to simplify the creation, migration and deletion of databases.
+Each database contains a number of _schemas_ that are loaded and migrated in a
+specific order. Each _schema_ is stored in a directory with the same name as the _schema_
+key used when defining the database.
+
+== Database Creation
+
+When a _schema_ is loaded the plugin will attempt to load a file named <tt>schema.sql</tt>
+or <tt>schema.rb</tt>. The SQL file will be directly executed while the ruby file will be
+executed locally. Both are expected to be create the tables used by the schema. The ruby
+code is most most typically using ActiveRecord's schema language. 
+
+The plugin will then attempt to load SQL scripts from a number of sub-directories of the
+_schema_ dir. The SQL scripts in each directory are sorted alpha-numerically before being
+executed. The order in which directories are processed is:
+
+* types
+* views
+* functions
+* stored-procedures
+* triggers
+* misc
+
+After loading the SQL scripts the plugin will attempt to load fixture data from the 'fixtures'
+sub-directory of the _schema_ dir. The fixture data must be in a YAML formated file that matches
+the table named with .yml appended. The order that the fixture data is loaded in is fixed and
+described in the "Table Ordering" section below.  
+
+=== Database definition
+
+TODO
+
+== Filters
+
+TODO
+
+== Table Ordering
+
+TODO
+
+== Database Importing
+
+TODO
+
+== database.yml format
+=== default_schema
+
+TODO
+
+== Datasets
+
+TODO
+
+== Credit
+
+The plugin was initially developed by StockSoftware for use in the Department
+of Sustainability and Environment, Victoria, Australia.
