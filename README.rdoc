@@ -46,6 +46,8 @@ TODO
 
 == database.yml format
 === default_schema
+=== force_drop
+=== no_create
 
 TODO
 
