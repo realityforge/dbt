@@ -257,10 +257,12 @@ SQL
 
   private
 
+  # TODO: This should raise an exception if it fails to find an ordering
   def self.table_ordering(schema_key)
     if @@table_order_resolver
       return @@table_order_resolver.call(schema_key)
     else
+      # TODO: Next biut should just be the default table_order_resolver 
       begin
         return "#{schema_key}OrderedTables".constantize
       rescue => e
