@@ -416,7 +416,6 @@ SQL
     create_schema_from_file( database_key, schema, env ) || create_schema_from_migrations( schema )
 
     dirs = ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc']
-    dirs << 'jobs' if env =~ /production$/
     dirs.each do |dir|
       run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_schema( schema, dir ) )
     end
