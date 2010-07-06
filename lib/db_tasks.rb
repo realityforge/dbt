@@ -145,6 +145,7 @@ class DbTasks
     database_key = schema unless database_key
     key = config_key(database_key,env)
     physical_name = get_config(key)['database']
+    recreate = false if true == get_config(key)['no_create']
     if recreate
       setup_connection("msdb", key)
       recreate_db(database_key, env, true)
@@ -236,7 +237,24 @@ class DbTasks
     key = config_key(database_key,env)
     setup_connection("msdb", key)
     db = get_config(key)['database']
-    sql = <<SQL
+    force_drop = true == get_config(key)['force_drop']
+
+    sql = if force_drop
+      <<SQL
+USE [msdb]
+GO
+  IF EXISTS
+    ( SELECT *
+      FROM  sys.master_files
+      WHERE state = 0 AND db_name(database_id) = '#{db}')
+    ALTER DATABASE [#{db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+GO
+SQL
+    else
+      ''
+    end
+
+    sql << <<SQL
 USE [msdb]
 GO
   IF EXISTS
