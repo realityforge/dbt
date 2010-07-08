@@ -18,7 +18,6 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 
 require File.expand_path(File.dirname(__FILE__) + '/init_ar.rb')
 require 'active_record/fixtures'
-require File.expand_path(File.dirname(__FILE__) + '/foreign_key_support.rb')
 
 # The following two class monkey patches make the migrations transactional
 class ActiveRecord::Migration
