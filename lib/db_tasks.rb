@@ -156,14 +156,6 @@ class DbTasks
     process_schema(database_key, schema, env)
   end
 
-  def self.run_generated_sql(database_key, env, label, distributed_dir, development_dir)
-    if File.exists?( distributed_dir )
-      run_sql_in_dir( database_key, env, label, distributed_dir )
-    else
-      run_sql_in_dir( database_key, env, label, development_dir )
-    end
-  end
-
   def self.run_sql_in_dir(database_key, env, label, dir)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
