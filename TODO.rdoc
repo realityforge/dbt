@@ -1,0 +1,11 @@
+== TODO
+
+=== Deferred Loading of ActiveRecord
+
+Defer loading ActiveRecord and associated cruft until one of the db tasks is
+actually invoked.
+
+=== Deferred Loading of ActiveRecord Fixture Support
+
+Defer loading ActiveRecord Fixture Support until one of the tasks or methods that
+load fixtures is actually invoked.
