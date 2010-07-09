@@ -1,21 +1,21 @@
-== TODO
+= TODO
 
-=== Deferred Loading of ActiveRecord
+== Deferred Loading of ActiveRecord
 
 Defer loading ActiveRecord and associated cruft until one of the db tasks is
 actually invoked.
 
-=== Deferred Loading of ActiveRecord Fixture Support
+== Deferred Loading of ActiveRecord Fixture Support
 
 Defer loading ActiveRecord Fixture Support until one of the tasks or methods that
 load fixtures is actually invoked.
 
-=== Remove Transactional Migration Support
+== Remove Transactional Migration Support
 
 Not sure if any of the dependencies rely on this. If so it should be copied to
 those specific projects.
 
-=== Add Hook to allow users to load drivers
+== Add Hook to allow users to load drivers
 
 The plugin should allow the users the chance to load drivers after AR is loaded.
 
@@ -23,3 +23,33 @@ The plugin should allow the users the chance to load drivers after AR is loaded.
 
 Merge the code and make it possible to have multiple tasks that generate fixture
 data from specific tables, to specific directories.
+
+== Require explicit configuration of DataSets
+
+Datasets should be explicitly configured by the end users. Not guessed by looking at dirs.
+
+== Make the location where log files are created configurable
+
+== Make the sets of dirs processed configurable
+
+The plugin currently does the schema then a list of dirs then fixtures. It should allow the
+user the chance to configure the list of pre-schema and post-schema tables.
+
+== APP_VERSION Should be configurable rather than constant
+
+== Collation should be configurable from definition
+
+== msdb config should be inferred
+
+== perform_standard_import hook
+
+perform_standard_import currently assumes any column named BatchID should be set to 0. We should
+allow the app the chance to configure transforms on different columns
+
+== DbTasks.search_paths should be explicitly configured
+
+== "#{schema_key}OrderedTables".constantize should be removed or made defult resolver
+
+== Raise an exception if table_ordering not specified but required rather than guessing
+
+== Add add_database_name_filter(/@@MASTER@@/, "master")
