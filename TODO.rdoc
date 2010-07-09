@@ -18,3 +18,8 @@ those specific projects.
 === Add Hook to allow users to load drivers
 
 The plugin should allow the users the chance to load drivers after AR is loaded.
+
+== Merge in Firetimes Fixture Loading Code
+
+Merge the code and make it possible to have multiple tasks that generate fixture
+data from specific tables, to specific directories.
