@@ -111,7 +111,7 @@ class DbTasks
           namespace :datasets do
             datasets.each do |dataset_names, schemas_in_dataset|
               dataset_names.each do |dataset_name|
-                desc "Loads #{dataset_name} #{schemas_in_dataset.to_sentence} data"
+                desc "Loads #{dataset_name} data"
                 task dataset_name => :environment do
                   check_db_env
                   schemas_in_dataset.each do |schema_name|
