@@ -19,19 +19,6 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 require File.expand_path(File.dirname(__FILE__) + '/init_ar.rb')
 require 'active_record/fixtures'
 
-# The following two class monkey patches make the migrations transactional
-class ActiveRecord::Migration
-  def self.migrate_with_transactional_migrations(direction)
-    ActiveRecord::Base.transaction { migrate_without_transactional_migrations(direction) }
-  end
-end
-
-class ActiveRecord::Migration
-  class << self
-    alias_method_chain :migrate, :transactional_migrations
-  end
-end
-
 class DbTasks
   @@seen_schemas = {}
   @@filters = []

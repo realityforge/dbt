@@ -10,11 +10,6 @@ actually invoked.
 Defer loading ActiveRecord Fixture Support until one of the tasks or methods that
 load fixtures is actually invoked.
 
-== Remove Transactional Migration Support
-
-Not sure if any of the dependencies rely on this. If so it should be copied to
-those specific projects.
-
 == Add Hook to allow users to load drivers
 
 The plugin should allow the users the chance to load drivers after AR is loaded.
