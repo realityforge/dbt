@@ -18,7 +18,6 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 
 require File.expand_path(File.dirname(__FILE__) + '/init_ar.rb')
 require 'active_record/fixtures'
-require File.expand_path(File.dirname(__FILE__) + '/foreign_key_support.rb')
 
 # The following two class monkey patches make the migrations transactional
 class ActiveRecord::Migration
@@ -154,14 +153,6 @@ class DbTasks
     end
     puts "Database Load [#{physical_name}]: schema=#{schema}, db=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
     process_schema(database_key, schema, env)
-  end
-
-  def self.run_generated_sql(database_key, env, label, distributed_dir, development_dir)
-    if File.exists?( distributed_dir )
-      run_sql_in_dir( database_key, env, label, distributed_dir )
-    else
-      run_sql_in_dir( database_key, env, label, development_dir )
-    end
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
