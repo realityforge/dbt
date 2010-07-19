@@ -16,7 +16,8 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 # schema with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
-require File.expand_path(File.dirname(__FILE__) + '/init_ar.rb')
+require 'erb'
+require 'activerecord'
 require 'active_record/fixtures'
 
 class DbTasks
@@ -37,7 +38,7 @@ class DbTasks
     add_filter do |current_config, env, sql|
       filter_database_name(sql, pattern, current_config, "#{database_key}_#{env}")
     end
-  end  
+  end
 
   def self.define_table_order_resolver( &block )
     @@table_order_resolver = block
@@ -264,7 +265,7 @@ SQL
     if @@table_order_resolver
       return @@table_order_resolver.call(schema_key)
     else
-      # TODO: Next biut should just be the default table_order_resolver 
+      # TODO: Next biut should just be the default table_order_resolver
       begin
         return "#{schema_key}OrderedTables".constantize
       rescue => e
