@@ -6,6 +6,10 @@ end
 
 namespace :dbt do
   task :load_config => ['clear'] do
+    require 'activerecord'
+    require 'active_record/fixtures'
+    # TODO: Fix this so it runs a hook that actually loads database drivers
+    task("dbt:environment").invoke
     filename = "#{BASE_APP_DIR}/config/database.yml"
     ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(filename)).result)
   end

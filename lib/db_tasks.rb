@@ -16,10 +16,6 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 # schema with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
-require 'erb'
-require 'activerecord'
-require 'active_record/fixtures'
-
 class DbTasks
   @@seen_schemas = {}
   @@filters = []
