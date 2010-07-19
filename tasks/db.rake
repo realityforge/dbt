@@ -1,4 +1,4 @@
-require File.expand_path(File.dirname(__FILE__) + '/../lib/db_tasks')
+require 'db_tasks'
 
 def check_db_env
   raise "DB_ENV not specified." if DB_ENV.nil?

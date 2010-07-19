@@ -1,4 +1,4 @@
-require File.expand_path(File.dirname(__FILE__) + '/../lib/db_tasks')
+require 'db_tasks'
 
 def fixture_dir
   ENV['FIXTURE_DIR'] || "#{RAILS_ROOT}/tmp"
