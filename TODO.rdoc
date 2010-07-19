@@ -46,5 +46,3 @@ allow the app the chance to configure transforms on different columns
 == "#{schema_key}OrderedTables".constantize should be removed or made defult resolver
 
 == Raise an exception if table_ordering not specified but required rather than guessing
-
-== Add add_database_name_filter(/@@MASTER@@/, "master")

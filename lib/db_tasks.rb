@@ -33,6 +33,12 @@ class DbTasks
     @@filters << block
   end
 
+  def self.add_database_name_filter(pattern, database_key)
+    add_filter do |current_config, env, sql|
+      filter_database_name(sql, pattern, current_config, "#{database_key}_#{env}")
+    end
+  end  
+
   def self.define_table_order_resolver( &block )
     @@table_order_resolver = block
   end
