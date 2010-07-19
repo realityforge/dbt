@@ -1,5 +1,7 @@
 = TODO
 
+== Stop using RAILS_ROOT and RAILS_ENV and replace with config settings 
+
 == Add Hook to allow users to load drivers
 
 The plugin should allow the users the chance to load drivers after AR is loaded.
