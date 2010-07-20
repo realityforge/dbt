@@ -1,7 +1,3 @@
-BASE_APP_DIR = RAILS_ROOT unless defined? BASE_APP_DIR
-APP_VERSION = nil unless defined? APP_VERSION
-DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
-
 # Note the following terminology is used throughout the plugin
 # * database_key: a symbolic name of database. i.e. "central", "master", "core",
 #   "ifis", "msdb" etc
@@ -17,9 +13,54 @@ DB_ENV = ENV['DB_ENV'] || RAILS_ENV unless defined? DB_ENV
 # in the future as it is confusing
 
 class DbTasks
+
+  class Config
+
+    class << self
+      attr_accessor :app_version
+
+      attr_writer :environment
+
+      def environment
+        return 'development' unless @environment
+        @environment
+      end
+
+      attr_writer :default_schema
+
+      def default_schema
+        return 'default' unless @default_schema
+        @default_schema
+      end
+
+      # config_file is where the yaml config file is located
+      attr_writer :config_filename
+
+      def config_filename
+        raise "config_filename not specified" unless @config_filename
+        @config_filename
+      end
+
+      # log_filename is where the log file is created
+      attr_writer :log_filename
+
+      def log_filename
+        raise "log_filename not specified" unless @log_filename
+        @log_filename
+      end
+
+      # search_dirs is an array of paths that are searched in order for artifacts for each schema
+      attr_writer :search_dirs
+
+      def search_dirs
+        raise "search_dirs not specified" unless @search_dirs
+        @search_dirs
+      end
+    end
+  end
+
   @@seen_schemas = {}
   @@filters = []
-  @@default_schema = "default"
   @@table_order_resolver = nil
 
   def self.init(schema, env)
@@ -40,14 +81,6 @@ class DbTasks
     @@table_order_resolver = block
   end
 
-  def self.default_schema=(s)
-    @@default_schema = s.to_s
-  end
-
-  def self.default_schema
-    @@default_schema
-  end
-
   def self.add_database( database_key, schemas, options = {} )
     database_key = database_key.to_s
     namespace :dbt do
@@ -61,8 +94,7 @@ class DbTasks
         task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
 
         task "dbt:#{database_key}:banner" do
-          check_db_env
-          puts "**** Creating database: #{database_key} (Environment: #{DB_ENV}) ****"
+          puts "**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****"
         end
 
         task :pre_build => ['dbt:load_config','dbt:pre_build']
@@ -79,7 +111,7 @@ class DbTasks
 
         schemas.each_with_index do |schema, idx|
           task "build_schema_#{schema}" do
-            DbTasks.create( schema.to_s, DB_ENV, database_key, idx == 0 )
+            DbTasks.create( schema.to_s, DbTasks::Config.environment, database_key, idx == 0 )
           end
         end
 
@@ -88,18 +120,16 @@ class DbTasks
 
         desc "Import contents of #{database_key} database."
         task :import => ['dbt:load_config'] do
-          check_db_env
           import_schemas = options[:import] || schemas
           import_schemas.each do |schema|
-            DbTasks.import( schema.to_s, DB_ENV, database_key )
+            DbTasks.import( schema.to_s, DbTasks::Config.environment, database_key )
           end
         end
 
         desc "Drop #{database_key} database."
         task :drop => ['dbt:load_config'] do
-          check_db_env
           puts "**** Dropping database: #{database_key} ****"
-          DbTasks.drop( database_key, DB_ENV )
+          DbTasks.drop( database_key, DbTasks::Config.environment )
         end
 
         datasets = datasets_for_schemas( schemas )
@@ -109,9 +139,8 @@ class DbTasks
               dataset_names.each do |dataset_name|
                 desc "Loads #{dataset_name} data"
                 task dataset_name => :environment do
-                  check_db_env
                   schemas_in_dataset.each do |schema_name|
-                    DbTasks.load_dataset( DB_ENV, schema_name.to_s, dataset_name )
+                    DbTasks.load_dataset( DbTasks::Config.environment, schema_name.to_s, dataset_name )
                   end
                 end
               end
@@ -136,7 +165,7 @@ class DbTasks
     physical_name = get_config(key)['database']
     recreate = false if true == get_config(key)['no_create']
     if recreate
-      setup_connection("msdb", key)
+      setup_connection("msdb")
       recreate_db(database_key, env, true)
     else
       setup_connection(key)
@@ -200,7 +229,7 @@ class DbTasks
 
   def self.drop_schema(database_key, schema, env)
     key = config_key(database_key,env)
-    setup_connection("msdb", key)
+    setup_connection("msdb")
     current_database = get_config(key)['database']
     c = ActiveRecord::Base.connection
     c.transaction do
@@ -216,7 +245,7 @@ class DbTasks
 
   def self.drop(database_key, env)
     key = config_key(database_key,env)
-    setup_connection("msdb", key)
+    setup_connection("msdb")
     db = get_config(key)['database']
     force_drop = true == get_config(key)['force_drop']
 
@@ -270,13 +299,8 @@ SQL
     end
   end
 
-  @@search_dirs = ["#{BASE_APP_DIR}/databases/generated", "#{BASE_APP_DIR}/databases" ]
-  def self.search_dirs
-    @@search_dirs
-  end
-
   def self.config_key(schema, env)
-    schema == default_schema ? env : "#{schema}_#{env}"
+    schema == DbTasks::Config.default_schema ? env : "#{schema}_#{env}"
   end
 
   def self.to_qualified_table_name(table)
@@ -350,12 +374,11 @@ SQL
     false
   end
 
-  def self.setup_connection(config_key, log_name = nil)
-    log_file = "#{BASE_APP_DIR}/tmp/logs/db/#{log_name || config_key}.log"
+  def self.setup_connection(config_key)
     ActiveRecord::Base.colorize_logging = false
     ActiveRecord::Base.establish_connection(get_config(config_key))
-    FileUtils.mkdir_p File.dirname(log_file)
-    ActiveRecord::Base.logger = Logger.new(File.open(log_file, 'a'))
+    FileUtils.mkdir_p File.dirname(DbTasks::Config.log_filename)
+    ActiveRecord::Base.logger = Logger.new(File.open(DbTasks::Config.log_filename, 'a'))
     ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
   end
 
@@ -376,10 +399,10 @@ SQL
     config = get_config(key)
     db_name = config['database']
     collation = cs ? 'COLLATE SQL_Latin1_General_CP1_CS_AS' : ''
-    if APP_VERSION.nil?
+    if DbTasks::Config.app_version.nil?
       db_filename = db_name
     else
-      db_filename = "#{db_name}_#{APP_VERSION.gsub(/\./, '_')}"
+      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
     end
     db_def = config["data_path"] ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{config["data_path"]}#{"\\"}#{db_filename}.mdf')" : ""
     log_def = config["log_path"] ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{config["log_path"]}#{"\\"}#{db_filename}.ldf')" : ""
@@ -559,7 +582,7 @@ SQL
   end
 
   def self.dirs_for_schema(schema, subdir = nil)
-    search_dirs.map{|d| "#{d}/#{schema}#{ subdir ? "/#{subdir}" : ''}"}
+    DbTasks::Config.search_dirs.map{|d| "#{d}/#{schema}#{ subdir ? "/#{subdir}" : ''}"}
   end
 
   def self.first_file_from( files )

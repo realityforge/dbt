@@ -51,7 +51,7 @@ def load_tables( tables, dir = fixture_dir )
 end
 
 def setup_conn
-  DbTasks.setup_connection( DB_ENV )
+  DbTasks.setup_connection( DbTasks::Config.environment )
 end
 
 def tables_for_schema( schema = schema_name )

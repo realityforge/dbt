@@ -1,9 +1,5 @@
 = TODO
 
-== Stop having dependency on clear task OR add clear task to plugin
-
-== Stop using RAILS_ROOT and RAILS_ENV and replace with config settings 
-
 == Add Hook to allow users to load drivers
 
 The plugin should allow the users the chance to load drivers after AR is loaded.
@@ -17,14 +13,10 @@ data from specific tables, to specific directories.
 
 Datasets should be explicitly configured by the end users. Not guessed by looking at dirs.
 
-== Make the location where log files are created configurable
-
 == Make the sets of dirs processed configurable
 
 The plugin currently does the schema then a list of dirs then fixtures. It should allow the
 user the chance to configure the list of pre-schema and post-schema tables.
-
-== APP_VERSION Should be configurable rather than constant
 
 == Collation should be configurable from definition
 
@@ -34,8 +26,6 @@ user the chance to configure the list of pre-schema and post-schema tables.
 
 perform_standard_import currently assumes any column named BatchID should be set to 0. We should
 allow the app the chance to configure transforms on different columns
-
-== DbTasks.search_paths should be explicitly configured
 
 == "#{schema_key}OrderedTables".constantize should be removed or made defult resolver
 
