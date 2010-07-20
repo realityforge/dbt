@@ -1,5 +1,7 @@
 = TODO
 
+== Stop having dependency on clear task OR add clear task to plugin
+
 == Stop using RAILS_ROOT and RAILS_ENV and replace with config settings 
 
 == Add Hook to allow users to load drivers
