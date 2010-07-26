@@ -20,22 +20,13 @@ def dump_tables( tables )
         sql = "SELECT * FROM #{table_name}"
       end
 
-      records = YAML::Omap.new
-      ActiveRecord::Base.connection.select_all(sql).collect do |record|
-        record = record.inject( {} ) do |hash, (k, v)|
-          # look for something that looks like a date
-          #and put it in a format sqlserver likes
-          if v =~ /^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d).\d$/
-            v = "#{$1}-#{$3}-#{$2} #{$4}:#{$5}:#{$6}.0"
-          end
-          if v =~ /^(\d\d\d\d)-(\d\d)-(\d\d)$/
-            v = "#{$1}-#{$3}-#{$2} 00:00:00.0"
-          end
+      dump_class = Class.new( ActiveRecord::Base ) do
+        set_table_name table_name
+      end
 
-          hash[k] = v
-          hash
-        end
-        records["r#{i += 1}"] = record
+      records = YAML::Omap.new
+      dump_class.find_by_sql( sql ).collect do |record|
+        records["r#{i += 1}"] = record.attributes
       end
 
       file.write records.to_yaml
