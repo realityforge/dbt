@@ -503,12 +503,12 @@ SQL
     Fixtures.create_fixtures(dir, files)
   end
 
-  def self.run_sql(sql, hint)
+  def self.run_sql(sql)
     sql.gsub(/\r/, '').split("\nGO\n").each do |ddl|
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
-        ActiveRecord::Base.connection.execute(ddl, nil, hint)
+        ActiveRecord::Base.connection.execute(ddl, nil)
       end
     end
   end
@@ -541,9 +541,9 @@ SQL
     sql
   end
 
-  def self.run_filtered_sql_for_env(config_key, env, sql, hint = :update)
+  def self.run_filtered_sql_for_env(config_key, env, sql)
     sql = filter_sql(config_key, env, sql)
-    run_sql(sql, hint)
+    run_sql(sql)
   end
 
   def self.run_sql_in_dirs(database_key, env, label, dirs)
