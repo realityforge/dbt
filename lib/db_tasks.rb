@@ -402,7 +402,7 @@ SQL
     if DbTasks::Config.app_version.nil?
       db_filename = db_name
     else
-      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
+      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/[\.-]/, '_')}"
     end
     db_def = config["data_path"] ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{config["data_path"]}#{"\\"}#{db_filename}.mdf')" : ""
     log_def = config["log_path"] ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{config["log_path"]}#{"\\"}#{db_filename}.ldf')" : ""
