@@ -300,7 +300,7 @@ SQL
   end
 
   def self.config_key(schema, env)
-    schema == DbTasks::Config.default_schema ? env : "#{schema}_#{env}"
+    schema.to_s == DbTasks::Config.default_schema.to_s ? env : "#{schema}_#{env}"
   end
 
   def self.to_qualified_table_name(table)
