@@ -97,6 +97,7 @@ class DbTasks
           puts "**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****"
         end
 
+        desc "Generate SQL for all databases."
         task :pre_build => ['dbt:load_config','dbt:pre_build']
 
         schemas.each do |schema|
@@ -283,6 +284,39 @@ SQL
     sql.gsub( pattern, get_db_spec(current_config_key, target_database_config_key) )
   end
 
+  def self.dump_tables_to_fixtures(tables, fixture_dir)
+    tables.each do |table_name|
+      i = 0
+      File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
+        print("Dumping #{table_name}\n")
+        const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
+        if Object.const_defined?(const_name)
+          sql = Object.const_get(const_name)
+        else
+          sql = "SELECT * FROM #{table_name}"
+        end
+
+        dump_class = Class.new(ActiveRecord::Base) do
+          set_table_name table_name
+        end
+
+        records = YAML::Omap.new
+        dump_class.find_by_sql(sql).collect do |record|
+          records["r#{i += 1}"] = record.attributes
+        end
+
+        file.write records.to_yaml
+      end
+    end
+  end
+
+  def self.load_tables_from_fixtures(tables, dir)
+    raise "Fixture directory #{dir} does not exist" unless File.exists?(dir)
+    ActiveRecord::Base.connection.transaction do
+      Fixtures.create_fixtures(dir, tables)
+    end
+  end
+
   private
 
   # TODO: This should raise an exception if it fails to find an ordering
@@ -300,7 +334,7 @@ SQL
   end
 
   def self.config_key(schema, env)
-    schema.to_s == DbTasks::Config.default_schema.to_s ? env : "#{schema}_#{env}"
+    schema == DbTasks::Config.default_schema ? env : "#{schema}_#{env}"
   end
 
   def self.to_qualified_table_name(table)
@@ -402,7 +436,7 @@ SQL
     if DbTasks::Config.app_version.nil?
       db_filename = db_name
     else
-      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/[\.-]/, '_')}"
+      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
     end
     db_def = config["data_path"] ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{config["data_path"]}#{"\\"}#{db_filename}.mdf')" : ""
     log_def = config["log_path"] ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{config["log_path"]}#{"\\"}#{db_filename}.ldf')" : ""
