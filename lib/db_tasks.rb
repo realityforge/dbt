@@ -348,15 +348,17 @@ SQL
   def self.run_import_sql(schema, env, database_key, sql, change_to_msdb = true)
     target_config = config_key(database_key,env)
     source_config = config_key(database_key,"import")
-    sql = filter_import_sql(sql, env, target_config, source_config)
+    sql = filter_sql("msdb", "import", sql)
+    sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", source_config)
+    sql = filter_database_name(sql, /@@TARGET@@/, "msdb", target_config)
     c = ActiveRecord::Base.connection
     current_database = get_config(target_config)["database"]
     if change_to_msdb
       c.execute "USE [msdb]"
-      run_filtered_sql_for_env("msdb", "import", sql)
+      run_sql(sql)
       c.execute "USE [#{current_database}]"
     else
-      run_filtered_sql_for_env(target_config, env, sql)
+      run_sql(sql)
     end
   end
 
@@ -395,12 +397,6 @@ SQL
 
     run_import_sql(schema, env, database_key, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"",false)
     run_import_sql(schema, env, database_key, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} OFF") if has_identity
-  end
-
-  def self.filter_import_sql(sql, env, target_config, source_config)
-    sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", source_config)
-    sql = filter_database_name(sql, /@@TARGET@@/, "msdb", target_config)
-    sql
   end
 
   def self.has_identity_column(table)
@@ -566,20 +562,16 @@ SQL
   end
 
   def self.run_filtered_sql(database_key, env, sql)
-    run_filtered_sql_for_env(config_key(database_key,env), env, sql)
+    sql = filter_sql(config_key(database_key,env), env, sql)
+    run_sql(sql)
   end
 
-  def self.filter_sql(config_key, env, sql)
-    sql = filter_database_name(sql, /@@SELF@@/, config_key, config_key)
-    @@filters.each do |filter|
+  def self.filter_sql(config_key, env, sql, filters = @@filters)
+    filters.each do |filter|
       sql = filter.call(config_key, env, sql)
     end
+    sql = filter_database_name(sql, /@@SELF@@/, config_key, config_key)
     sql
-  end
-
-  def self.run_filtered_sql_for_env(config_key, env, sql)
-    sql = filter_sql(config_key, env, sql)
-    run_sql(sql)
   end
 
   def self.run_sql_in_dirs(database_key, env, label, dirs)
