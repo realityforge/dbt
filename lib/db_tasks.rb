@@ -89,6 +89,9 @@ class DbTasks
         @@seen_schemas[ schema ] = datasets_for_schema( schema )
       end
 
+      desc "Generate SQL for all databases."
+      task :pre_build => ['dbt:load_config']
+
       namespace database_key do
         desc "Create initial #{database_key} database."
         task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
@@ -97,7 +100,6 @@ class DbTasks
           puts "**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****"
         end
 
-        desc "Generate SQL for all databases."
         task :pre_build => ['dbt:load_config','dbt:pre_build']
 
         schemas.each do |schema|
