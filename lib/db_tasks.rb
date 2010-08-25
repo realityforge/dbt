@@ -28,7 +28,7 @@ class DbTasks
 
       attr_writer :default_database
 
-      def default_schema
+      def default_database
         return 'default' unless @default_database
         @default_database
       end
