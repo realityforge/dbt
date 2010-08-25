@@ -26,11 +26,11 @@ class DbTasks
         @environment
       end
 
-      attr_writer :default_schema
+      attr_writer :default_database
 
       def default_schema
-        return 'default' unless @default_schema
-        @default_schema
+        return 'default' unless @default_database
+        @default_database
       end
 
       # config_file is where the yaml config file is located
@@ -63,8 +63,8 @@ class DbTasks
   @@filters = []
   @@table_order_resolver = nil
 
-  def self.init(schema, env)
-    setup_connection(config_key(schema,env))
+  def self.init(database_key, env)
+    setup_connection(config_key(database_key,env))
   end
 
   def self.add_filter( &block )
@@ -335,8 +335,8 @@ SQL
     end
   end
 
-  def self.config_key(schema, env)
-    schema == DbTasks::Config.default_schema ? env : "#{schema}_#{env}"
+  def self.config_key(database_key, env)
+    database_key == DbTasks::Config.default_database ? env : "#{database_key}_#{env}"
   end
 
   def self.to_qualified_table_name(table)
