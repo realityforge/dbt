@@ -336,7 +336,7 @@ SQL
   end
 
   def self.config_key(database_key, env)
-    database_key == DbTasks::Config.default_database ? env : "#{database_key}_#{env}"
+    database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
   def self.to_qualified_table_name(table)
