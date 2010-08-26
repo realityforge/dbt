@@ -17,7 +17,3 @@ user the chance to configure the list of pre-schema and post-schema tables.
 
 perform_standard_import currently assumes any column named BatchID should be set to 0. We should
 allow the app the chance to configure transforms on different columns
-
-== "#{schema_key}OrderedTables".constantize should be removed or made defult resolver
-
-== Raise an exception if table_ordering not specified but required rather than guessing
