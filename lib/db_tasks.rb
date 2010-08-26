@@ -56,6 +56,13 @@ class DbTasks
         raise "search_dirs not specified" unless @search_dirs
         @search_dirs
       end
+
+      attr_writer :sql_dirs
+
+      def sql_dirs
+        ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
+        @sql_dirs
+      end
     end
   end
 
@@ -413,17 +420,6 @@ SQL
     ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
   end
 
-  def self.drop_schema_info
-    c = ActiveRecord::Base.connection
-    c.transaction do
-      begin
-        c.execute("DROP TABLE [#{ActiveRecord::Migrator.schema_migrations_table_name}]")
-      rescue => e
-        # Ignore. Probably not there
-      end
-    end
-  end
-
   def self.recreate_db(database_key, env, cs = true)
     drop(database_key, env)
     key = config_key(database_key,env)
@@ -470,8 +466,7 @@ SQL
   def self.process_schema(database_key, schema, env)
     create_schema_from_file( database_key, schema, env )
 
-    dirs = ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc']
-    dirs.each do |dir|
+    DbTasks::Config.sql_dirs.each do |dir|
       run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_schema( schema, dir ) )
     end
     load_fixtures_from_dirs(schema, dirs_for_schema(schema, 'fixtures'))
@@ -502,7 +497,7 @@ SQL
     check_file(schema_file)
     puts "Loading Schema: #{schema_file}\n"
     load schema_file
-    drop_schema_info
+    ActiveRecord::Base.connection.execute("DROP TABLE [#{ActiveRecord::Migrator.schema_migrations_table_name}]")
   end
 
   def self.check_file(file)
