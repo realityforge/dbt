@@ -156,14 +156,6 @@ class DbTasks
           end
         end
       end
-
-      desc "Create all databases."
-      task :create => ["dbt:#{database_key}:create"] do
-      end
-
-      desc "Drop all databases."
-      task :drop => ["dbt:#{database_key}:drop"] do
-      end
     end
   end
 
