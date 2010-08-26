@@ -184,10 +184,6 @@ class DbTasks
 
   def self.import(schema, env, database_key = nil)
     ordered_tables = table_ordering(schema)
-    unless ordered_tables
-      puts "Skipping import of schema #{schema_key}, as unable to determine table_ordering"
-      return
-    end
 
     database_key = schema unless database_key
 
@@ -234,9 +230,7 @@ class DbTasks
     c = ActiveRecord::Base.connection
     c.transaction do
       c.execute("USE [#{current_database}]")
-      ordered_tables = table_ordering(schema)
-      raise "Unknown schema #{schema}" unless ordered_tables
-      ordered_tables.reverse.each do |t|
+      table_ordering(schema).reverse.each do |t|
         c.execute("DROP TABLE #{t.to_s}")
       end
       c.execute("DROP SCHEMA [#{schema}]")
@@ -335,13 +329,9 @@ SQL
     end
   end
 
-  # TODO: This should raise an exception if it fails to find an ordering
   def self.table_ordering(schema_key)
-    if @@table_order_resolver
-      return @@table_order_resolver.call(schema_key)
-    else
-      return nil
-    end
+    raise "No table resolver so unable to determine table ordering for #{schema_key}" unless @@table_order_resolver
+    @@table_order_resolver.call(schema_key)
   end
 
   def self.config_key(database_key, env)
@@ -528,19 +518,11 @@ SQL
     require 'active_record/fixtures'
     dir = dirs.select{|dir| File.exists?(dir)}[0]
     return unless dir
-    ordered_tables = table_ordering(schema)
-    mode = nil
-    if ordered_tables
-      files = []
-      ordered_tables.each do |t|
-        files += [t] if File.exist?("#{dir}/#{t}.yml")
-      end
-      mode = "O"
-    else
-      files = Dir.glob(dir + "/*.yml").map { |f| File.basename(f, ".yml") }.split(/,/)
-      mode = "A"
+    files = []
+    table_ordering(schema).each do |t|
+      files += [t] if File.exist?("#{dir}/#{t}.yml")
     end
-    puts("Loading fixtures (#{mode}): #{files.join(',')}")
+    puts("Loading fixtures: #{files.join(',')}")
     Fixtures.create_fixtures(dir, files)
   end
 
