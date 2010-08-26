@@ -62,6 +62,8 @@ class DbTasks
   @@seen_schemas = {}
   @@filters = []
   @@table_order_resolver = nil
+  @@defined_init_tasks = false
+  @@database_driver_hooks = []
 
   def self.init(database_key, env)
     setup_connection(config_key(database_key,env))
@@ -69,6 +71,10 @@ class DbTasks
 
   def self.add_filter( &block )
     @@filters << block
+  end
+
+  def self.add_database_driver_hook( &block )
+    @@database_driver_hooks << block
   end
 
   def self.add_database_name_filter(pattern, database_key)
@@ -82,15 +88,14 @@ class DbTasks
   end
 
   def self.add_database( database_key, schemas, options = {} )
+    self.define_basic_tasks
+
     database_key = database_key.to_s
     namespace :dbt do
       schemas.each do |schema|
         next if @@seen_schemas.include? schema
         @@seen_schemas[ schema ] = datasets_for_schema( schema )
       end
-
-      desc "Generate SQL for all databases."
-      task :pre_build => ['dbt:load_config']
 
       namespace database_key do
         desc "Create initial #{database_key} database."
@@ -321,6 +326,29 @@ SQL
 
   private
 
+  def self.define_basic_tasks
+    if !@@defined_init_tasks
+      task 'dbt:environment' do
+        require 'activerecord'
+        require 'active_record/fixtures'
+        require(File.join(RAILS_ROOT, 'config', 'environment'))
+      end
+
+      task 'dbt:load_config' do
+        require 'activerecord'
+        require 'active_record/fixtures'
+        @@database_driver_hooks.each do |database_hook|
+          database_hook.call
+        end
+        ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
+      end
+
+      task 'dbt:pre_build' => ['dbt:load_config']
+
+      @@defined_init_tasks = true
+    end
+  end
+
   # TODO: This should raise an exception if it fails to find an ordering
   def self.table_ordering(schema_key)
     if @@table_order_resolver
@@ -546,6 +574,7 @@ SQL
   end
 
   def self.get_config(config_key)
+    require 'activerecord'
     c = ActiveRecord::Base.configurations[config_key]
     raise "Missing config for #{config_key}" unless c
     c
