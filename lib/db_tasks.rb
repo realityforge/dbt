@@ -98,7 +98,7 @@ class DbTasks
       end
 
       namespace database_key do
-        desc "Create initial #{database_key} database."
+        desc "Create the #{database_key} database."
         task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
 
         task "dbt:#{database_key}:banner" do
@@ -126,7 +126,7 @@ class DbTasks
         task :post_build do
         end
 
-        desc "Import contents of #{database_key} database."
+        desc "Import contents of the #{database_key} database."
         task :import => ['dbt:load_config'] do
           import_schemas = options[:import] || schemas
           import_schemas.each do |schema|
@@ -134,7 +134,7 @@ class DbTasks
           end
         end
 
-        desc "Drop #{database_key} database."
+        desc "Drop the #{database_key} database."
         task :drop => ['dbt:load_config'] do
           puts "**** Dropping database: #{database_key} ****"
           DbTasks.drop( database_key, DbTasks::Config.environment )
