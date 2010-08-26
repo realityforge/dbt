@@ -328,12 +328,6 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task 'dbt:environment' do
-        require 'activerecord'
-        require 'active_record/fixtures'
-        require(File.join(RAILS_ROOT, 'config', 'environment'))
-      end
-
       task 'dbt:load_config' do
         require 'activerecord'
         require 'active_record/fixtures'
