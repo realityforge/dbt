@@ -209,7 +209,7 @@ class DbTasks
     tables.reverse.each do |table|
       puts "Deleting #{table}\n"
       q_table = to_qualified_table_name(table)
-      run_import_sql(schema, env, database_key, "DELETE FROM @@TARGET@@.#{q_table}")
+      run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{q_table}")
     end
 
     tables.each do |table|
@@ -219,12 +219,12 @@ class DbTasks
     tables.each do |table|
       puts "Reindexing #{table}\n"
       q_table = to_qualified_table_name(table)
-      run_import_sql(schema, env, database_key, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
     end
 
-    run_import_sql(schema, env, database_key, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-    run_import_sql(schema, env, database_key, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-    run_import_sql(schema, env, database_key, "EXEC @@TARGET@@.dbo.sp_updatestats")
+    run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+    run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+    run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
   end
 
   def self.drop_schema(database_key, schema, env)
@@ -354,7 +354,7 @@ SQL
     elements.join('.')
   end
 
-  def self.run_import_sql(schema, env, database_key, sql, change_to_msdb = true)
+  def self.run_import_sql(database_key, env, sql, change_to_msdb = true)
     target_config = config_key(database_key,env)
     source_config = config_key(database_key,"import")
     sql = filter_sql("msdb", "import", sql)
@@ -371,7 +371,7 @@ SQL
     end
   end
 
-  def self.perform_standard_import(schema, env, database_key, table)
+  def self.perform_standard_import(database_key, env, table)
     q_table = to_qualified_table_name(table)
     sql = "INSERT INTO @@TARGET@@.#{q_table}("
     columns = ActiveRecord::Base.connection.columns(q_table).collect {|c| "[#{c.name}]"}
@@ -380,7 +380,7 @@ SQL
     sql += columns.collect {|c| c == '[BatchID]' ? "0" : c}.join(', ')
     sql += " FROM @@SOURCE@@.#{q_table}\n"
 
-    run_import_sql(schema, env, database_key, sql)
+    run_import_sql(database_key, env, sql)
   end
 
   def self.perform_import(schema, env, database_key, table)
@@ -388,8 +388,8 @@ SQL
 
     q_table = to_qualified_table_name(table)
 
-    run_import_sql(schema, env, database_key, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} ON") if has_identity
-    run_import_sql(schema, env, database_key, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
+    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} ON") if has_identity
+    run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
 
     fixture_file = fixture_for_import(schema, table)
     sql_file = sql_for_import(schema, table)
@@ -399,13 +399,13 @@ SQL
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
-      run_import_sql(schema, env, database_key, IO.readlines(sql_file).join)
+      run_import_sql(database_key, env, IO.readlines(sql_file).join)
     else
-      perform_standard_import(schema, env, database_key, table)
+      perform_standard_import(database_key, env, table)
     end
 
-    run_import_sql(schema, env, database_key, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"",false)
-    run_import_sql(schema, env, database_key, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} OFF") if has_identity
+    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"",false)
+    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} OFF") if has_identity
   end
 
   def self.has_identity_column(table)
