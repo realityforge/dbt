@@ -103,7 +103,7 @@ class DbTasks
         task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
 
         task "dbt:#{database_key}:banner" do
-          puts "**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****"
+          DBTasks.info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
         end
 
         task :pre_build => ['dbt:load_config', 'dbt:pre_build']
@@ -148,7 +148,7 @@ class DbTasks
 
         desc "Drop the #{database_key} database."
         task :drop => ['dbt:load_config'] do
-          puts "**** Dropping database: #{database_key} ****"
+          DBTasks.info("**** Dropping database: #{database_key} ****")
           DbTasks.drop(database_key, DbTasks::Config.environment)
         end
       end
@@ -165,14 +165,14 @@ class DbTasks
     else
       setup_connection(key)
     end
-    puts "Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
+    DBTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
     process_module(database_key, module_name, env)
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
-      puts "#{label}: #{File.basename(sp)}\n"
+      DBTasks.info("#{label}: #{File.basename(sp)}\n")
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
   end
@@ -189,7 +189,7 @@ class DbTasks
     get_config(source_config)
 
     phsyical_name = get_config(target_config)['database']
-    puts "Database Import [#{phsyical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}\n" if ActiveRecord::Migration.verbose
+    DBTasks.trace("Database Import [#{phsyical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}\n")
     setup_connection(target_config)
 
     # Iterate over module in dependency order doing import as appropriate
@@ -198,7 +198,7 @@ class DbTasks
       fixture_for_creation(module_name, table)
     end
     tables.reverse.each do |table|
-      puts "Deleting #{table}\n"
+      DBTasks.info("Deleting #{table}\n")
       q_table = to_qualified_table_name(table)
       run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{q_table}")
     end
@@ -208,7 +208,7 @@ class DbTasks
     end
 
     tables.each do |table|
-      puts "Reindexing #{table}\n"
+      DBTasks.info("Reindexing #{table}\n")
       q_table = to_qualified_table_name(table)
       run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
     end
@@ -249,7 +249,7 @@ GO
     DROP DATABASE [#{db}]
 GO
 SQL
-    puts "Database Drop [#{db}]: database_key=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
+    DBTasks.trace("Database Drop [#{db}]: database_key=#{database_key}, env=#{env}, key=#{key}\n")
     run_filtered_sql(database_key, env, sql)
   end
 
@@ -366,7 +366,7 @@ SQL
     sql_file = sql_for_import(module_name, table)
     is_sql = !fixture_file && sql_file
 
-    puts "Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})\n"
+    DBTasks.info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})\n")
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
@@ -433,7 +433,7 @@ ALTER DATABASE [#{db_name}] SET RECOVERY SIMPLE
 GO
   USE [#{db_name}]
 SQL
-    puts "Database Create [#{db_name}]: database=#{database_key}, env=#{env}, config=#{key}\n" if ActiveRecord::Migration.verbose
+    DBTasks.trace("Database Create [#{db_name}]: database=#{database_key}, env=#{env}, config=#{key}\n")
     run_filtered_sql(database_key, env, sql)
   end
 
@@ -451,7 +451,7 @@ SQL
     dirs.each do |dir|
       sql_file = "#{dir}/schema.sql"
       if File.exist?(sql_file)
-        puts "Loading Schema: #{sql_file}\n"
+        DBTasks.info("Loading Schema: #{sql_file}\n")
         run_filtered_sql(database_key, env, IO.readlines(sql_file).join)
         return true
       end
@@ -469,7 +469,7 @@ SQL
 
   def self.load_db_schema(schema_file)
     check_file(schema_file)
-    puts "Loading Schema: #{schema_file}\n"
+    DBTasks.info("Loading Schema: #{schema_file}\n")
     load schema_file
     ActiveRecord::Base.connection.execute("DROP TABLE [#{ActiveRecord::Migrator.schema_migrations_table_name}]")
   end
@@ -491,7 +491,7 @@ SQL
     table_ordering(module_name).each do |t|
       files += [t] if File.exist?("#{dir}/#{t}.yml")
     end
-    puts("Loading fixtures: #{files.join(',')}")
+    DBTasks.info("Loading fixtures: #{files.join(',')}")
     Fixtures.create_fixtures(dir, files)
   end
 
@@ -544,7 +544,7 @@ SQL
   def self.run_sql_in_dir(database_key, env, label, dir)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
-      puts "#{label}: #{File.basename(sp)}\n"
+      DBTasks.info("#{label}: #{File.basename(sp)}\n")
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
   end
@@ -572,5 +572,13 @@ SQL
 
   def self.sql_for_import(module_name, table)
     first_file_from(dirs_for_module(module_name, "import/#{table}.sql"))
+  end
+
+  def self.info(message)
+    puts message
+  end
+
+  def self.trace(message)
+    puts message if ActiveRecord::Migration.verbose
   end
 end
