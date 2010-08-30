@@ -120,7 +120,7 @@ class DbTasks
 
         modules.each_with_index do |module_name, idx|
           task "build_module_#{module_name}" do
-            DbTasks.create(module_name.to_s, DbTasks::Config.environment, database_key, idx == 0)
+            DbTasks.create(database_key, DbTasks::Config.environment, module_name.to_s, idx == 0)
           end
         end
 
@@ -142,7 +142,7 @@ class DbTasks
         task :import => ['dbt:load_config'] do
           import_modules = options[:import] || modules
           import_modules.each do |module_name|
-            DbTasks.import(module_name.to_s, DbTasks::Config.environment, database_key)
+            DbTasks.import(database_key, DbTasks::Config.environment, module_name.to_s)
           end
         end
 
@@ -155,7 +155,7 @@ class DbTasks
     end
   end
 
-  def self.create(module_name, env, database_key, recreate = true)
+  def self.create(database_key, env, module_name, recreate = true)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     recreate = false if true == get_config(key)['no_create']
@@ -166,7 +166,7 @@ class DbTasks
       setup_connection(key)
     end
     DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
-    process_module(database_key, module_name, env)
+    process_module(database_key, env, module_name)
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
@@ -177,10 +177,8 @@ class DbTasks
     end
   end
 
-  def self.import(module_name, env, database_key = nil)
+  def self.import(database_key, env, module_name)
     ordered_tables = table_ordering(module_name)
-
-    database_key = module_name unless database_key
 
     # check the database configurations are set
     target_config = config_key(database_key, env)
@@ -204,7 +202,7 @@ class DbTasks
     end
 
     tables.each do |table|
-      perform_import(module_name, env, database_key, table)
+      perform_import(database_key, env, module_name, table)
     end
 
     tables.each do |table|
@@ -354,7 +352,7 @@ SQL
     run_import_sql(database_key, env, sql)
   end
 
-  def self.perform_import(module_name, env, database_key, table)
+  def self.perform_import(database_key, env, module_name, table)
     has_identity = has_identity_column(table)
 
     q_table = to_qualified_table_name(table)
@@ -437,7 +435,7 @@ SQL
     run_filtered_sql(database_key, env, sql)
   end
 
-  def self.process_module(database_key, module_name, env)
+  def self.process_module(database_key, env, module_name)
     DbTasks::Config.sql_dirs.each do |dir|
       run_sql_in_dirs(database_key, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(module_name, dir))
     end
