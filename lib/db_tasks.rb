@@ -75,11 +75,11 @@ class DbTasks
     setup_connection(config_key(database_key, env))
   end
 
-  def self.add_filter(& block)
+  def self.add_filter(&block)
     @@filters << block
   end
 
-  def self.add_database_driver_hook(& block)
+  def self.add_database_driver_hook(&block)
     @@database_driver_hooks << block
   end
 
@@ -89,7 +89,7 @@ class DbTasks
     end
   end
 
-  def self.define_table_order_resolver(& block)
+  def self.define_table_order_resolver(&block)
     @@table_order_resolver = block
   end
 
