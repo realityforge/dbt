@@ -130,7 +130,7 @@ class DbTasks
         namespace :datasets do
           (options[:datasets] || []).each do |dataset_name|
             desc "Loads #{dataset_name} data"
-            task dataset_name => :environment do
+            task dataset_name => ['dbt:load_config'] do
               modules.each do |module_name|
                 DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name.to_s, dataset_name)
               end
