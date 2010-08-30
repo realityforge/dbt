@@ -60,7 +60,7 @@ class DbTasks
       attr_writer :sql_dirs
 
       def sql_dirs
-        ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
+        return ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
         @sql_dirs
       end
     end
