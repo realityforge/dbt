@@ -96,7 +96,6 @@ class DbTasks
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
-    database_key = database_key
     namespace :dbt do
       namespace database_key do
         desc "Create the #{database_key} database."
@@ -118,9 +117,19 @@ class DbTasks
           task "pre_module_#{module_name}"
         end
 
+        schemas_defined = {}
         modules.each_with_index do |module_name, idx|
           task "build_module_#{module_name}" do
-            DbTasks.create(database_key, DbTasks::Config.environment, module_name, idx == 0)
+            recreate_db = idx == 0
+            schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+            create_schema = schemas_defined[schema_name].nil?
+            schemas_defined[schema_name] = schema_name
+            DbTasks.create(database_key,
+                           DbTasks::Config.environment,
+                           module_name,
+                           recreate_db,
+                           schema_name,
+                           create_schema)
           end
         end
 
@@ -155,17 +164,20 @@ class DbTasks
     end
   end
 
-  def self.create(database_key, env, module_name, recreate)
+  def self.create(database_key, env, module_name, create_database, schema_name, create_schema)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
-    recreate = false if true == get_config(key)['no_create']
-    if recreate
+    create_database = false if true == get_config(key)['no_create']
+    if create_database
       setup_connection("msdb")
       recreate_db(database_key, env, true)
     else
       setup_connection(key)
     end
     DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
+    if create_schema && schema_name.to_s != DEFAULT_SCHEMA.to_s
+      run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
+    end
     process_module(database_key, env, module_name)
   end
 
@@ -213,7 +225,7 @@ class DbTasks
 
     run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
     run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-    run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
+    run_import_sql(database_key, env, "EXEC @@TARGET@@.#{DEFAULT_SCHEMA}.sp_updatestats")
   end
 
   def self.drop(database_key, env)
@@ -291,6 +303,8 @@ SQL
 
   private
 
+  DEFAULT_SCHEMA = 'dbo'
+
   def self.define_basic_tasks
     if !@@defined_init_tasks
       task 'dbt:load_config' do
@@ -319,7 +333,7 @@ SQL
 
   def self.to_qualified_table_name(table)
     elements = table.to_s.split('.')
-    elements = ['dbo', elements[0]] if elements.size == 1
+    elements = [DEFAULT_SCHEMA, elements[0]] if elements.size == 1
     elements.join('.')
   end
 
