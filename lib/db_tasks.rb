@@ -72,14 +72,14 @@ class DbTasks
   @@database_driver_hooks = []
 
   def self.init(database_key, env)
-    setup_connection(config_key(database_key,env))
+    setup_connection(config_key(database_key, env))
   end
 
-  def self.add_filter( &block )
+  def self.add_filter(& block)
     @@filters << block
   end
 
-  def self.add_database_driver_hook( &block )
+  def self.add_database_driver_hook(& block)
     @@database_driver_hooks << block
   end
 
@@ -89,11 +89,11 @@ class DbTasks
     end
   end
 
-  def self.define_table_order_resolver( &block )
+  def self.define_table_order_resolver(& block)
     @@table_order_resolver = block
   end
 
-  def self.add_database( database_key, schemas, options = {} )
+  def self.add_database(database_key, schemas, options = {})
     self.define_basic_tasks
 
     database_key = database_key.to_s
@@ -106,7 +106,7 @@ class DbTasks
           puts "**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****"
         end
 
-        task :pre_build => ['dbt:load_config','dbt:pre_build']
+        task :pre_build => ['dbt:load_config', 'dbt:pre_build']
 
         schemas.each do |schema|
           task :build => "post_schema_#{schema}"
@@ -120,7 +120,7 @@ class DbTasks
 
         schemas.each_with_index do |schema, idx|
           task "build_schema_#{schema}" do
-            DbTasks.create( schema.to_s, DbTasks::Config.environment, database_key, idx == 0 )
+            DbTasks.create(schema.to_s, DbTasks::Config.environment, database_key, idx == 0)
           end
         end
 
@@ -142,14 +142,14 @@ class DbTasks
         task :import => ['dbt:load_config'] do
           import_schemas = options[:import] || schemas
           import_schemas.each do |schema|
-            DbTasks.import( schema.to_s, DbTasks::Config.environment, database_key )
+            DbTasks.import(schema.to_s, DbTasks::Config.environment, database_key)
           end
         end
 
         desc "Drop the #{database_key} database."
         task :drop => ['dbt:load_config'] do
           puts "**** Dropping database: #{database_key} ****"
-          DbTasks.drop( database_key, DbTasks::Config.environment )
+          DbTasks.drop(database_key, DbTasks::Config.environment)
         end
       end
     end
@@ -157,7 +157,7 @@ class DbTasks
 
   def self.create(schema, env, database_key = nil, recreate = true)
     database_key = schema unless database_key
-    key = config_key(database_key,env)
+    key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     recreate = false if true == get_config(key)['no_create']
     if recreate
@@ -184,8 +184,8 @@ class DbTasks
     database_key = schema unless database_key
 
     # check the database configurations are set
-    target_config = config_key(database_key,env)
-    source_config = config_key(database_key,"import")
+    target_config = config_key(database_key, env)
+    source_config = config_key(database_key, "import")
     get_config(target_config)
     get_config(source_config)
 
@@ -220,7 +220,7 @@ class DbTasks
   end
 
   def self.drop_schema(database_key, schema, env)
-    key = config_key(database_key,env)
+    key = config_key(database_key, env)
     setup_connection("msdb")
     current_database = get_config(key)['database']
     c = ActiveRecord::Base.connection
@@ -234,7 +234,7 @@ class DbTasks
   end
 
   def self.drop(database_key, env)
-    key = config_key(database_key,env)
+    key = config_key(database_key, env)
     setup_connection("msdb")
     db = get_config(key)['database']
     force_drop = true == get_config(key)['force_drop']
@@ -270,7 +270,7 @@ SQL
 
   def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
     return sql if optional && ActiveRecord::Base.configurations[target_database_config_key].nil?
-    sql.gsub( pattern, get_db_spec(current_config_key, target_database_config_key) )
+    sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
   end
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
@@ -341,8 +341,8 @@ SQL
   end
 
   def self.run_import_sql(database_key, env, sql, change_to_msdb = true)
-    target_config = config_key(database_key,env)
-    source_config = config_key(database_key,"import")
+    target_config = config_key(database_key, env)
+    source_config = config_key(database_key, "import")
     sql = filter_sql("msdb", "import", sql)
     sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", source_config)
     sql = filter_database_name(sql, /@@TARGET@@/, "msdb", target_config)
@@ -360,10 +360,10 @@ SQL
   def self.perform_standard_import(database_key, env, table)
     q_table = to_qualified_table_name(table)
     sql = "INSERT INTO @@TARGET@@.#{q_table}("
-    columns = ActiveRecord::Base.connection.columns(q_table).collect {|c| "[#{c.name}]"}
+    columns = ActiveRecord::Base.connection.columns(q_table).collect { |c| "[#{c.name}]" }
     sql += columns.join(', ')
     sql += ")\n  SELECT "
-    sql += columns.collect {|c| c == '[BatchID]' ? "0" : c}.join(', ')
+    sql += columns.collect { |c| c == '[BatchID]' ? "0" : c }.join(', ')
     sql += " FROM @@SOURCE@@.#{q_table}\n"
 
     run_import_sql(database_key, env, sql)
@@ -390,7 +390,7 @@ SQL
       perform_standard_import(database_key, env, table)
     end
 
-    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"",false)
+    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
     run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} OFF") if has_identity
   end
 
@@ -411,7 +411,7 @@ SQL
 
   def self.recreate_db(database_key, env, cs = true)
     drop(database_key, env)
-    key = config_key(database_key,env)
+    key = config_key(database_key, env)
     config = get_config(key)
     db_name = config['database']
     collation = cs ? 'COLLATE SQL_Latin1_General_CP1_CS_AS' : ''
@@ -453,15 +453,15 @@ SQL
   end
 
   def self.process_schema(database_key, schema, env)
-    create_schema_from_file( database_key, schema, env )
+    create_schema_from_file(database_key, schema, env)
 
     DbTasks::Config.sql_dirs.each do |dir|
-      run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_schema( schema, dir ) )
+      run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_schema(schema, dir))
     end
     load_fixtures_from_dirs(schema, dirs_for_schema(schema, 'fixtures'))
   end
 
-  def self.create_schema_from_file( database_key, schema, env )
+  def self.create_schema_from_file(database_key, schema, env)
     dirs = dirs_for_schema(schema)
     dirs.each do |dir|
       sql_file = "#{dir}/schema.sql"
@@ -500,7 +500,7 @@ SQL
 
   def self.load_fixtures_from_dirs(schema, dirs)
     require 'active_record/fixtures'
-    dir = dirs.select{|dir| File.exists?(dir)}[0]
+    dir = dirs.select { |dir| File.exists?(dir) }[0]
     return unless dir
     files = []
     table_ordering(schema).each do |t|
@@ -538,7 +538,7 @@ SQL
   end
 
   def self.run_filtered_sql(database_key, env, sql)
-    sql = filter_sql(config_key(database_key,env), env, sql)
+    sql = filter_sql(config_key(database_key, env), env, sql)
     run_sql(sql)
   end
 
@@ -565,10 +565,10 @@ SQL
   end
 
   def self.dirs_for_schema(schema, subdir = nil)
-    DbTasks::Config.search_dirs.map{|d| "#{d}/#{schema}#{ subdir ? "/#{subdir}" : ''}"}
+    DbTasks::Config.search_dirs.map { |d| "#{d}/#{schema}#{ subdir ? "/#{subdir}" : ''}" }
   end
 
-  def self.first_file_from( files )
+  def self.first_file_from(files)
     files.each do |file|
       if File.exist?(file)
         return file
@@ -578,14 +578,14 @@ SQL
   end
 
   def self.fixture_for_creation(schema, table)
-    first_file_from( dirs_for_schema(schema, "fixtures/#{table}.yml") )
+    first_file_from(dirs_for_schema(schema, "fixtures/#{table}.yml"))
   end
 
   def self.fixture_for_import(schema, table)
-    first_file_from( dirs_for_schema(schema, "import/#{table}.yml") )
+    first_file_from(dirs_for_schema(schema, "import/#{table}.yml"))
   end
 
   def self.sql_for_import(schema, table)
-    first_file_from( dirs_for_schema(schema, "import/#{table}.sql") )
+    first_file_from(dirs_for_schema(schema, "import/#{table}.sql"))
   end
 end
