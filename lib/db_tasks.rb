@@ -49,7 +49,7 @@ class DbTasks
         @log_filename
       end
 
-      # search_dirs is an array of paths that are searched in order for artifacts for each schema
+      # search_dirs is an array of paths that are searched in order for artifacts for each module
       attr_writer :search_dirs
 
       def search_dirs
@@ -93,7 +93,7 @@ class DbTasks
     @@table_order_resolver = block
   end
 
-  def self.add_database(database_key, schemas, options = {})
+  def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
     database_key = database_key.to_s
@@ -108,19 +108,19 @@ class DbTasks
 
         task :pre_build => ['dbt:load_config', 'dbt:pre_build']
 
-        schemas.each do |schema|
-          task :build => "post_schema_#{schema}"
+        modules.each do |module_name|
+          task :build => "post_module_#{module_name}"
 
-          task "post_schema_#{schema}" => "dbt:#{database_key}:build_schema_#{schema}"
+          task "post_module_#{module_name}" => "dbt:#{database_key}:build_module_#{module_name}"
 
-          task "build_schema_#{schema}" => "dbt:#{database_key}:pre_schema_#{schema}"
+          task "build_module_#{module_name}" => "dbt:#{database_key}:pre_module_#{module_name}"
 
-          task "pre_schema_#{schema}"
+          task "pre_module_#{module_name}"
         end
 
-        schemas.each_with_index do |schema, idx|
-          task "build_schema_#{schema}" do
-            DbTasks.create(schema.to_s, DbTasks::Config.environment, database_key, idx == 0)
+        modules.each_with_index do |module_name, idx|
+          task "build_module_#{module_name}" do
+            DbTasks.create(module_name.to_s, DbTasks::Config.environment, database_key, idx == 0)
           end
         end
 
@@ -131,8 +131,8 @@ class DbTasks
           (options[:datasets] || []).each do |dataset_name|
             desc "Loads #{dataset_name} data"
             task dataset_name => :environment do
-              schemas.each do |schema_name|
-                DbTasks.load_dataset(database_key, DbTasks::Config.environment, schema_name.to_s, dataset_name)
+              modules.each do |module_name|
+                DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name.to_s, dataset_name)
               end
             end
           end
@@ -140,9 +140,9 @@ class DbTasks
 
         desc "Import contents of the #{database_key} database."
         task :import => ['dbt:load_config'] do
-          import_schemas = options[:import] || schemas
-          import_schemas.each do |schema|
-            DbTasks.import(schema.to_s, DbTasks::Config.environment, database_key)
+          import_modules = options[:import] || modules
+          import_modules.each do |module_name|
+            DbTasks.import(module_name.to_s, DbTasks::Config.environment, database_key)
           end
         end
 
@@ -155,8 +155,7 @@ class DbTasks
     end
   end
 
-  def self.create(schema, env, database_key = nil, recreate = true)
-    database_key = schema unless database_key
+  def self.create(module_name, env, database_key, recreate = true)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     recreate = false if true == get_config(key)['no_create']
@@ -166,8 +165,8 @@ class DbTasks
     else
       setup_connection(key)
     end
-    puts "Database Load [#{physical_name}]: schema=#{schema}, db=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
-    process_schema(database_key, schema, env)
+    puts "Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
+    process_module(database_key, module_name, env)
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
@@ -178,10 +177,10 @@ class DbTasks
     end
   end
 
-  def self.import(schema, env, database_key = nil)
-    ordered_tables = table_ordering(schema)
+  def self.import(module_name, env, database_key = nil)
+    ordered_tables = table_ordering(module_name)
 
-    database_key = schema unless database_key
+    database_key = module_name unless database_key
 
     # check the database configurations are set
     target_config = config_key(database_key, env)
@@ -190,13 +189,13 @@ class DbTasks
     get_config(source_config)
 
     phsyical_name = get_config(target_config)['database']
-    puts "Database Import [#{phsyical_name}]: schema=#{schema}, db=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}\n" if ActiveRecord::Migration.verbose
+    puts "Database Import [#{phsyical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}\n" if ActiveRecord::Migration.verbose
     setup_connection(target_config)
 
-    # Iterate over schema in dependency order doing import as appropriate
+    # Iterate over module in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
     tables = ordered_tables.reject do |table|
-      fixture_for_creation(schema, table)
+      fixture_for_creation(module_name, table)
     end
     tables.reverse.each do |table|
       puts "Deleting #{table}\n"
@@ -205,7 +204,7 @@ class DbTasks
     end
 
     tables.each do |table|
-      perform_import(schema, env, database_key, table)
+      perform_import(module_name, env, database_key, table)
     end
 
     tables.each do |table|
@@ -217,20 +216,6 @@ class DbTasks
     run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
     run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
     run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
-  end
-
-  def self.drop_schema(database_key, schema, env)
-    key = config_key(database_key, env)
-    setup_connection("msdb")
-    current_database = get_config(key)['database']
-    c = ActiveRecord::Base.connection
-    c.transaction do
-      c.execute("USE [#{current_database}]")
-      table_ordering(schema).reverse.each do |t|
-        c.execute("DROP TABLE #{t.to_s}")
-      end
-      c.execute("DROP SCHEMA [#{schema}]")
-    end
   end
 
   def self.drop(database_key, env)
@@ -325,9 +310,9 @@ SQL
     end
   end
 
-  def self.table_ordering(schema_key)
-    raise "No table resolver so unable to determine table ordering for #{schema_key}" unless @@table_order_resolver
-    @@table_order_resolver.call(schema_key)
+  def self.table_ordering(module_key)
+    raise "No table resolver so unable to determine table ordering for module #{module_key}" unless @@table_order_resolver
+    @@table_order_resolver.call(module_key)
   end
 
   def self.config_key(database_key, env)
@@ -369,7 +354,7 @@ SQL
     run_import_sql(database_key, env, sql)
   end
 
-  def self.perform_import(schema, env, database_key, table)
+  def self.perform_import(module_name, env, database_key, table)
     has_identity = has_identity_column(table)
 
     q_table = to_qualified_table_name(table)
@@ -377,8 +362,8 @@ SQL
     run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} ON") if has_identity
     run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
 
-    fixture_file = fixture_for_import(schema, table)
-    sql_file = sql_for_import(schema, table)
+    fixture_file = fixture_for_import(module_name, table)
+    sql_file = sql_for_import(module_name, table)
     is_sql = !fixture_file && sql_file
 
     puts "Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})\n"
@@ -448,21 +433,21 @@ ALTER DATABASE [#{db_name}] SET RECOVERY SIMPLE
 GO
   USE [#{db_name}]
 SQL
-    puts "Database Create [#{db_name}]: schema=#{database_key}, env=#{env}, key=#{key}\n" if ActiveRecord::Migration.verbose
+    puts "Database Create [#{db_name}]: database=#{database_key}, env=#{env}, config=#{key}\n" if ActiveRecord::Migration.verbose
     run_filtered_sql(database_key, env, sql)
   end
 
-  def self.process_schema(database_key, schema, env)
-    create_schema_from_file(database_key, schema, env)
+  def self.process_module(database_key, module_name, env)
+    create_schema_from_file(database_key, module_name, env)
 
     DbTasks::Config.sql_dirs.each do |dir|
-      run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_schema(schema, dir))
+      run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_module(module_name, dir))
     end
-    load_fixtures_from_dirs(schema, dirs_for_schema(schema, 'fixtures'))
+    load_fixtures_from_dirs(module_name, dirs_for_module(module_name, 'fixtures'))
   end
 
-  def self.create_schema_from_file(database_key, schema, env)
-    dirs = dirs_for_schema(schema)
+  def self.create_schema_from_file(database_key, module_name, env)
+    dirs = dirs_for_module(module_name)
     dirs.each do |dir|
       sql_file = "#{dir}/schema.sql"
       if File.exist?(sql_file)
@@ -493,17 +478,17 @@ SQL
     raise "#{file} file is missing" unless File.exists?(file)
   end
 
-  def self.load_dataset(database_key, env, schema, dataset_name)
+  def self.load_dataset(database_key, env, module_name, dataset_name)
     setup_connection(config_key(database_key, env))
-    load_fixtures_from_dirs(schema, dirs_for_schema(schema, "datasets/#{dataset_name}"))
+    load_fixtures_from_dirs(module_name, dirs_for_module(module_name, "datasets/#{dataset_name}"))
   end
 
-  def self.load_fixtures_from_dirs(schema, dirs)
+  def self.load_fixtures_from_dirs(module_name, dirs)
     require 'active_record/fixtures'
     dir = dirs.select { |dir| File.exists?(dir) }[0]
     return unless dir
     files = []
-    table_ordering(schema).each do |t|
+    table_ordering(module_name).each do |t|
       files += [t] if File.exist?("#{dir}/#{t}.yml")
     end
     puts("Loading fixtures: #{files.join(',')}")
@@ -564,8 +549,8 @@ SQL
     end
   end
 
-  def self.dirs_for_schema(schema, subdir = nil)
-    DbTasks::Config.search_dirs.map { |d| "#{d}/#{schema}#{ subdir ? "/#{subdir}" : ''}" }
+  def self.dirs_for_module(module_name, subdir = nil)
+    DbTasks::Config.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
   end
 
   def self.first_file_from(files)
@@ -577,15 +562,15 @@ SQL
     nil
   end
 
-  def self.fixture_for_creation(schema, table)
-    first_file_from(dirs_for_schema(schema, "fixtures/#{table}.yml"))
+  def self.fixture_for_creation(module_name, table)
+    first_file_from(dirs_for_module(module_name, "fixtures/#{table}.yml"))
   end
 
-  def self.fixture_for_import(schema, table)
-    first_file_from(dirs_for_schema(schema, "import/#{table}.yml"))
+  def self.fixture_for_import(module_name, table)
+    first_file_from(dirs_for_module(module_name, "import/#{table}.yml"))
   end
 
-  def self.sql_for_import(schema, table)
-    first_file_from(dirs_for_schema(schema, "import/#{table}.sql"))
+  def self.sql_for_import(module_name, table)
+    first_file_from(dirs_for_module(module_name, "import/#{table}.sql"))
   end
 end
