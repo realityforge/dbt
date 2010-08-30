@@ -66,7 +66,6 @@ class DbTasks
     end
   end
 
-  @@seen_schemas = {}
   @@filters = []
   @@table_order_resolver = nil
   @@defined_init_tasks = false
@@ -99,11 +98,6 @@ class DbTasks
 
     database_key = database_key.to_s
     namespace :dbt do
-      schemas.each do |schema|
-        next if @@seen_schemas.include? schema
-        @@seen_schemas[ schema ] = datasets_for_schema( schema )
-      end
-
       namespace database_key do
         desc "Create the #{database_key} database."
         task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
@@ -133,6 +127,17 @@ class DbTasks
         task :post_build do
         end
 
+        namespace :datasets do
+          (options[:datasets] || []).each do |dataset_name|
+            desc "Loads #{dataset_name} data"
+            task dataset_name => :environment do
+              schemas.each do |schema_name|
+                DbTasks.load_dataset(database_key, DbTasks::Config.environment, schema_name.to_s, dataset_name)
+              end
+            end
+          end
+        end
+
         desc "Import contents of the #{database_key} database."
         task :import => ['dbt:load_config'] do
           import_schemas = options[:import] || schemas
@@ -145,22 +150,6 @@ class DbTasks
         task :drop => ['dbt:load_config'] do
           puts "**** Dropping database: #{database_key} ****"
           DbTasks.drop( database_key, DbTasks::Config.environment )
-        end
-
-        datasets = datasets_for_schemas( schemas )
-        if datasets.any?
-          namespace :datasets do
-            datasets.each do |dataset_names, schemas_in_dataset|
-              dataset_names.each do |dataset_name|
-                desc "Loads #{dataset_name} data"
-                task dataset_name => :environment do
-                  schemas_in_dataset.each do |schema_name|
-                    DbTasks.load_dataset( DbTasks::Config.environment, schema_name.to_s, dataset_name )
-                  end
-                end
-              end
-            end
-          end
         end
       end
     end
@@ -504,8 +493,8 @@ SQL
     raise "#{file} file is missing" unless File.exists?(file)
   end
 
-  def self.load_dataset(env, schema, dataset_name)
-    setup_connection( env )
+  def self.load_dataset(database_key, env, schema, dataset_name)
+    setup_connection(config_key(database_key, env))
     load_fixtures_from_dirs(schema, dirs_for_schema(schema, "datasets/#{dataset_name}"))
   end
 
@@ -573,27 +562,6 @@ SQL
       puts "#{label}: #{File.basename(sp)}\n"
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
-  end
-
-  def self.datasets_for_schema( name )
-    dataset_dirs = dirs_for_schema(name, 'datasets/')
-    datasets = []
-    dataset_dirs.each do |dataset_dir|
-      next unless File.exists?( dataset_dir )
-      datasets << Dir.glob( "#{dataset_dir}*" ).select { |subdir| File.directory?( subdir ) }.map { |subdir| subdir[dataset_dir.size..-1] }
-    end
-    datasets.empty? ? nil : datasets
-  end
-
-  def self.datasets_for_schemas( schemas )
-    datasets = {}
-    schemas.each do |schema|
-      (@@seen_schemas[schema] || []).each do |dataset|
-        datasets[dataset] ||= []
-        datasets[dataset] << schema
-      end
-    end
-    datasets
   end
 
   def self.dirs_for_schema(schema, subdir = nil)

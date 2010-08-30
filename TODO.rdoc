@@ -1,9 +1,5 @@
 = TODO
 
-== Require explicit configuration of DataSets
-
-Datasets should be explicitly configured by the end users. Not guessed by looking at dirs.
-
 == Make the sets of dirs processed configurable
 
 The plugin currently does the schema then a list of dirs then fixtures. It should allow the
