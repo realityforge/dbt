@@ -155,7 +155,7 @@ class DbTasks
     end
   end
 
-  def self.create(database_key, env, module_name, recreate = true)
+  def self.create(database_key, env, module_name, recreate)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     recreate = false if true == get_config(key)['no_create']
