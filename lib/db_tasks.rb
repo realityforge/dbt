@@ -60,7 +60,7 @@ class DbTasks
       attr_writer :sql_dirs
 
       def sql_dirs
-        return ['types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
+        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
         @sql_dirs
       end
     end
@@ -438,44 +438,14 @@ SQL
   end
 
   def self.process_module(database_key, module_name, env)
-    create_schema_from_file(database_key, module_name, env)
-
     DbTasks::Config.sql_dirs.each do |dir|
-      run_sql_in_dirs(database_key, env, dir.humanize, dirs_for_module(module_name, dir))
+      run_sql_in_dirs(database_key, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(module_name, dir))
     end
     load_fixtures_from_dirs(module_name, dirs_for_module(module_name, 'fixtures'))
   end
 
-  def self.create_schema_from_file(database_key, module_name, env)
-    dirs = dirs_for_module(module_name)
-    dirs.each do |dir|
-      sql_file = "#{dir}/schema.sql"
-      if File.exist?(sql_file)
-        DbTasks.info("Loading Schema: #{sql_file}\n")
-        run_filtered_sql(database_key, env, IO.readlines(sql_file).join)
-        return true
-      end
-      if File.exist?("#{dir}/schema.rb")
-        load_db_schema("#{dir}/schema.rb")
-        return true
-      end
-    end
-    false
-  end
-
   def self.check_dir(name, dir)
     raise "#{name} in missing dir #{dir}" unless File.exists?(dir)
-  end
-
-  def self.load_db_schema(schema_file)
-    check_file(schema_file)
-    DbTasks.info("Loading Schema: #{schema_file}\n")
-    load schema_file
-    ActiveRecord::Base.connection.execute("DROP TABLE [#{ActiveRecord::Migrator.schema_migrations_table_name}]")
-  end
-
-  def self.check_file(file)
-    raise "#{file} file is missing" unless File.exists?(file)
   end
 
   def self.load_dataset(database_key, env, module_name, dataset_name)
