@@ -63,6 +63,14 @@ class DbTasks
         return ['.', 'types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
         @sql_dirs
       end
+
+      attr_writer :down_dirs
+
+      # Return the list of dirs to prcess when downing module
+      def down_dirs
+        return ['down'] unless @down_dirs
+        @down_dirs
+      end
     end
   end
 
@@ -96,6 +104,12 @@ class DbTasks
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
+    schema_2_module = {}
+    modules.each do |module_name|
+      schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+      (schema_2_module[schema_name] ||= []) << module_name
+    end
+
     namespace :dbt do
       namespace database_key do
         desc "Create the #{database_key} database."
@@ -117,19 +131,17 @@ class DbTasks
           task "pre_module_#{module_name}"
         end
 
-        schemas_defined = {}
         modules.each_with_index do |module_name, idx|
           task "build_module_#{module_name}" do
             recreate_db = idx == 0
             schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-            create_schema = schemas_defined[schema_name].nil?
-            schemas_defined[schema_name] = schema_name
-            DbTasks.create(database_key,
-                           DbTasks::Config.environment,
-                           module_name,
-                           recreate_db,
-                           schema_name,
-                           create_schema)
+            create_schema = schema_2_module[schema_name][0] == module_name
+            DbTasks.create_module(database_key,
+                                  DbTasks::Config.environment,
+                                  module_name,
+                                  recreate_db,
+                                  schema_name,
+                                  create_schema)
           end
         end
 
@@ -142,6 +154,40 @@ class DbTasks
             task dataset_name => ['dbt:load_config'] do
               modules.each do |module_name|
                 DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
+              end
+            end
+          end
+        end
+
+        (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
+          namespace schema_group_name do
+            desc "Up the #{schema_group_name} schema group in the #{database_key} database."
+            task :up => ['dbt:load_config', "dbt:#{database_key}:pre_build"]  do
+              DbTasks.info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+              modules.each do |module_name|
+                schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+                next unless schemas.include?(schema_name)
+                create_schema = schema_2_module[schema_name][0] == module_name
+                DbTasks.create_module(database_key,
+                                      DbTasks::Config.environment,
+                                      module_name,
+                                      false,
+                                      schema_name,
+                                      create_schema)
+              end
+            end
+
+            desc "Down the #{schema_group_name} schema group in the #{database_key} database."
+            task :down => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
+              DbTasks.info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+              DbTasks.init(database_key, DbTasks::Config.environment)
+              modules.reverse.each do |module_name|
+                schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+                next unless schemas.include?(schema_name)
+                process_module(database_key, DbTasks::Config.environment, module_name, false)
+              end
+              schemas.reverse.each do |schema_name|
+                DbTasks.drop_schema(schema_name, schema_2_module[schema_name])
               end
             end
           end
@@ -164,7 +210,7 @@ class DbTasks
     end
   end
 
-  def self.create(database_key, env, module_name, create_database, schema_name, create_schema)
+  def self.create_module(database_key, env, module_name, create_database, schema_name, create_schema)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     create_database = false if true == get_config(key)['no_create']
@@ -178,7 +224,7 @@ class DbTasks
     if create_schema && schema_name.to_s != DEFAULT_SCHEMA.to_s
       run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
     end
-    process_module(database_key, env, module_name)
+    process_module(database_key, env, module_name, true)
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
@@ -449,11 +495,14 @@ SQL
     run_filtered_sql(database_key, env, sql)
   end
 
-  def self.process_module(database_key, env, module_name)
-    DbTasks::Config.sql_dirs.each do |dir|
+  def self.process_module(database_key, env, module_name, is_build)
+    dirs = is_build ? DbTasks::Config.sql_dirs : DbTasks::Config.down_dirs
+    dirs.each do |dir|
       run_sql_in_dirs(database_key, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(module_name, dir))
     end
-    load_fixtures_from_dirs(module_name, dirs_for_module(module_name, 'fixtures'))
+    if is_build
+      load_fixtures_from_dirs(module_name, dirs_for_module(module_name, 'fixtures'))
+    end
   end
 
   def self.check_dir(name, dir)
@@ -485,6 +534,32 @@ SQL
         ActiveRecord::Base.connection.execute(ddl, nil)
       end
     end
+  end
+
+  def self.drop_schema(schema_name, modules)
+    database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| run_sql("DROP PROCEDURE #{name}") }
+    database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
+    database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
+    database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
+    database_objects("VIEW", schema_name).each { |name| run_sql("DROP VIEW #{name}") }
+    modules.reverse.each do |module_name|
+      table_ordering(module_name).reverse.each do |t|
+        run_sql("DROP TABLE #{t}")
+      end
+    end
+    run_sql("DROP SCHEMA #{schema_name}")
+  end
+
+  def self.database_objects(object_type, schema_name)
+    sql = <<SQL
+SELECT QUOTENAME(S.name) + '.' + QUOTENAME(O.name)
+FROM
+sys.objects O
+JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AND O.parent_object_id = 0
+WHERE type_desc = '#{object_type}'
+ORDER BY create_date DESC
+SQL
+    ActiveRecord::Base.connection.select_values(sql)
   end
 
   def self.get_config(config_key)
