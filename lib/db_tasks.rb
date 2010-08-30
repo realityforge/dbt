@@ -96,7 +96,7 @@ class DbTasks
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
-    database_key = database_key.to_s
+    database_key = database_key
     namespace :dbt do
       namespace database_key do
         desc "Create the #{database_key} database."
@@ -120,7 +120,7 @@ class DbTasks
 
         modules.each_with_index do |module_name, idx|
           task "build_module_#{module_name}" do
-            DbTasks.create(database_key, DbTasks::Config.environment, module_name.to_s, idx == 0)
+            DbTasks.create(database_key, DbTasks::Config.environment, module_name, idx == 0)
           end
         end
 
@@ -132,7 +132,7 @@ class DbTasks
             desc "Loads #{dataset_name} data"
             task dataset_name => ['dbt:load_config'] do
               modules.each do |module_name|
-                DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name.to_s, dataset_name)
+                DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
               end
             end
           end
@@ -142,7 +142,7 @@ class DbTasks
         task :import => ['dbt:load_config'] do
           import_modules = options[:import] || modules
           import_modules.each do |module_name|
-            DbTasks.import(database_key, DbTasks::Config.environment, module_name.to_s)
+            DbTasks.import(database_key, DbTasks::Config.environment, module_name)
           end
         end
 
