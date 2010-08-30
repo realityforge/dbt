@@ -190,6 +190,20 @@ class DbTasks
                 DbTasks.drop_schema(schema_name, schema_2_module[schema_name])
               end
             end
+
+            import_modules = (options[:import] || modules).select do |module_name|
+              schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+              schemas.include?(schema_name)
+            end
+
+            if !import_modules.empty?
+              desc "Import contents of the #{schema_group_name} schema group in the #{database_key} database."
+              task :import => ['dbt:load_config'] do
+                import_modules.each do |module_name|
+                  DbTasks.import(database_key, DbTasks::Config.environment, module_name)
+                end
+              end
+            end
           end
         end
 
