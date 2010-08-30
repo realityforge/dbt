@@ -1,10 +1,5 @@
 = TODO
 
-== Make the sets of dirs processed configurable
-
-The plugin currently does the schema then a list of dirs then fixtures. It should allow the
-user the chance to configure the list of pre-schema and post-schema tables.
-
 == Collation should be configurable from definition
 
 == msdb config should be inferred
