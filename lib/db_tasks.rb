@@ -93,7 +93,7 @@ class DbTasks
 
   def self.add_database_name_filter(pattern, database_key)
     add_filter do |current_config, env, sql|
-      filter_database_name(sql, pattern, current_config, "#{database_key}_#{env}")
+      filter_database_name(sql, pattern, current_config, "#{database_key}_#{env}", false)
     end
   end
 
