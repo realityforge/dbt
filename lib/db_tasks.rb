@@ -83,6 +83,10 @@ class DbTasks
     setup_connection(config_key(database_key, env))
   end
 
+  def self.init_msdb
+    setup_connection("msdb")
+  end
+
   def self.add_filter(&block)
     @@filters << block
   end
@@ -239,7 +243,7 @@ class DbTasks
     physical_name = get_config(key)['database']
     create_database = false if true == get_config(key)['no_create']
     if create_database
-      setup_connection("msdb")
+      init_msdb
       recreate_db(database_key, env, true)
     else
       setup_connection(key)
@@ -302,7 +306,7 @@ class DbTasks
 
   def self.drop(database_key, env)
     key = config_key(database_key, env)
-    setup_connection("msdb")
+    init_msdb
     db = get_config(key)['database']
     force_drop = true == get_config(key)['force_drop']
 
@@ -570,9 +574,13 @@ SQL
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
-        ActiveRecord::Base.connection.execute(ddl, nil)
+        run_sql_statement(ddl)
       end
     end
+  end
+
+  def self.run_sql_statement(sql)
+    ActiveRecord::Base.connection.execute(sql, nil)
   end
 
   def self.drop_schema(schema_name, modules)
