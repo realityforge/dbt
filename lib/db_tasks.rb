@@ -83,6 +83,10 @@ class DbTasks
     setup_connection(config_key(database_key, env))
   end
 
+  def self.init_msdb
+    setup_connection("msdb")
+  end
+
   def self.add_filter(&block)
     @@filters << block
   end
@@ -191,27 +195,37 @@ class DbTasks
               end
             end
 
-            import_modules = (options[:import] || modules).select do |module_name|
-              schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-              schemas.include?(schema_name)
-            end
-
-            if !import_modules.empty?
-              desc "Import contents of the #{schema_group_name} schema group in the #{database_key} database."
-              task :import => ['dbt:load_config'] do
-                import_modules.each do |module_name|
-                  DbTasks.import(database_key, DbTasks::Config.environment, module_name)
+            imports_config = options[:imports]
+            if imports_config
+              imports_config.keys.each do |key|
+                import_config = imports_config[key]
+                if import_config
+                  import_modules = (import_config[:modules] || modules).select do |module_name|
+                    schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+                    schemas.include?(schema_name)
+                  end
+                  import_dir = import_config[:dir] || "import"
+                  reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
+                  if !import_modules.empty?
+                    description = "contents of the #{schema_group_name} schema group"
+                    define_import_task(database_key, key, import_modules, import_dir, reindex, description)
+                  end
                 end
               end
             end
           end
         end
 
-        desc "Import contents of the #{database_key} database."
-        task :import => ['dbt:load_config'] do
-          import_modules = options[:import] || modules
-          import_modules.each do |module_name|
-            DbTasks.import(database_key, DbTasks::Config.environment, module_name)
+        imports_config = options[:imports]
+        if imports_config
+          imports_config.keys.each do |key|
+            import_config = imports_config[key]
+            if import_config
+              import_modules = import_config[:modules] || modules
+              import_dir = import_config[:dir] || "import"
+              reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
+              define_import_task(database_key, key, import_modules, import_dir, reindex, "contents")
+            end
           end
         end
 
@@ -229,7 +243,7 @@ class DbTasks
     physical_name = get_config(key)['database']
     create_database = false if true == get_config(key)['no_create']
     if create_database
-      setup_connection("msdb")
+      init_msdb
       recreate_db(database_key, env, true)
     else
       setup_connection(key)
@@ -249,7 +263,7 @@ class DbTasks
     end
   end
 
-  def self.import(database_key, env, module_name)
+  def self.import(database_key, env, module_name, import_dir, reindex)
     ordered_tables = table_ordering(module_name)
 
     # check the database configurations are set
@@ -274,23 +288,25 @@ class DbTasks
     end
 
     tables.each do |table|
-      perform_import(database_key, env, module_name, table)
+      perform_import(database_key, env, module_name, table, import_dir)
     end
 
-    tables.each do |table|
-      DbTasks.info("Reindexing #{table}\n")
-      q_table = to_qualified_table_name(table)
-      run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
-    end
+    if reindex
+      tables.each do |table|
+        DbTasks.info("Reindexing #{table}\n")
+        q_table = to_qualified_table_name(table)
+        run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
+      end
 
-    run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-    run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-    run_import_sql(database_key, env, "EXEC @@TARGET@@.#{DEFAULT_SCHEMA}.sp_updatestats")
+      run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, "EXEC @@TARGET@@.#{DEFAULT_SCHEMA}.sp_updatestats")
+    end
   end
 
   def self.drop(database_key, env)
     key = config_key(database_key, env)
-    setup_connection("msdb")
+    init_msdb
     db = get_config(key)['database']
     force_drop = true == get_config(key)['force_drop']
 
@@ -365,6 +381,19 @@ SQL
 
   DEFAULT_SCHEMA = 'dbo'
 
+  def self.define_import_task(database_key, import_key, import_modules, import_dir, reindex, description)
+    is_default_import = import_key == :default
+    prefix = is_default_import ? 'Import' : "#{import_key.to_s.capitalize} import"
+
+    taskname = is_default_import ? :import : :"#{import_key}-import"
+    desc "#{prefix} #{description} of the #{database_key} database."
+    task taskname => ['dbt:load_config'] do
+      import_modules.each do |module_name|
+        DbTasks.import(database_key, DbTasks::Config.environment, module_name, import_dir, reindex)
+      end
+    end
+  end
+
   def self.define_basic_tasks
     if !@@defined_init_tasks
       task 'dbt:load_config' do
@@ -426,7 +455,7 @@ SQL
     run_import_sql(database_key, env, sql)
   end
 
-  def self.perform_import(database_key, env, module_name, table)
+  def self.perform_import(database_key, env, module_name, table, import_dir)
     has_identity = has_identity_column(table)
 
     q_table = to_qualified_table_name(table)
@@ -434,8 +463,8 @@ SQL
     run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} ON") if has_identity
     run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
 
-    fixture_file = fixture_for_import(module_name, table)
-    sql_file = sql_for_import(module_name, table)
+    fixture_file = fixture_for_import(module_name, table, import_dir)
+    sql_file = sql_for_import(module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
     DbTasks.info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})\n")
@@ -545,9 +574,13 @@ SQL
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
-        ActiveRecord::Base.connection.execute(ddl, nil)
+        run_sql_statement(ddl)
       end
     end
+  end
+
+  def self.run_sql_statement(sql)
+    ActiveRecord::Base.connection.execute(sql, nil)
   end
 
   def self.drop_schema(schema_name, modules)
@@ -637,12 +670,12 @@ SQL
     first_file_from(dirs_for_module(module_name, "fixtures/#{table}.yml"))
   end
 
-  def self.fixture_for_import(module_name, table)
-    first_file_from(dirs_for_module(module_name, "import/#{table}.yml"))
+  def self.fixture_for_import(module_name, table, import_dir)
+    first_file_from(dirs_for_module(module_name, "#{import_dir}/#{table}.yml"))
   end
 
-  def self.sql_for_import(module_name, table)
-    first_file_from(dirs_for_module(module_name, "import/#{table}.sql"))
+  def self.sql_for_import(module_name, table, import_dir)
+    first_file_from(dirs_for_module(module_name, "#{import_dir}/#{table}.sql"))
   end
 
   def self.info(message)
