@@ -541,7 +541,7 @@ SQL
   end
 
   def self.run_sql(sql)
-    sql.gsub(/\r/, '').split("\nGO\n").each do |ddl|
+    sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).each do |ddl|
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
