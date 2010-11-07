@@ -536,6 +536,12 @@ GO
 SQL
     DbTasks.trace("Database Create [#{db_name}]: database=#{database_key}, env=#{env}, config=#{key}\n")
     run_filtered_sql(database_key, env, sql)
+    if !DbTasks::Config.app_version.nil?
+      sql = <<SQL
+    EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{DbTasks::Config.app_version}'
+SQL
+      run_filtered_sql(database_key, env, sql)
+    end
   end
 
   def self.process_module(database_key, env, module_name, is_build)
