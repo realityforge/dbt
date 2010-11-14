@@ -443,7 +443,7 @@ SQL
     end
   end
 
-  def self.perform_standard_import(database_key, env, table)
+  def self.generate_standard_import_sql(table)
     q_table = to_qualified_table_name(table)
     sql = "INSERT INTO @@TARGET@@.#{q_table}("
     columns = ActiveRecord::Base.connection.columns(q_table).collect { |c| "[#{c.name}]" }
@@ -451,8 +451,11 @@ SQL
     sql += ")\n  SELECT "
     sql += columns.collect { |c| c == '[BatchID]' ? "0" : c }.join(', ')
     sql += " FROM @@SOURCE@@.#{q_table}\n"
+    sql
+  end
 
-    run_import_sql(database_key, env, sql)
+  def self.perform_standard_import(database_key, env, table)
+    run_import_sql(database_key, env, generate_standard_import_sql(table))
   end
 
   def self.perform_import(database_key, env, module_name, table, import_dir)
