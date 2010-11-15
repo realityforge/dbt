@@ -101,6 +101,13 @@ class DbTasks
     end
   end
 
+  # Filter the SQL files replacing specified pattern with specified value
+  def self.add_property_filter(pattern, value)
+    add_filter do |current_config, env, sql|
+      sql.gsub(pattern, value)
+    end
+  end
+
   def self.define_table_order_resolver(&block)
     @@table_order_resolver = block
   end
