@@ -146,13 +146,7 @@ class DbTasks
           task "build_module_#{module_name}" do
             recreate_db = idx == 0
             schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-            create_schema = schema_2_module[schema_name][0] == module_name
-            DbTasks.create_module(database_key,
-                                  DbTasks::Config.environment,
-                                  module_name,
-                                  recreate_db,
-                                  schema_name,
-                                  create_schema)
+            DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
           end
         end
 
@@ -178,13 +172,7 @@ class DbTasks
               modules.each do |module_name|
                 schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
                 next unless schemas.include?(schema_name)
-                create_schema = schema_2_module[schema_name][0] == module_name
-                DbTasks.create_module(database_key,
-                                      DbTasks::Config.environment,
-                                      module_name,
-                                      false,
-                                      schema_name,
-                                      create_schema)
+                DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
               end
             end
 
@@ -245,7 +233,7 @@ class DbTasks
     end
   end
 
-  def self.create_module(database_key, env, module_name, create_database, schema_name, create_schema)
+  def self.create_module(database_key, env, module_name, create_database, schema_name)
     key = config_key(database_key, env)
     physical_name = get_config(key)['database']
     create_database = false if true == get_config(key)['no_create']
@@ -256,7 +244,7 @@ class DbTasks
       setup_connection(key)
     end
     DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
-    if create_schema && schema_name.to_s != DEFAULT_SCHEMA.to_s
+    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
       run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
     end
     process_module(database_key, env, module_name, true)
@@ -290,8 +278,7 @@ class DbTasks
     end
     tables.reverse.each do |table|
       DbTasks.info("Deleting #{table}\n")
-      q_table = to_qualified_table_name(table)
-      run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{q_table}")
+      run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{table}")
     end
 
     tables.each do |table|
@@ -301,13 +288,12 @@ class DbTasks
     if reindex
       tables.each do |table|
         DbTasks.info("Reindexing #{table}\n")
-        q_table = to_qualified_table_name(table)
-        run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{q_table}', '', 0) WITH NO_INFOMSGS")
+        run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{table}', '', 0) WITH NO_INFOMSGS")
       end
 
       run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
       run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-      run_import_sql(database_key, env, "EXEC @@TARGET@@.#{DEFAULT_SCHEMA}.sp_updatestats")
+      run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
     end
   end
 
@@ -386,8 +372,6 @@ SQL
 
   private
 
-  DEFAULT_SCHEMA = 'dbo'
-
   def self.define_import_task(database_key, import_key, import_modules, import_dir, reindex, description)
     is_default_import = import_key == :default
     prefix = is_default_import ? 'Import' : "#{import_key.to_s.capitalize} import"
@@ -427,12 +411,6 @@ SQL
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.to_qualified_table_name(table)
-    elements = table.to_s.split('.')
-    elements = [DEFAULT_SCHEMA, elements[0]] if elements.size == 1
-    elements.join('.')
-  end
-
   def self.run_import_sql(database_key, env, sql, change_to_msdb = true)
     target_config = config_key(database_key, env)
     source_config = config_key(database_key, "import")
@@ -451,13 +429,12 @@ SQL
   end
 
   def self.generate_standard_import_sql(table)
-    q_table = to_qualified_table_name(table)
-    sql = "INSERT INTO @@TARGET@@.#{q_table}("
-    columns = ActiveRecord::Base.connection.columns(q_table).collect { |c| "[#{c.name}]" }
+    sql = "INSERT INTO @@TARGET@@.#{table}("
+    columns = ActiveRecord::Base.connection.columns(table).collect { |c| "[#{c.name}]" }
     sql += columns.join(', ')
     sql += ")\n  SELECT "
     sql += columns.collect { |c| c == '[BatchID]' ? "0" : c }.join(', ')
-    sql += " FROM @@SOURCE@@.#{q_table}\n"
+    sql += " FROM @@SOURCE@@.#{table}\n"
     sql
   end
 
@@ -468,10 +445,8 @@ SQL
   def self.perform_import(database_key, env, module_name, table, import_dir)
     has_identity = has_identity_column(table)
 
-    q_table = to_qualified_table_name(table)
-
-    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} ON") if has_identity
-    run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
+    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{table} ON") if has_identity
+    run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{table}\"", false)
 
     fixture_file = fixture_for_import(module_name, table, import_dir)
     sql_file = sql_for_import(module_name, table, import_dir)
@@ -486,8 +461,8 @@ SQL
       perform_standard_import(database_key, env, table)
     end
 
-    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{q_table}\"", false)
-    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{q_table} OFF") if has_identity
+    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{table}\"", false)
+    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{table} OFF") if has_identity
   end
 
   def self.has_identity_column(table)
