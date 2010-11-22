@@ -103,6 +103,7 @@ class DbTasks
 
   # Filter the SQL files replacing specified pattern with specified value
   def self.add_property_filter(pattern, value)
+    #noinspection RubyUnusedLocalVariable
     add_filter do |current_config, env, sql|
       sql.gsub(pattern, value)
     end
@@ -114,12 +115,6 @@ class DbTasks
 
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
-
-    schema_2_module = {}
-    modules.each do |module_name|
-      schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-      (schema_2_module[schema_name] ||= []) << module_name
-    end
 
     # Database dropping
 
@@ -150,7 +145,7 @@ class DbTasks
     task "dbt:#{database_key}:build" do
       modules.each_with_index do |module_name, idx|
         recreate_db = idx == 0
-        schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+        schema_name = schema_overide_for_module(module_name, options)
         DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
       end
     end
@@ -174,82 +169,20 @@ class DbTasks
         import_config = imports_config[key]
         if import_config
           import_modules = import_config[:modules] || modules
-          import_dir = import_config[:dir] || "import"
-          reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
-          define_import_task(database_key, key, import_modules, import_dir, reindex, "contents")
+          define_import_task("dbt:#{database_key}",
+                             database_key,
+                             key,
+                             import_modules,
+                             import_dir(import_config),
+                             import_reindex(import_config),
+                             "contents")
         end
       end
     end
 
-    namespace :dbt do
-      namespace database_key do
-
-        (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
-          namespace schema_group_name do
-            desc "Up the #{schema_group_name} schema group in the #{database_key} database."
-            task :up => ['dbt:load_config', "dbt:#{database_key}:pre_build"]  do
-              DbTasks.info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
-              modules.each do |module_name|
-                schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-                next unless schemas.include?(schema_name)
-                DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
-              end
-            end
-
-            desc "Down the #{schema_group_name} schema group in the #{database_key} database."
-            task :down => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
-              DbTasks.info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
-              DbTasks.init(database_key, DbTasks::Config.environment)
-              modules.reverse.each do |module_name|
-                schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-                next unless schemas.include?(schema_name)
-                process_module(database_key, DbTasks::Config.environment, module_name, false)
-              end
-              schemas.reverse.each do |schema_name|
-                DbTasks.drop_schema(schema_name, schema_2_module[schema_name])
-              end
-            end
-
-            imports_config = options[:imports]
-            if imports_config
-              imports_config.keys.each do |key|
-                import_config = imports_config[key]
-                if import_config
-                  import_modules = (import_config[:modules] || modules).select do |module_name|
-                    schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-                    schemas.include?(schema_name)
-                  end
-                  import_dir = import_config[:dir] || "import"
-                  reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
-                  if !import_modules.empty?
-                    description = "contents of the #{schema_group_name} schema group"
-                    define_import_task(database_key, key, import_modules, import_dir, reindex, description)
-                  end
-                end
-              end
-            end
-          end
-        end
-
-      end
+    (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
+      define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
     end
-  end
-
-  def self.create_module(database_key, env, module_name, create_database, schema_name)
-    key = config_key(database_key, env)
-    physical_name = get_config(key)['database']
-    create_database = false if true == get_config(key)['no_create']
-    if create_database
-      init_msdb
-      recreate_db(database_key, env, true)
-    else
-      setup_connection(key)
-    end
-    DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
-    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
-      run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
-    end
-    process_module(database_key, env, module_name, true)
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
@@ -258,6 +191,112 @@ class DbTasks
       DbTasks.info("#{label}: #{File.basename(sp)}\n")
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
+  end
+
+  def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
+    return sql if optional && ActiveRecord::Base.configurations[target_database_config_key].nil?
+    sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
+  end
+
+  def self.dump_tables_to_fixtures(tables, fixture_dir)
+    tables.each do |table_name|
+      i = 0
+      File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
+        print("Dumping #{table_name}\n")
+        const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
+        if Object.const_defined?(const_name)
+          sql = Object.const_get(const_name)
+        else
+          sql = "SELECT * FROM #{table_name}"
+        end
+
+        dump_class = Class.new(ActiveRecord::Base) do
+          set_table_name table_name
+        end
+
+        records = YAML::Omap.new
+        dump_class.find_by_sql(sql).collect do |record|
+          records["r#{i += 1}"] = record.attributes
+        end
+
+        file.write records.to_yaml
+      end
+    end
+  end
+
+  def self.load_tables_from_fixtures(tables, dir)
+    raise "Fixture directory #{dir} does not exist" unless File.exists?(dir)
+    ActiveRecord::Base.connection.transaction do
+      Fixtures.create_fixtures(dir, tables)
+    end
+  end
+
+  private
+
+  def self.define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
+    desc "Up the #{schema_group_name} schema group in the #{database_key} database."
+    task "dbt:#{database_key}:#{schema_group_name}:up" => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
+      DbTasks.info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+      modules.each do |module_name|
+        schema_name = schema_overide_for_module(module_name, options)
+        next unless schemas.include?(schema_name)
+        DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
+      end
+    end
+
+    desc "Down the #{schema_group_name} schema group in the #{database_key} database."
+    task "dbt:#{database_key}:#{schema_group_name}:down" => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
+      DbTasks.info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+      DbTasks.init(database_key, DbTasks::Config.environment)
+      modules.reverse.each do |module_name|
+        schema_name = schema_overide_for_module(module_name, options)
+        next unless schemas.include?(schema_name)
+        process_module(database_key, DbTasks::Config.environment, module_name, false)
+      end
+      schema_2_module = {}
+      modules.each do |module_name|
+        schema_name = schema_overide_for_module(module_name, options)
+        (schema_2_module[schema_name] ||= []) << module_name
+      end
+      schemas.reverse.each do |schema_name|
+        DbTasks.drop_schema(schema_name, schema_2_module[schema_name])
+      end
+    end
+
+    imports_config = options[:imports]
+    if imports_config
+      imports_config.keys.each do |key|
+        import_config = imports_config[key]
+        if import_config
+          import_modules = (import_config[:modules] || modules).select do |module_name|
+            schemas.include?(schema_overide_for_module(module_name, options))
+          end
+          if !import_modules.empty?
+            description = "contents of the #{schema_group_name} schema group"
+            define_import_task("dbt:#{database_key}:#{schema_group_name}",
+                               database_key,
+                               key,
+                               import_modules,
+                               import_dir(import_config),
+                               import_reindex(import_config),
+                               description)
+          end
+        end
+      end
+    end
+
+  end
+
+  def self.import_reindex(import_config)
+    import_config.has_key?(:reindex) ? import_config[:reindex] : true
+  end
+
+  def self.import_dir(import_config)
+    import_config[:dir] || "import"
+  end
+
+  def self.schema_overide_for_module(module_name, options)
+    (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
   end
 
   def self.import(database_key, env, module_name, import_dir, reindex)
@@ -334,55 +373,32 @@ SQL
     run_filtered_sql(database_key, env, sql)
   end
 
-  def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
-    return sql if optional && ActiveRecord::Base.configurations[target_database_config_key].nil?
-    sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
-  end
-
-  def self.dump_tables_to_fixtures(tables, fixture_dir)
-    tables.each do |table_name|
-      i = 0
-      File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
-        print("Dumping #{table_name}\n")
-        const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
-        if Object.const_defined?(const_name)
-          sql = Object.const_get(const_name)
-        else
-          sql = "SELECT * FROM #{table_name}"
-        end
-
-        dump_class = Class.new(ActiveRecord::Base) do
-          set_table_name table_name
-        end
-
-        records = YAML::Omap.new
-        dump_class.find_by_sql(sql).collect do |record|
-          records["r#{i += 1}"] = record.attributes
-        end
-
-        file.write records.to_yaml
-      end
+  def self.create_module(database_key, env, module_name, create_database, schema_name)
+    key = config_key(database_key, env)
+    physical_name = get_config(key)['database']
+    create_database = false if true == get_config(key)['no_create']
+    if create_database
+      init_msdb
+      recreate_db(database_key, env, true)
+    else
+      setup_connection(key)
     end
-  end
-
-  def self.load_tables_from_fixtures(tables, dir)
-    raise "Fixture directory #{dir} does not exist" unless File.exists?(dir)
-    ActiveRecord::Base.connection.transaction do
-      Fixtures.create_fixtures(dir, tables)
+    DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
+    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
     end
+    process_module(database_key, env, module_name, true)
   end
 
-  private
-
-  def self.define_import_task(database_key, import_key, import_modules, import_dir, reindex, description)
+  def self.define_import_task(prefix, database_key, import_key, import_modules, import_dir, reindex, description)
     is_default_import = import_key == :default
-    prefix = is_default_import ? 'Import' : "#{import_key.to_s.capitalize} import"
+    desc_prefix = is_default_import ? 'Import' : "#{import_key.to_s.capitalize} import"
 
     taskname = is_default_import ? :import : :"#{import_key}-import"
-    desc "#{prefix} #{description} of the #{database_key} database."
-    task taskname => ['dbt:load_config'] do
+    desc "#{desc_prefix} #{description} of the #{database_key} database."
+    task "#{prefix}:#{taskname}" => ['dbt:load_config'] do
       import_modules.each do |module_name|
-        DbTasks.import(database_key, DbTasks::Config.environment, module_name, import_dir, reindex)
+        import(database_key, DbTasks::Config.environment, module_name, import_dir, reindex)
       end
     end
   end
