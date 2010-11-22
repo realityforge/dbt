@@ -121,48 +121,68 @@ class DbTasks
       (schema_2_module[schema_name] ||= []) << module_name
     end
 
+    # Database dropping
+
+    desc "Drop the #{database_key} database."
+    task "dbt:#{database_key}:drop" => ['dbt:load_config'] do
+      DbTasks.info("**** Dropping database: #{database_key} ****")
+      DbTasks.drop(database_key, DbTasks::Config.environment)
+    end
+
+    # Database creation
+
+    desc "Create the #{database_key} database."
+    task "dbt:#{database_key}:create" => ["dbt:load_config",
+                                          "dbt:#{database_key}:banner",
+                                          "dbt:#{database_key}:pre_build",
+                                          "dbt:#{database_key}:build",
+                                          "dbt:#{database_key}:post_build"]
+
+
+    task "dbt:#{database_key}:banner" do
+      DbTasks.info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
+    end
+
+    task "dbt:#{database_key}:pre_build" => ['dbt:load_config', 'dbt:pre_build']
+
+    task "dbt:#{database_key}:post_build"
+
+    task "dbt:#{database_key}:build" do
+      modules.each_with_index do |module_name, idx|
+        recreate_db = idx == 0
+        schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
+        DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
+      end
+    end
+
+    # Data set loading etc
+
+    (options[:datasets] || []).each do |dataset_name|
+      desc "Loads #{dataset_name} data"
+      task "dbt:#{database_key}:datasets:#{dataset_name}" => ['dbt:load_config'] do
+        modules.each do |module_name|
+          DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
+        end
+      end
+    end
+
+    # Import tasks
+
+    imports_config = options[:imports]
+    if imports_config
+      imports_config.keys.each do |key|
+        import_config = imports_config[key]
+        if import_config
+          import_modules = import_config[:modules] || modules
+          import_dir = import_config[:dir] || "import"
+          reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
+          define_import_task(database_key, key, import_modules, import_dir, reindex, "contents")
+        end
+      end
+    end
+
     namespace :dbt do
       namespace database_key do
-        desc "Create the #{database_key} database."
-        task :create => ['dbt:load_config', "dbt:#{database_key}:banner", "dbt:#{database_key}:pre_build", "dbt:#{database_key}:build", "dbt:#{database_key}:post_build"]
-
-        task "dbt:#{database_key}:banner" do
-          DbTasks.info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
-        end
-
-        task :pre_build => ['dbt:load_config', 'dbt:pre_build']
-
-        modules.each do |module_name|
-          task :build => "post_module_#{module_name}"
-
-          task "post_module_#{module_name}" => "dbt:#{database_key}:build_module_#{module_name}"
-
-          task "build_module_#{module_name}" => "dbt:#{database_key}:pre_module_#{module_name}"
-
-          task "pre_module_#{module_name}"
-        end
-
-        modules.each_with_index do |module_name, idx|
-          task "build_module_#{module_name}" do
-            recreate_db = idx == 0
-            schema_name = (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
-            DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
-          end
-        end
-
-        task :post_build do
-        end
-
-        namespace :datasets do
-          (options[:datasets] || []).each do |dataset_name|
-            desc "Loads #{dataset_name} data"
-            task dataset_name => ['dbt:load_config'] do
-              modules.each do |module_name|
-                DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
-              end
-            end
-          end
-        end
 
         (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
           namespace schema_group_name do
@@ -211,24 +231,6 @@ class DbTasks
           end
         end
 
-        imports_config = options[:imports]
-        if imports_config
-          imports_config.keys.each do |key|
-            import_config = imports_config[key]
-            if import_config
-              import_modules = import_config[:modules] || modules
-              import_dir = import_config[:dir] || "import"
-              reindex = import_config.has_key?(:reindex) ? import_config[:reindex] : true
-              define_import_task(database_key, key, import_modules, import_dir, reindex, "contents")
-            end
-          end
-        end
-
-        desc "Drop the #{database_key} database."
-        task :drop => ['dbt:load_config'] do
-          DbTasks.info("**** Dropping database: #{database_key} ****")
-          DbTasks.drop(database_key, DbTasks::Config.environment)
-        end
       end
     end
   end
