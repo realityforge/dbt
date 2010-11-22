@@ -138,8 +138,8 @@ class DbTasks
 
     desc "Drop the #{database_key} database."
     task "dbt:#{database_key}:drop" => ["dbt:#{database_key}:load_config"] do
-      DbTasks.info("**** Dropping database: #{database_key} ****")
-      DbTasks.drop(database_key, DbTasks::Config.environment)
+      info("**** Dropping database: #{database_key} ****")
+      drop(database_key, DbTasks::Config.environment)
     end
 
     # Database creation
@@ -153,7 +153,7 @@ class DbTasks
 
 
     task "dbt:#{database_key}:banner" do
-      DbTasks.info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
+      info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
     end
 
     task "dbt:#{database_key}:pre_build" => ["dbt:#{database_key}:load_config", 'dbt:pre_build']
@@ -164,7 +164,7 @@ class DbTasks
       modules.each_with_index do |module_name, idx|
         recreate_db = idx == 0
         schema_name = schema_overide_for_module(module_name, options)
-        DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
+        create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
       end
     end
 
@@ -174,7 +174,7 @@ class DbTasks
       desc "Loads #{dataset_name} data"
       task "dbt:#{database_key}:datasets:#{dataset_name}" => ["dbt:#{database_key}:load_config"] do
         modules.each do |module_name|
-          DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
+          load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
         end
       end
     end
@@ -201,12 +201,26 @@ class DbTasks
     (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
       define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
     end
+
+    if options[:backup]
+      desc "Perform backup of #{database_key} database"
+      task "dbt:#{database_key}:backup" => ["dbt:#{database_key}:load_config"] do
+        backup(database_key, DbTasks::Config.environment)
+      end
+    end
+
+    if options[:restore]
+      desc "Perform restore of #{database_key} database"
+      task "dbt:#{database_key}:restore" => ["dbt:#{database_key}:load_config"] do
+        DbTasks.restore(database_key, DbTasks::Config.environment)
+      end
+    end
   end
 
   def self.run_sql_in_dir(database_key, env, label, dir)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
-      DbTasks.info("#{label}: #{File.basename(sp)}\n")
+      info("#{label}: #{File.basename(sp)}")
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
   end
@@ -256,7 +270,7 @@ class DbTasks
   #
   def self.add_import_assert_filters
     #noinspection RubyUnusedLocalVariable
-    DbTasks.add_filter do |current_config, env, sql|
+    add_filter do |current_config, env, sql|
       sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\((.+)\)/, <<SQL)
 DECLARE @Status VARCHAR(50)
 SELECT @Status = 'SUCCESS'
@@ -286,18 +300,18 @@ SQL
   def self.define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
     desc "Up the #{schema_group_name} schema group in the #{database_key} database."
     task "dbt:#{database_key}:#{schema_group_name}:up" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
-      DbTasks.info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+      info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
       modules.each do |module_name|
         schema_name = schema_overide_for_module(module_name, options)
         next unless schemas.include?(schema_name)
-        DbTasks.create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
+        create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
       end
     end
 
     desc "Down the #{schema_group_name} schema group in the #{database_key} database."
     task "dbt:#{database_key}:#{schema_group_name}:down" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
-      DbTasks.info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
-      DbTasks.init(database_key, DbTasks::Config.environment)
+      info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+      init(database_key, DbTasks::Config.environment)
       modules.reverse.each do |module_name|
         schema_name = schema_overide_for_module(module_name, options)
         next unless schemas.include?(schema_name)
@@ -309,7 +323,7 @@ SQL
         (schema_2_module[schema_name] ||= []) << module_name
       end
       schemas.reverse.each do |schema_name|
-        DbTasks.drop_schema(schema_name, schema_2_module[schema_name])
+        drop_schema(schema_name, schema_2_module[schema_name])
       end
     end
 
@@ -359,7 +373,7 @@ SQL
     get_config(source_config)
 
     phsyical_name = get_config(target_config)['database']
-    DbTasks.trace("Database Import [#{phsyical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}\n")
+    trace("Database Import [#{phsyical_name}]: module_name=#{module_name}, database_key=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}")
     setup_connection(target_config)
 
     # Iterate over module in dependency order doing import as appropriate
@@ -368,7 +382,7 @@ SQL
       fixture_for_creation(module_name, table)
     end
     tables.reverse.each do |table|
-      DbTasks.info("Deleting #{table}\n")
+      info("Deleting #{table}")
       run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{table}")
     end
 
@@ -378,7 +392,7 @@ SQL
 
     if reindex
       tables.each do |table|
-        DbTasks.info("Reindexing #{table}\n")
+        info("Reindexing #{table}")
         run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{table}', '', 0) WITH NO_INFOMSGS")
       end
 
@@ -386,6 +400,98 @@ SQL
       run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
       run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
     end
+  end
+
+  def self.backup(database_key, env)
+    config = get_config(config_key(database_key, env))
+    phsyical_name = config['database']
+    info("Backup Database [#{phsyical_name}]: database_key=#{database_key}, env=#{env}")
+    instance_registry_key = config['instance_registry_key']
+    raise "Attempting to backup database but no instance_registry_key defined for configuration." unless instance_registry_key
+    sql = <<SQL
+USE [msdb]
+
+  DECLARE @BackupDir VARCHAR(400)
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @value_name='BackupDirectory',
+    @value=@BackupDir OUTPUT
+  IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
+  DECLARE @BackupName VARCHAR(500)
+  SET @BackupName = @BackupDir + '\\#{phsyical_name}.bak'
+
+BACKUP DATABASE [#{phsyical_name}] TO DISK = @BackupName
+WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
+SQL
+    init(database_key, env)
+    run_sql_statement(sql)
+  end
+
+  def self.restore(database_key, env)
+    config_key = config_key(database_key, env)
+    config = get_config(config_key)
+    phsyical_name = get_config(config_key)['database']
+    info("Restore Database [#{phsyical_name}]: database_key=#{database_key}, env=#{env}")
+    instance_registry_key = config['instance_registry_key']
+    raise "Attempting to restore database but no instance_registry_key key defined for configuration." unless instance_registry_key
+    restore_from = config['restore_from']
+    raise "Attempting to restore database but no restore_from key defined for configuration." unless restore_from
+
+    sql = <<SQL
+  USE [msdb]
+  DECLARE @TargetDatabase VARCHAR(400)
+  DECLARE @SourceDatabase VARCHAR(400)
+  SET @TargetDatabase = '#{phsyical_name}'
+  SET @SourceDatabase = '#{restore_from}'
+
+  DECLARE @BackupFile VARCHAR(400)
+  DECLARE @DataLogicalName VARCHAR(400)
+  DECLARE @LogLogicalName VARCHAR(400)
+  DECLARE @DataDir VARCHAR(400)
+  DECLARE @LogDir VARCHAR(400)
+
+  SELECT
+  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
+  FROM
+    msdb.dbo.backupset BS
+  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
+  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
+  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
+  WHERE
+    BS.backup_set_id =
+    (
+      SELECT TOP 1 backup_set_id
+      FROM msdb.dbo.backupset
+      WHERE database_name = @SourceDatabase
+      ORDER BY backup_start_date DESC
+    )
+
+  IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
+
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @value_name='DefaultData',
+    @value=@DataDir OUTPUT
+  IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @value_name='DefaultLog',
+    @value=@LogDir OUTPUT
+  IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
+
+  DECLARE @sql VARCHAR(4000)
+  SET @sql = 'RESTORE DATABASE [' + @TargetDatabase + '] FROM DISK = N''' + @BackupFile + ''' WITH  FILE = 1,
+  MOVE N''' + @DataLogicalName + ''' TO N''' + @DataDir + '\\' + @TargetDatabase + '.MDF'',
+  MOVE N''' + @LogLogicalName + ''' TO N''' + @LogDir + '\\' + @TargetDatabase + '.LDF'',
+  NOUNLOAD,
+  REPLACE,
+  STATS = 10
+  '
+  EXEC(@sql)
+SQL
+    init(database_key, env)
+    run_sql_statement("ALTER DATABASE [#{phsyical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+    run_sql_statement(sql)
   end
 
   def self.drop(database_key, env)
@@ -419,7 +525,7 @@ GO
     DROP DATABASE [#{db}]
 GO
 SQL
-    DbTasks.trace("Database Drop [#{db}]: database_key=#{database_key}, env=#{env}, key=#{key}\n")
+    trace("Database Drop [#{db}]: database_key=#{database_key}, env=#{env}, key=#{key}")
     run_filtered_sql(database_key, env, sql)
   end
 
@@ -433,7 +539,7 @@ SQL
     else
       setup_connection(key)
     end
-    DbTasks.trace("Database Load [#{physical_name}]: module=#{module_name}, db=#{database_key}, env=#{env}, key=#{key}\n")
+    trace("Database Load [#{physical_name}]: module=#{module_name}, database_key=#{database_key}, env=#{env}, config_key=#{key}")
     if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
       run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
     end
@@ -520,7 +626,7 @@ SQL
     sql_file = sql_for_import(module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
-    DbTasks.info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})\n")
+    info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
@@ -587,7 +693,7 @@ ALTER DATABASE [#{db_name}] SET RECOVERY SIMPLE
 GO
   USE [#{db_name}]
 SQL
-    DbTasks.trace("Database Create [#{db_name}]: database=#{database_key}, env=#{env}, config=#{key}\n")
+    trace("Database Create [#{db_name}]: database_key=#{database_key}, env=#{env}, config_key=#{key}")
     run_filtered_sql(database_key, env, sql)
     if !DbTasks::Config.app_version.nil?
       sql = <<SQL
@@ -624,7 +730,7 @@ SQL
     table_ordering(module_name).each do |t|
       files += [t] if File.exist?("#{dir}/#{t}.yml")
     end
-    DbTasks.info("Loading fixtures: #{files.join(',')}")
+    info("Loading fixtures: #{files.join(',')}")
     Fixtures.create_fixtures(dir, files)
   end
 
@@ -707,7 +813,7 @@ SQL
   def self.run_sql_in_dir(database_key, env, label, dir)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
-      DbTasks.info("#{label}: #{File.basename(sp)}\n")
+      info("#{label}: #{File.basename(sp)}")
       run_filtered_sql(database_key, env, IO.readlines(sp).join)
     end
   end
