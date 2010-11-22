@@ -2,14 +2,14 @@
 # * database_key: a symbolic name of database. i.e. "central", "master", "core",
 #   "ifis", "msdb" etc
 # * env: a development environment. i.e. "test", "development", "production"
-# * schema: name of the database directory in which sets of related database
-#   files are stored. i.e. "audit", "auth", "interpretation", ...
+# * module_name: the name of the database directory in which sets of related database
+#   files are stored. i.e. "Audit", "Auth", "Interpretation", ...
 # * config_key: the name of entry in YAML file to look up configuration. Typically
 #   constructed by database_key and env separated by an underscore. i.e.
 #   "central_development", "master_test" etc.
 
 # It should also be noted that the in some cases there is a database_key and
-# schema with the same name. This was due to legacy reasons and should be avoided
+# module_key with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
 class DbTasks
@@ -113,13 +113,31 @@ class DbTasks
     @@table_order_resolver = block
   end
 
+  # Enable domgen support. It is assumed that all databases created by dbt
+  # are managed via domgen and there is a single schema set, a single task to
+  # generate sql etc. If domgen needs to be per database then this may need to
+  # change in the future.
+  def self.enable_domgen(schema_set_key, load_task_name, generate_task_name)
+    define_table_order_resolver do |schema_key|
+      require 'domgen'
+      schema = Domgen.schema_set_by_name(schema_set_key).schema_by_name(schema_key.to_s)
+      schema.object_types.select { |object_type| !object_type.abstract? }.collect do |object_type|
+        object_type.sql.qualified_table_name
+      end
+    end
+    task 'dbt:load_config' => load_task_name
+    task 'dbt:pre_build' => generate_task_name
+  end
+
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
+
+    task "dbt:#{database_key}:load_config" => ["dbt:load_config"]
 
     # Database dropping
 
     desc "Drop the #{database_key} database."
-    task "dbt:#{database_key}:drop" => ['dbt:load_config'] do
+    task "dbt:#{database_key}:drop" => ["dbt:#{database_key}:load_config"] do
       DbTasks.info("**** Dropping database: #{database_key} ****")
       DbTasks.drop(database_key, DbTasks::Config.environment)
     end
@@ -127,7 +145,7 @@ class DbTasks
     # Database creation
 
     desc "Create the #{database_key} database."
-    task "dbt:#{database_key}:create" => ["dbt:load_config",
+    task "dbt:#{database_key}:create" => ["dbt:#{database_key}:load_config",
                                           "dbt:#{database_key}:banner",
                                           "dbt:#{database_key}:pre_build",
                                           "dbt:#{database_key}:build",
@@ -138,7 +156,7 @@ class DbTasks
       DbTasks.info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
     end
 
-    task "dbt:#{database_key}:pre_build" => ['dbt:load_config', 'dbt:pre_build']
+    task "dbt:#{database_key}:pre_build" => ["dbt:#{database_key}:load_config", 'dbt:pre_build']
 
     task "dbt:#{database_key}:post_build"
 
@@ -154,7 +172,7 @@ class DbTasks
 
     (options[:datasets] || []).each do |dataset_name|
       desc "Loads #{dataset_name} data"
-      task "dbt:#{database_key}:datasets:#{dataset_name}" => ['dbt:load_config'] do
+      task "dbt:#{database_key}:datasets:#{dataset_name}" => ["dbt:#{database_key}:load_config"] do
         modules.each do |module_name|
           DbTasks.load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
         end
@@ -267,7 +285,7 @@ SQL
 
   def self.define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
     desc "Up the #{schema_group_name} schema group in the #{database_key} database."
-    task "dbt:#{database_key}:#{schema_group_name}:up" => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
+    task "dbt:#{database_key}:#{schema_group_name}:up" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
       DbTasks.info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
       modules.each do |module_name|
         schema_name = schema_overide_for_module(module_name, options)
@@ -277,7 +295,7 @@ SQL
     end
 
     desc "Down the #{schema_group_name} schema group in the #{database_key} database."
-    task "dbt:#{database_key}:#{schema_group_name}:down" => ['dbt:load_config', "dbt:#{database_key}:pre_build"] do
+    task "dbt:#{database_key}:#{schema_group_name}:down" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
       DbTasks.info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
       DbTasks.init(database_key, DbTasks::Config.environment)
       modules.reverse.each do |module_name|
@@ -428,7 +446,7 @@ SQL
 
     taskname = is_default_import ? :import : :"#{import_key}-import"
     desc "#{desc_prefix} #{description} of the #{database_key} database."
-    task "#{prefix}:#{taskname}" => ['dbt:load_config'] do
+    task "#{prefix}:#{taskname}" => ["dbt:#{database_key}:load_config"] do
       import_modules.each do |module_name|
         import(database_key, DbTasks::Config.environment, module_name, import_dir, reindex)
       end
@@ -437,7 +455,7 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task 'dbt:load_config' do
+      task "dbt:load_config" do
         require 'activerecord'
         require 'active_record/fixtures'
         @@database_driver_hooks.each do |database_hook|
@@ -446,7 +464,7 @@ SQL
         ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
-      task 'dbt:pre_build' => ['dbt:load_config']
+      task "dbt:pre_build" => ["dbt:load_config"]
 
       @@defined_init_tasks = true
     end
