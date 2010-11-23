@@ -26,6 +26,13 @@ class DbTasks
         @environment
       end
 
+      attr_writer :default_collation
+
+      def default_collation
+        return 'SQL_Latin1_General_CP1_CS_AS' unless @default_collation
+        @default_collation
+      end
+
       attr_writer :default_database
 
       def default_database
@@ -162,9 +169,11 @@ class DbTasks
 
     task "dbt:#{database_key}:build" do
       modules.each_with_index do |module_name, idx|
-        recreate_db = idx == 0
+        if idx == 0
+          create_database(database_key, DbTasks::Config.environment, options[:collation])
+        end
         schema_name = schema_overide_for_module(module_name, options)
-        create_module(database_key, DbTasks::Config.environment, module_name, recreate_db, schema_name)
+        create_module(database_key, DbTasks::Config.environment, module_name, schema_name)
       end
     end
 
@@ -304,7 +313,7 @@ SQL
       modules.each do |module_name|
         schema_name = schema_overide_for_module(module_name, options)
         next unless schemas.include?(schema_name)
-        create_module(database_key, DbTasks::Config.environment, module_name, false, schema_name)
+        create_module(database_key, DbTasks::Config.environment, module_name, schema_name)
       end
     end
 
@@ -372,8 +381,7 @@ SQL
     get_config(target_config)
     get_config(source_config)
 
-    phsyical_name = get_config(target_config)['database']
-    trace("Database Import [#{phsyical_name}]: module_name=#{module_name}, database_key=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}")
+    trace("Database Import [#{physical_database_name(database_key, env)}]: module_name=#{module_name}, database_key=#{database_key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}")
     setup_connection(target_config)
 
     # Iterate over module in dependency order doing import as appropriate
@@ -403,17 +411,15 @@ SQL
   end
 
   def self.backup(database_key, env)
-    config = get_config(config_key(database_key, env))
-    phsyical_name = config['database']
+    phsyical_name = physical_database_name(database_key, env)
     info("Backup Database [#{phsyical_name}]: database_key=#{database_key}, env=#{env}")
-    instance_registry_key = config['instance_registry_key']
-    raise "Attempting to backup database but no instance_registry_key defined for configuration." unless instance_registry_key
+    registry_key = instance_registry_key(database_key, env)
     sql = <<SQL
 USE [msdb]
 
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
     @value_name='BackupDirectory',
     @value=@BackupDir OUTPUT
   IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
@@ -428,21 +434,15 @@ SQL
   end
 
   def self.restore(database_key, env)
-    config_key = config_key(database_key, env)
-    config = get_config(config_key)
-    phsyical_name = get_config(config_key)['database']
+    phsyical_name = physical_database_name(database_key, env)
     info("Restore Database [#{phsyical_name}]: database_key=#{database_key}, env=#{env}")
-    instance_registry_key = config['instance_registry_key']
-    raise "Attempting to restore database but no instance_registry_key key defined for configuration." unless instance_registry_key
-    restore_from = config['restore_from']
-    raise "Attempting to restore database but no restore_from key defined for configuration." unless restore_from
-
+    registry_key = instance_registry_key(database_key, env)
     sql = <<SQL
   USE [msdb]
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
   SET @TargetDatabase = '#{phsyical_name}'
-  SET @SourceDatabase = '#{restore_from}'
+  SET @SourceDatabase = '#{restore_from(database_key, env)}'
 
   DECLARE @BackupFile VARCHAR(400)
   DECLARE @DataLogicalName VARCHAR(400)
@@ -469,12 +469,12 @@ SQL
   IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
 
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
     @value_name='DefaultData',
     @value=@DataDir OUTPUT
   IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{instance_registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
     @value_name='DefaultLog',
     @value=@LogDir OUTPUT
   IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
@@ -495,20 +495,18 @@ SQL
   end
 
   def self.drop(database_key, env)
-    key = config_key(database_key, env)
     init_msdb
-    db = get_config(key)['database']
-    force_drop = true == get_config(key)['force_drop']
+    phsyical_name = physical_database_name(database_key, env)
 
-    sql = if force_drop
+    sql = if force_drop?(database_key, env)
       <<SQL
 USE [msdb]
 GO
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{db}')
-    ALTER DATABASE [#{db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+      WHERE state = 0 AND db_name(database_id) = '#{phsyical_name}')
+    ALTER DATABASE [#{phsyical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
 GO
 SQL
     else
@@ -521,25 +519,17 @@ GO
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{db}')
-    DROP DATABASE [#{db}]
+      WHERE state = 0 AND db_name(database_id) = '#{phsyical_name}')
+    DROP DATABASE [#{phsyical_name}]
 GO
 SQL
-    trace("Database Drop [#{db}]: database_key=#{database_key}, env=#{env}, key=#{key}")
+    trace("Database Drop [#{phsyical_name}]: database_key=#{database_key}, env=#{env}")
     run_filtered_sql(database_key, env, sql)
   end
 
-  def self.create_module(database_key, env, module_name, create_database, schema_name)
-    key = config_key(database_key, env)
-    physical_name = get_config(key)['database']
-    create_database = false if true == get_config(key)['no_create']
-    if create_database
-      init_msdb
-      recreate_db(database_key, env, true)
-    else
-      setup_connection(key)
-    end
-    trace("Database Load [#{physical_name}]: module=#{module_name}, database_key=#{database_key}, env=#{env}, config_key=#{key}")
+  def self.create_module(database_key, env, module_name, schema_name)
+    init(database_key, env)
+    trace("Database Load [#{physical_database_name(database_key, env)}]: module=#{module_name}, database_key=#{database_key}, env=#{env}")
     if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
       run_filtered_sql(database_key, env, "CREATE SCHEMA [#{schema_name}]")
     end
@@ -586,13 +576,11 @@ SQL
   end
 
   def self.run_import_sql(database_key, env, sql, change_to_msdb = true)
-    target_config = config_key(database_key, env)
-    source_config = config_key(database_key, "import")
     sql = filter_sql("msdb", "import", sql)
-    sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", source_config)
-    sql = filter_database_name(sql, /@@TARGET@@/, "msdb", target_config)
+    sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database_key, "import"))
+    sql = filter_database_name(sql, /@@TARGET@@/, "msdb", config_key(database_key, env))
     c = ActiveRecord::Base.connection
-    current_database = get_config(target_config)["database"]
+    current_database = physical_database_name(database_key, env)
     if change_to_msdb
       c.execute "USE [msdb]"
       run_sql(sql)
@@ -654,46 +642,51 @@ SQL
     ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
   end
 
-  def self.recreate_db(database_key, env, cs = true)
+  def self.create_database(database_key, env, collation)
+    return if no_create?(database_key, env)
+    init_msdb
     drop(database_key, env)
-    key = config_key(database_key, env)
-    config = get_config(key)
-    db_name = config['database']
-    collation = cs ? 'COLLATE SQL_Latin1_General_CP1_CS_AS' : ''
+    physical_name = physical_database_name(database_key, env)
     if DbTasks::Config.app_version.nil?
-      db_filename = db_name
+      db_filename = physical_name
     else
-      db_filename = "#{db_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
+      db_filename = "#{physical_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
     end
-    db_def = config["data_path"] ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{config["data_path"]}#{"\\"}#{db_filename}.mdf')" : ""
-    log_def = config["log_path"] ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{config["log_path"]}#{"\\"}#{db_filename}.ldf')" : ""
+    base_data_path = data_path(database_key, env)
+    base_log_path = log_path(database_key, env)
+
+    db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
+    log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
+
+    collation ||= DbTasks::Config.default_collation
+    collation_def = collation ? "COLLATE #{collation}" : ""
 
     sql = <<SQL
-CREATE DATABASE [#{db_name}] #{db_def} #{log_def} #{collation}
+CREATE DATABASE [#{physical_name}] #{db_def} #{log_def} #{collation_def}
 GO
-ALTER DATABASE [#{db_name}] SET CURSOR_DEFAULT LOCAL
-ALTER DATABASE [#{db_name}] SET CURSOR_CLOSE_ON_COMMIT ON
+ALTER DATABASE [#{physical_name}] SET CURSOR_DEFAULT LOCAL
+ALTER DATABASE [#{physical_name}] SET CURSOR_CLOSE_ON_COMMIT ON
 
-ALTER DATABASE [#{db_name}] SET AUTO_CREATE_STATISTICS ON
-ALTER DATABASE [#{db_name}] SET AUTO_UPDATE_STATISTICS ON
-ALTER DATABASE [#{db_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
+ALTER DATABASE [#{physical_name}] SET AUTO_CREATE_STATISTICS ON
+ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS ON
+ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
 
-ALTER DATABASE [#{db_name}] SET ANSI_NULL_DEFAULT ON
-ALTER DATABASE [#{db_name}] SET ANSI_NULLS ON
-ALTER DATABASE [#{db_name}] SET ANSI_PADDING ON
-ALTER DATABASE [#{db_name}] SET ANSI_WARNINGS ON
-ALTER DATABASE [#{db_name}] SET ARITHABORT ON
-ALTER DATABASE [#{db_name}] SET CONCAT_NULL_YIELDS_NULL ON
-ALTER DATABASE [#{db_name}] SET QUOTED_IDENTIFIER ON
-ALTER DATABASE [#{db_name}] SET NUMERIC_ROUNDABORT ON
-ALTER DATABASE [#{db_name}] SET RECURSIVE_TRIGGERS ON
+ALTER DATABASE [#{physical_name}] SET ANSI_NULL_DEFAULT ON
+ALTER DATABASE [#{physical_name}] SET ANSI_NULLS ON
+ALTER DATABASE [#{physical_name}] SET ANSI_PADDING ON
+ALTER DATABASE [#{physical_name}] SET ANSI_WARNINGS ON
+ALTER DATABASE [#{physical_name}] SET ARITHABORT ON
+ALTER DATABASE [#{physical_name}] SET CONCAT_NULL_YIELDS_NULL ON
+ALTER DATABASE [#{physical_name}] SET QUOTED_IDENTIFIER ON
+ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT ON
+ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
-ALTER DATABASE [#{db_name}] SET RECOVERY SIMPLE
+ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
 
 GO
-  USE [#{db_name}]
+  USE [#{physical_name}]
 SQL
-    trace("Database Create [#{db_name}]: database_key=#{database_key}, env=#{env}, config_key=#{key}")
+    trace("Database Create [#{physical_name}]: database_key=#{database_key}, env=#{env}")
     run_filtered_sql(database_key, env, sql)
     if !DbTasks::Config.app_version.nil?
       sql = <<SQL
@@ -718,7 +711,7 @@ SQL
   end
 
   def self.load_dataset(database_key, env, module_name, dataset_name)
-    setup_connection(config_key(database_key, env))
+    init(database_key, env)
     load_fixtures_from_dirs(module_name, dirs_for_module(module_name, "datasets/#{dataset_name}"))
   end
 
@@ -850,4 +843,40 @@ SQL
   def self.trace(message)
     puts message if ActiveRecord::Migration.verbose
   end
+
+  def self.no_create?(database_key, env)
+    true == config_value(database_key, env, "no_create", true)
+  end
+
+  def self.force_drop?(database_key, env)
+    true == config_value(database_key, env, "force_drop", true)
+  end
+
+  def self.data_path(database_key, env)
+    config_value(database_key, env, "data_path", true)
+  end
+
+  def self.log_path(database_key, env)
+    config_value(database_key, env, "log_path", true)
+  end
+
+  def self.restore_from(database_key, env)
+    config_value(database_key, env, "restore_from", false)
+  end
+
+  def self.instance_registry_key(database_key, env)
+    config_value(database_key, env, "instance_registry_key", false)
+  end
+
+  def self.physical_database_name(database_key, env)
+    config_value(database_key, env, "database", false)
+  end
+
+  def self.config_value(database_key, env, config_param_name, allow_nil)
+    config_key = config_key(database_key, env)
+    value = get_config(config_key)[config_param_name]
+    raise "Unable to locate configuration value named #{config_param_name} in section #{config_key}" if !allow_nil && value.nil?
+    value
+  end
+ 
 end
