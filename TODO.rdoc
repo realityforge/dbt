@@ -1,8 +1,6 @@
 = TODO
 
-== Collation should be configurable per database
-
-== Search path should be configurable per database 
+== Search path should be configurable per database
 
 == msdb config should be inferred
 
