@@ -300,6 +300,15 @@ BEGIN
 END
 
 SQL
+      sql = sql.gsub(/ASSERT\((.+),(.+)\)/, <<SQL)
+IF (\\1)
+BEGIN
+  DECLARE @Message VARCHAR(500)
+  SET @Message = \\2
+  RAISERROR (@Message, 16, 1) WITH SETERROR
+END
+
+SQL
       sql
     end
   end
