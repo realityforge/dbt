@@ -301,7 +301,7 @@ END
 
 SQL
       sql = sql.gsub(/ASSERT\((.+),(.+)\)/, <<SQL)
-IF (\\1)
+IF NOT (\\1)
 BEGIN
   DECLARE @Message VARCHAR(500)
   SET @Message = \\2
