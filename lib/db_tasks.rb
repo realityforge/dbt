@@ -202,6 +202,8 @@ class DbTasks
                              import_modules,
                              import_dir(import_config),
                              import_reindex(import_config),
+                             pre_import_dirs(import_config),
+                             post_import_dirs(import_config),
                              "contents")
         end
       end
@@ -361,12 +363,21 @@ SQL
                                import_modules,
                                import_dir(import_config),
                                import_reindex(import_config),
+                               pre_import_dirs(import_config),
+                               post_import_dirs(import_config),
                                description)
           end
         end
       end
     end
+  end
 
+  def self.pre_import_dirs(import_config)
+    import_config[:pre_import_dirs] || []
+  end
+
+  def self.post_import_dirs(import_config)
+    import_config[:post_import_dirs] || []
   end
 
   def self.import_reindex(import_config)
@@ -545,15 +556,21 @@ SQL
     process_module(database_key, env, module_name, true)
   end
 
-  def self.define_import_task(prefix, database_key, import_key, import_modules, import_dir, reindex, description)
+  def self.define_import_task(prefix, database_key, import_key, import_modules, import_dir, reindex, pre_import_dirs, post_import_dirs, description)
     is_default_import = import_key == :default
     desc_prefix = is_default_import ? 'Import' : "#{import_key.to_s.capitalize} import"
 
     taskname = is_default_import ? :import : :"#{import_key}-import"
     desc "#{desc_prefix} #{description} of the #{database_key} database."
     task "#{prefix}:#{taskname}" => ["dbt:#{database_key}:load_config"] do
+      pre_import_dirs.each do |dir|
+        run_sql_in_dirs(database_key, DbTasks::Config.environment, "pre-import", dirs_for_database(dir), true)
+      end
       import_modules.each do |module_name|
         import(database_key, DbTasks::Config.environment, module_name, import_dir, reindex)
+      end
+      post_import_dirs.each do |dir|
+        run_sql_in_dirs(database_key, DbTasks::Config.environment, "post-import", dirs_for_database(dir), true)
       end
     end
   end
@@ -806,22 +823,31 @@ SQL
     sql
   end
 
-  def self.run_sql_in_dirs(database_key, env, label, dirs)
+  def self.run_sql_in_dirs(database_key, env, label, dirs, is_import = false)
     dirs.each do |dir|
-      run_sql_in_dir(database_key, env, label, dir) if File.exists?(dir)
+      run_sql_in_dir(database_key, env, label, dir, is_import) if File.exists?(dir)
     end
   end
 
-  def self.run_sql_in_dir(database_key, env, label, dir)
+  def self.run_sql_in_dir(database_key, env, label, dir, is_import)
     check_dir(label, dir)
     Dir["#{dir}/*.sql"].sort.each do |sp|
       info("#{label}: #{File.basename(sp)}")
-      run_filtered_sql(database_key, env, IO.readlines(sp).join)
+      sql = IO.readlines(sp).join
+      if is_import
+        run_import_sql(database_key, env, sql)
+      else
+        run_filtered_sql(database_key, env, sql)
+      end
     end
   end
 
   def self.dirs_for_module(module_name, subdir = nil)
     DbTasks::Config.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+  end
+
+  def self.dirs_for_database(subdir)
+    DbTasks::Config.search_dirs.map { |d| "#{d}/#{subdir}" }
   end
 
   def self.first_file_from(files)
