@@ -411,7 +411,7 @@ SQL
     end
     tables.reverse.each do |table|
       info("Deleting #{table}")
-      run_import_sql(database_key, env, "DELETE FROM @@TARGET@@.#{table}")
+      run_import_sql(database_key, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
     end
 
     tables.each do |table|
@@ -421,12 +421,12 @@ SQL
     if reindex
       tables.each do |table|
         info("Reindexing #{table}")
-        run_import_sql(database_key, env, "DBCC DBREINDEX (N'@@TARGET@@.#{table}', '', 0) WITH NO_INFOMSGS")
+        run_import_sql(database_key, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
       end
 
-      run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-      run_import_sql(database_key, env, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-      run_import_sql(database_key, env, "EXEC @@TARGET@@.dbo.sp_updatestats")
+      run_import_sql(database_key, env, table, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, table, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, table, "EXEC @@TARGET@@.dbo.sp_updatestats")
     end
   end
 
@@ -601,8 +601,9 @@ SQL
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.run_import_sql(database_key, env, sql, change_to_msdb = true)
+  def self.run_import_sql(database_key, env, table, sql, change_to_msdb = true)
     sql = filter_sql("msdb", "import", sql)
+    sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database_key, "import"))
     sql = filter_database_name(sql, /@@TARGET@@/, "msdb", config_key(database_key, env))
     c = ActiveRecord::Base.connection
@@ -627,14 +628,14 @@ SQL
   end
 
   def self.perform_standard_import(database_key, env, table)
-    run_import_sql(database_key, env, generate_standard_import_sql(table))
+    run_import_sql(database_key, env, table, generate_standard_import_sql(table))
   end
 
   def self.perform_import(database_key, env, module_name, table, import_dir)
     has_identity = has_identity_column(table)
 
-    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{table} ON") if has_identity
-    run_import_sql(database_key, env, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.#{table}\"", false)
+    run_import_sql(database_key, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ ON") if has_identity
+    run_import_sql(database_key, env, table, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
 
     fixture_file = fixture_for_import(module_name, table, import_dir)
     sql_file = sql_for_import(module_name, table, import_dir)
@@ -644,13 +645,13 @@ SQL
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
-      run_import_sql(database_key, env, IO.readlines(sql_file).join)
+      run_import_sql(database_key, env, table, IO.readlines(sql_file).join)
     else
       perform_standard_import(database_key, env, table)
     end
 
-    run_import_sql(database_key, env, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.#{table}\"", false)
-    run_import_sql(database_key, env, "SET IDENTITY_INSERT @@TARGET@@.#{table} OFF") if has_identity
+    run_import_sql(database_key, env, table, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
+    run_import_sql(database_key, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ OFF") if has_identity
   end
 
   def self.has_identity_column(table)
@@ -835,7 +836,7 @@ SQL
       info("#{label}: #{File.basename(sp)}")
       sql = IO.readlines(sp).join
       if is_import
-        run_import_sql(database_key, env, sql)
+        run_import_sql(database_key, env, nil, sql)
       else
         run_filtered_sql(database_key, env, sql)
       end
