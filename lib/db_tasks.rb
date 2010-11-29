@@ -275,39 +275,38 @@ class DbTasks
   end
 
   # Makes the import scripts support statements such as
-  #   ASSERT_ROW_COUNT(Audit.tblClientError,1)
-  #   ASSERT_ROW_COUNT(Audit.tblClientError,SELECT COUNT(*) FROM Foo)
-  #   ASSERT_UNCHANGED_ROW_COUNT(Audit.tblExecutionType)
+  #   ASSERT_ROW_COUNT(1)
+  #   ASSERT_ROW_COUNT(SELECT COUNT(*) FROM Foo)
+  #   ASSERT_UNCHANGED_ROW_COUNT()
+  #   ASSERT(@Id IS NULL)
   #
   def self.add_import_assert_filters
     #noinspection RubyUnusedLocalVariable
     add_filter do |current_config, env, sql|
-      sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\((.+)\)/, <<SQL)
+      sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 DECLARE @Status VARCHAR(50)
 SELECT @Status = 'SUCCESS'
-WHERE (SELECT COUNT(*) FROM @@TARGET@@.\\1) = (SELECT COUNT(*) FROM @@SOURCE@@.\\1)
+WHERE (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) = (SELECT COUNT(*) FROM @@SOURCE@@.\\1)
 IF @Status IS NULL
 BEGIN
-  RAISERROR ('Actual row count for \\1 does not match expected rowcount', 16, 1) WITH SETERROR
+  RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 
 SQL
-      sql = sql.gsub(/ASSERT_ROW_COUNT\((.*),(.*)\)/, <<SQL)
+      sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
 DECLARE @Status VARCHAR(50)
 SELECT @Status = 'SUCCESS'
-WHERE (SELECT COUNT(*) FROM @@TARGET@@.\\1) = (\\2)
+WHERE (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) = (\\1)
 IF @Status IS NULL
 BEGIN
-  RAISERROR ('Actual row count for \\1 does not match expected rowcount', 16, 1) WITH SETERROR
+  RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 
 SQL
-      sql = sql.gsub(/ASSERT\((.+),(.+)\)/, <<SQL)
+      sql = sql.gsub(/ASSERT\((.+)\)/, <<SQL)
 IF NOT (\\1)
 BEGIN
-  DECLARE @Message VARCHAR(500)
-  SET @Message = \\2
-  RAISERROR (@Message, 16, 1) WITH SETERROR
+  RAISERROR ('Failed to assert \\1', 16, 1) WITH SETERROR
 END
 
 SQL
