@@ -423,9 +423,9 @@ SQL
         run_import_sql(database_key, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
       end
 
-      run_import_sql(database_key, env, table, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-      run_import_sql(database_key, env, table, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-      run_import_sql(database_key, env, table, "EXEC @@TARGET@@.dbo.sp_updatestats")
+      run_import_sql(database_key, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+      run_import_sql(database_key, env, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
     end
   end
 
