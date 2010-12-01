@@ -558,6 +558,7 @@ SQL
     taskname = is_default_import ? :import : :"#{import_key}-import"
     desc "#{desc_prefix} #{description} of the #{database_key} database."
     task "#{prefix}:#{taskname}" => ["dbt:#{database_key}:load_config"] do
+      init(database_key, DbTasks::Config.environment)
       pre_import_dirs.each do |dir|
         run_sql_in_dirs(database_key, DbTasks::Config.environment, "pre-import", dirs_for_database(dir), true)
       end
