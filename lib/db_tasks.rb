@@ -64,20 +64,158 @@ class DbTasks
         @search_dirs
       end
 
-      attr_writer :sql_dirs
+      attr_writer :default_up_dirs
 
-      def sql_dirs
-        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @sql_dirs
-        @sql_dirs
+      def default_up_dirs
+        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @default_up_dirs
+        @default_up_dirs
       end
 
-      attr_writer :down_dirs
+      attr_writer :default_down_dirs
 
-      # Return the list of dirs to prcess when downing module
-      def down_dirs
-        return ['down'] unless @down_dirs
-        @down_dirs
+      def default_down_dirs
+        return ['down'] unless @default_down_dirs
+        @default_down_dirs
       end
+    end
+  end
+
+  class ImportDefinition
+    def initialize(database, key, options)
+      @database = database
+      @key = key
+      @modules = options[:modules] if options[:modules]
+      @dir = options[:dir] if options[:dir]
+      @reindex = options[:reindex] if options[:reindex]
+      @pre_import_dirs = options[:pre_import_dirs] if options[:pre_import_dirs]
+      @post_import_dirs = options[:post_import_dirs] if options[:post_import_dirs]
+    end
+
+    attr_accessor :database
+    attr_accessor :key
+
+    def modules
+      @modules || database.modules
+    end
+
+    def dir
+      @dir || "import"
+    end
+
+    attr_writer :reindex
+
+    def reindex?
+      @reindex || false
+    end
+
+    attr_writer :pre_import_dirs
+
+    def pre_import_dirs
+      @pre_import_dirs || []
+    end
+
+    attr_writer :post_import_dirs
+
+    def post_import_dirs
+      @post_import_dirs || []
+    end
+  end
+
+  class DatabaseDefinition
+
+    def initialize(key, modules, options)
+      @key = key
+      @modules = modules
+      @collation = DbTasks::Config.default_collation
+      @backup = options[:backup] if options[:backup]
+      @restore = options[:restore] if options[:restore]
+      @schema_groups = options[:schema_groups] if options[:schema_groups]
+      @datasets = options[:datasets] if options[:datasets]
+      @collation = options[:collation] if options[:collation]
+      @schema_overrides = options[:schema_overrides] if options[:schema_overrides]
+
+      @imports = {}
+      imports_config = options[:imports]
+      if imports_config
+        imports_config.keys.each do |key|
+          import_config = imports_config[key]
+          if import_config
+            @imports[key] = ImportDefinition.new(self, key,import_config)
+          end
+        end
+      end
+    end
+
+    # symbolic name of database
+    attr_reader :key
+
+    # List of modules to process for database
+    attr_reader :imports
+
+    # List of import configurations
+    attr_reader :modules
+
+    # Database version. Stuffed as an extended property and used when creating filename.
+    attr_accessor :app_version
+
+    # The collation name for database. Nil means take the dbt default_collation, if that is nil then take db default
+    attr_accessor :collation
+
+    attr_writer :search_dirs
+
+    def search_dirs
+      @search_dirs || DbTasks::Config.search_dirs
+    end
+
+    attr_writer :up_dirs
+
+    # Return the list of dirs to process when "upping" module
+    def up_dirs
+      @up_dirs || DbTasks::Config.default_up_dirs
+    end
+
+    attr_writer :down_dirs
+
+    # Return the list of dirs to process when "downing" module
+    def down_dirs
+      @down_dirs || DbTasks::Config.default_down_dirs
+    end
+
+    attr_writer :datasets
+
+    # List of datasets that should be defined.
+    def datasets
+      @datasets || []
+    end
+
+    attr_writer :backup
+
+    # Should the a backup task be defined for database?
+    def backup?
+      @backup || false
+    end
+
+    attr_writer :restore
+
+    # Should the a restore task be defined for database?
+    def restore?
+      @restore || false
+    end
+
+    # Map of module => schema overrides
+    # i.e. What database schema is created for a specific module
+    def schema_overrides
+      @schema_overrides ||= {}
+    end
+
+    def schema_name_for_module(module_name)
+    schema_overrides[module_name] || module_name
+  end
+
+    # A map of names => schema groups.
+    # A schema group is a set of database schemas that can be managed as a group. i.e. Upped or downed together.
+    def schema_groups
+      @schema_groups ||= {}
     end
   end
 
@@ -139,91 +277,86 @@ class DbTasks
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
-    task "dbt:#{database_key}:load_config" => ["dbt:load_config"]
+    database = DatabaseDefinition.new(database_key, modules, options)
+
+    task "dbt:#{database.key}:load_config" => ["dbt:load_config"]
 
     # Database dropping
 
-    desc "Drop the #{database_key} database."
-    task "dbt:#{database_key}:drop" => ["dbt:#{database_key}:load_config"] do
-      info("**** Dropping database: #{database_key} ****")
-      drop(database_key, DbTasks::Config.environment)
+    desc "Drop the #{database.key} database."
+    task "dbt:#{database.key}:drop" => ["dbt:#{database.key}:load_config"] do
+      info("**** Dropping database: #{database.key} ****")
+      drop(database.key, DbTasks::Config.environment)
     end
 
     # Database creation
 
-    desc "Create the #{database_key} database."
-    task "dbt:#{database_key}:create" => ["dbt:#{database_key}:load_config",
-                                          "dbt:#{database_key}:banner",
-                                          "dbt:#{database_key}:pre_build",
-                                          "dbt:#{database_key}:build",
-                                          "dbt:#{database_key}:post_build"]
+    desc "Create the #{database.key} database."
+    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:load_config",
+                                          "dbt:#{database.key}:banner",
+                                          "dbt:#{database.key}:pre_build",
+                                          "dbt:#{database.key}:build",
+                                          "dbt:#{database.key}:post_build"]
 
 
-    task "dbt:#{database_key}:banner" do
-      info("**** Creating database: #{database_key} (Environment: #{DbTasks::Config.environment}) ****")
+    task "dbt:#{database.key}:banner" do
+      info("**** Creating database: #{database.key} (Environment: #{DbTasks::Config.environment}) ****")
     end
 
-    task "dbt:#{database_key}:pre_build" => ["dbt:#{database_key}:load_config", 'dbt:pre_build']
+    task "dbt:#{database.key}:pre_build" => ["dbt:#{database.key}:load_config", 'dbt:pre_build']
 
-    task "dbt:#{database_key}:post_build"
+    task "dbt:#{database.key}:post_build"
 
-    task "dbt:#{database_key}:build" do
-      modules.each_with_index do |module_name, idx|
+    task "dbt:#{database.key}:build" do
+      database.modules.each_with_index do |module_name, idx|
         if idx == 0
-          create_database(database_key, DbTasks::Config.environment, options[:collation])
+          create_database(database.key, DbTasks::Config.environment, database.collation)
         end
-        schema_name = schema_overide_for_module(module_name, options)
-        create_module(database_key, DbTasks::Config.environment, module_name, schema_name)
+        schema_name = database.schema_name_for_module(module_name)
+        create_module(database.key, DbTasks::Config.environment, module_name, schema_name)
       end
     end
 
     # Data set loading etc
 
-    (options[:datasets] || []).each do |dataset_name|
+    database.datasets.each do |dataset_name|
       desc "Loads #{dataset_name} data"
-      task "dbt:#{database_key}:datasets:#{dataset_name}" => ["dbt:#{database_key}:load_config"] do
-        modules.each do |module_name|
-          load_dataset(database_key, DbTasks::Config.environment, module_name, dataset_name)
+      task "dbt:#{database.key}:datasets:#{dataset_name}" => ["dbt:#{database.key}:load_config"] do
+        database.modules.each do |module_name|
+          load_dataset(database.key, DbTasks::Config.environment, module_name, dataset_name)
         end
       end
     end
 
     # Import tasks
 
-    imports_config = options[:imports]
-    if imports_config
-      imports_config.keys.each do |key|
-        import_config = imports_config[key]
-        if import_config
-          import_modules = import_config[:modules] || modules
-          define_import_task("dbt:#{database_key}",
-                             database_key,
-                             key,
-                             import_modules,
-                             import_dir(import_config),
-                             import_reindex(import_config),
-                             pre_import_dirs(import_config),
-                             post_import_dirs(import_config),
-                             "contents")
-        end
+    database.imports.values.each do |imp|
+      define_import_task("dbt:#{database.key}",
+                         database.key,
+                         imp.key,
+                         imp.modules,
+                         imp.dir,
+                         imp.reindex?,
+                         imp.pre_import_dirs,
+                         imp.post_import_dirs,
+                         "contents")
+    end
+
+    database.schema_groups.each_pair do |schema_group_name, schemas|
+      define_schema_group_tasks(database, schema_group_name, schemas)
+    end
+
+    if database.backup?
+      desc "Perform backup of #{database.key} database"
+      task "dbt:#{database.key}:backup" => ["dbt:#{database.key}:load_config"] do
+        backup(database.key, DbTasks::Config.environment)
       end
     end
 
-    (options[:schema_groups] || {}).each_pair do |schema_group_name, schemas|
-      define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
-    end
-
-    if options[:backup]
-      desc "Perform backup of #{database_key} database"
-      task "dbt:#{database_key}:backup" => ["dbt:#{database_key}:load_config"] do
-        backup(database_key, DbTasks::Config.environment)
-      end
-    end
-
-    if options[:restore]
-      desc "Perform restore of #{database_key} database"
-      task "dbt:#{database_key}:restore" => ["dbt:#{database_key}:load_config"] do
-        DbTasks.restore(database_key, DbTasks::Config.environment)
+    if database.restore?
+      desc "Perform restore of #{database.key} database"
+      task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
+        DbTasks.restore(database.key, DbTasks::Config.environment)
       end
     end
   end
@@ -310,29 +443,29 @@ SQL
 
   private
 
-  def self.define_schema_group_tasks(database_key, modules, schema_group_name, schemas, options)
-    desc "Up the #{schema_group_name} schema group in the #{database_key} database."
-    task "dbt:#{database_key}:#{schema_group_name}:up" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
-      info("**** Upping schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
-      modules.each do |module_name|
-        schema_name = schema_overide_for_module(module_name, options)
+  def self.define_schema_group_tasks(database, schema_group_name, schemas)
+    desc "Up the #{schema_group_name} schema group in the #{database.key} database."
+    task "dbt:#{database.key}:#{schema_group_name}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Upping schema group: #{schema_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+      database.modules.each do |module_name|
+        schema_name = database.schema_name_for_module(module_name)
         next unless schemas.include?(schema_name)
-        create_module(database_key, DbTasks::Config.environment, module_name, schema_name)
+        create_module(database.key, DbTasks::Config.environment, module_name, schema_name)
       end
     end
 
-    desc "Down the #{schema_group_name} schema group in the #{database_key} database."
-    task "dbt:#{database_key}:#{schema_group_name}:down" => ["dbt:#{database_key}:load_config", "dbt:#{database_key}:pre_build"] do
-      info("**** Downing schema group: #{schema_group_name} (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
-      init(database_key, DbTasks::Config.environment)
-      modules.reverse.each do |module_name|
-        schema_name = schema_overide_for_module(module_name, options)
+    desc "Down the #{schema_group_name} schema group in the #{database.key} database."
+    task "dbt:#{database.key}:#{schema_group_name}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Downing schema group: #{schema_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+      init(database.key, DbTasks::Config.environment)
+      database.modules.reverse.each do |module_name|
+        schema_name = database.schema_name_for_module(module_name)
         next unless schemas.include?(schema_name)
-        process_module(database_key, DbTasks::Config.environment, module_name, false)
+        process_module(database.key, DbTasks::Config.environment, module_name, false)
       end
       schema_2_module = {}
-      modules.each do |module_name|
-        schema_name = schema_overide_for_module(module_name, options)
+      database.modules.each do |module_name|
+        schema_name = database.schema_name_for_module(module_name)
         (schema_2_module[schema_name] ||= []) << module_name
       end
       schemas.reverse.each do |schema_name|
@@ -340,49 +473,23 @@ SQL
       end
     end
 
-    imports_config = options[:imports]
-    if imports_config
-      imports_config.keys.each do |key|
-        import_config = imports_config[key]
-        if import_config
-          import_modules = (import_config[:modules] || modules).select do |module_name|
-            schemas.include?(schema_overide_for_module(module_name, options))
-          end
-          if !import_modules.empty?
-            description = "contents of the #{schema_group_name} schema group"
-            define_import_task("dbt:#{database_key}:#{schema_group_name}",
-                               database_key,
-                               key,
-                               import_modules,
-                               import_dir(import_config),
-                               import_reindex(import_config),
-                               pre_import_dirs(import_config),
-                               post_import_dirs(import_config),
-                               description)
-          end
-        end
+    database.imports.values.each do |imp|
+      import_modules = imp.modules.select do |module_name|
+        schemas.include?(database.schema_name_for_module(module_name))
+      end
+      if !import_modules.empty?
+        description = "contents of the #{schema_group_name} schema group"
+        define_import_task("dbt:#{database.key}:#{schema_group_name}",
+                           database.key,
+                           imp.key,
+                           imp.modules,
+                           imp.dir,
+                           imp.reindex?,
+                           imp.pre_import_dirs,
+                           imp.post_import_dirs,
+                           description)
       end
     end
-  end
-
-  def self.pre_import_dirs(import_config)
-    import_config[:pre_import_dirs] || []
-  end
-
-  def self.post_import_dirs(import_config)
-    import_config[:post_import_dirs] || []
-  end
-
-  def self.import_reindex(import_config)
-    import_config.has_key?(:reindex) ? import_config[:reindex] : true
-  end
-
-  def self.import_dir(import_config)
-    import_config[:dir] || "import"
-  end
-
-  def self.schema_overide_for_module(module_name, options)
-    (options[:schema_overrides] ? options[:schema_overrides][module_name] : nil) || module_name
   end
 
   def self.import(database_key, env, module_name, import_dir, reindex)
@@ -681,7 +788,6 @@ SQL
     db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
     log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
 
-    collation ||= DbTasks::Config.default_collation
     collation_def = collation ? "COLLATE #{collation}" : ""
 
     sql = <<SQL
@@ -720,7 +826,7 @@ SQL
   end
 
   def self.process_module(database_key, env, module_name, is_build)
-    dirs = is_build ? DbTasks::Config.sql_dirs : DbTasks::Config.down_dirs
+    dirs = is_build ? DbTasks::Config.default_up_dirs : DbTasks::Config.default_down_dirs
     dirs.each do |dir|
       run_sql_in_dirs(database_key, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(module_name, dir))
     end
