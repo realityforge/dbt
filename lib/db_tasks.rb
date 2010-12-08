@@ -127,7 +127,7 @@ class DbTasks
   def self.enable_domgen(schema_set_key, load_task_name, generate_task_name)
     define_table_order_resolver do |schema_key|
       require 'domgen'
-      schema = Domgen.schema_set_by_name(schema_set_key).schema_by_name(schema_key.to_s)
+      schema = Domgen.schema_set_by_name(schema_set_key).data_module_by_name(schema_key.to_s)
       schema.object_types.select { |object_type| !object_type.abstract? }.collect do |object_type|
         object_type.sql.qualified_table_name
       end
