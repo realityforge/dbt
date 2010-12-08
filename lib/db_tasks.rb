@@ -124,10 +124,10 @@ class DbTasks
   # are managed via domgen and there is a single schema set, a single task to
   # generate sql etc. If domgen needs to be per database then this may need to
   # change in the future.
-  def self.enable_domgen(schema_set_key, load_task_name, generate_task_name)
+  def self.enable_domgen(repository_key, load_task_name, generate_task_name)
     define_table_order_resolver do |schema_key|
       require 'domgen'
-      schema = Domgen.schema_set_by_name(schema_set_key).data_module_by_name(schema_key.to_s)
+      schema = Domgen.repository_by_name(repository_key).data_module_by_name(schema_key.to_s)
       schema.object_types.select { |object_type| !object_type.abstract? }.collect do |object_type|
         object_type.sql.qualified_table_name
       end
