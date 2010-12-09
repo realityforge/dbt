@@ -1,7 +1,5 @@
 = TODO
 
-== Search path should be configurable per database
-
 == msdb config should be inferred
 
 == perform_standard_import hook
