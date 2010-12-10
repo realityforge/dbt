@@ -806,7 +806,9 @@ ALTER DATABASE [#{physical_name}] SET ANSI_WARNINGS ON
 ALTER DATABASE [#{physical_name}] SET ARITHABORT ON
 ALTER DATABASE [#{physical_name}] SET CONCAT_NULL_YIELDS_NULL ON
 ALTER DATABASE [#{physical_name}] SET QUOTED_IDENTIFIER ON
-ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT ON
+-- NUMERIC_ROUNDABORT OFF is required for filtered indexes. The optimizer will also
+-- not consider indexed views if the setting is not set. 
+ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT OFF
 ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
 ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
