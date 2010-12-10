@@ -17,8 +17,6 @@ class DbTasks
   class Config
 
     class << self
-      attr_accessor :app_version
-
       attr_writer :environment
 
       def environment
@@ -218,7 +216,7 @@ SQL
     attr_reader :modules
 
     # Database version. Stuffed as an extended property and used when creating filename.
-    attr_accessor :app_version
+    attr_accessor :version
 
     # The collation name for database. Nil means take the dbt default_collation, if that is nil then take db default
     attr_accessor :collation
@@ -776,10 +774,10 @@ SQL
     init_msdb
     drop(database, env)
     physical_name = physical_database_name(database.key, env)
-    if DbTasks::Config.app_version.nil?
+    if database.version.nil?
       db_filename = physical_name
     else
-      db_filename = "#{physical_name}_#{DbTasks::Config.app_version.gsub(/\./, '_')}"
+      db_filename = "#{physical_name}_#{database.version.gsub(/\./, '_')}"
     end
     base_data_path = data_path(database.key, env)
     base_log_path = log_path(database.key, env)
@@ -818,9 +816,9 @@ GO
 SQL
     trace("Database Create [#{physical_name}]: database_key=#{database.key}, env=#{env}")
     run_filtered_sql(database, env, sql)
-    if !DbTasks::Config.app_version.nil?
+    if !database.version.nil?
       sql = <<SQL
-    EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{DbTasks::Config.app_version}'
+    EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database.version}'
 SQL
       run_filtered_sql(database, env, sql)
     end
