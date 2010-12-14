@@ -526,6 +526,10 @@ SQL
       run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
       info("Updating statistics")
       run_import_sql(database, env, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
+
+      # This updates the usage details for the database. i.e. how much space is take for each index/table 
+      info("Updating usage statistics")
+      run_import_sql(database, env, nil, "DBCC UPDATEUSAGE(N'@@TARGET@@') WITH NO_INFOMSGS, COUNT_ROWS")
     end
   end
 
