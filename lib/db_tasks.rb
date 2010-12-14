@@ -518,6 +518,9 @@ SQL
         run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
       end
 
+      # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
+      # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
+      # we reindex otherwise the indexes will be highly fragmented.
       info("Shrinking database")
       run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
       run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
