@@ -197,10 +197,10 @@ SQL
       @imports = {}
       imports_config = options[:imports]
       if imports_config
-        imports_config.keys.each do |key|
-          import_config = imports_config[key]
+        imports_config.keys.each do |import_key|
+          import_config = imports_config[import_key]
           if import_config
-            @imports[key] = ImportDefinition.new(self, key,import_config)
+            @imports[import_key] = ImportDefinition.new(self, import_key, import_config)
           end
         end
       end
@@ -304,6 +304,7 @@ SQL
 
   @@defined_init_tasks = false
   @@database_driver_hooks = []
+  @@databases = {}
 
   def self.init(database_key, env)
     setup_connection(config_key(database_key, env))
@@ -320,7 +321,11 @@ SQL
   def self.add_database(database_key, modules, options = {})
     self.define_basic_tasks
 
+    raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
+
     database = DatabaseDefinition.new(database_key, modules, options)
+    @@databases[database_key] = database
+
     yield database if block_given?
 
     define_tasks_for_database(database)
@@ -365,14 +370,22 @@ SQL
     end
   end
 
-  def self.load_tables_from_fixtures(tables, dir)
-    raise "Fixture directory #{dir} does not exist" unless File.exists?(dir)
-    ActiveRecord::Base.connection.transaction do
-      Fixtures.create_fixtures(dir, tables)
-    end
+  def self.load_modules_fixtures(database_key, env, module_name)
+    database = database_for_key(database_key)
+    init(database.key, env)
+    load_fixtures(database, module_name)
   end
 
   private
+
+  def self.database_for_key(database_key)
+    database = @@databases[database_key]
+    p @@databases.keys
+    p database_key
+    p database
+    raise "Missing database for key #{database_key}" unless database
+    database
+  end
 
   def self.define_tasks_for_database(database)
     task "dbt:#{database.key}:load_config" => ["dbt:load_config"]
@@ -836,9 +849,11 @@ SQL
     dirs.each do |dir|
       run_sql_in_dirs(database, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(database, module_name, dir))
     end
-    if is_build
-      load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, 'fixtures'))
-    end
+    load_fixtures(database, module_name) if is_build
+  end
+
+  def self.load_fixtures(database, module_name)
+    load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, 'fixtures'))
   end
 
   def self.check_dir(name, dir)
