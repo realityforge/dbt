@@ -69,6 +69,27 @@ class DbTasks
         @default_up_dirs
       end
 
+      attr_writer :default_finalize_dirs
+
+      def default_finalize_dirs
+        return ['finalize'] unless @default_finalize_dirs
+        @default_finalize_dirs
+      end
+
+      attr_writer :default_pre_import_dirs
+
+      def default_pre_import_dirs
+        return ['import-hooks/pre'] unless @default_post_import_dirs
+        @default_post_import_dirs
+      end
+
+      attr_writer :default_post_import_dirs
+
+      def default_post_import_dirs
+        return ['import-hooks/post'] unless @default_post_import_dirs
+        @default_post_import_dirs
+      end
+
       attr_writer :default_down_dirs
 
       def default_down_dirs
@@ -166,13 +187,13 @@ SQL
     attr_writer :pre_import_dirs
 
     def pre_import_dirs
-      @pre_import_dirs || []
+      @pre_import_dirs || DbTasks::Config.default_pre_import_dirs
     end
 
     attr_writer :post_import_dirs
 
     def post_import_dirs
-      @post_import_dirs || []
+      @post_import_dirs || DbTasks::Config.default_post_import_dirs
     end
 
     def filters
@@ -239,6 +260,15 @@ SQL
     # Return the list of dirs to process when "downing" module
     def down_dirs
       @down_dirs || DbTasks::Config.default_down_dirs
+    end
+
+    attr_writer :finalize_dirs
+
+    # Return the list of dirs to process when finalizing module.
+    # i.e. Getting database ready for use. Often this is the place to add expensive triggers, constraints and indexes
+    # after the import
+    def finalize_dirs
+      @finalize_dirs || DbTasks::Config.default_finalize_dirs
     end
 
     attr_writer :datasets
@@ -412,7 +442,8 @@ SQL
 
     desc "Create the #{database.key} database."
     task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
-      perform_create_action(database, DbTasks::Config.environment)
+      perform_create_action(database, DbTasks::Config.environment, :up)
+      perform_create_action(database, DbTasks::Config.environment, :finalize)
     end
 
     # Data set loading etc
@@ -438,8 +469,9 @@ SQL
       database.imports.values.each do |imp|
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
-          perform_create_action(database, DbTasks::Config.environment)
-          perform_import_action(imp, DbTasks::Config.environment)
+          perform_create_action(database, DbTasks::Config.environment, :up)
+          perform_import_action(imp, DbTasks::Config.environment, false)
+          perform_create_action(database, DbTasks::Config.environment, :finalize)
         end
       end
     end
@@ -466,7 +498,8 @@ SQL
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless schemas.include?(schema_name)
-        create_module(database, DbTasks::Config.environment, module_name, schema_name)
+        create_module(database, DbTasks::Config.environment, module_name, schema_name, :up)
+        create_module(database, DbTasks::Config.environment, module_name, schema_name, :finalize)
       end
     end
 
@@ -477,7 +510,7 @@ SQL
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless schemas.include?(schema_name)
-        process_module(database.key, DbTasks::Config.environment, module_name, false)
+        process_module(database.key, DbTasks::Config.environment, module_name, :down)
       end
       schema_2_module = {}
       database.modules.each do |module_name|
@@ -500,7 +533,7 @@ SQL
     end
   end
 
-  def self.import(database, env, module_name, import_dir, reindex)
+  def self.import(database, env, module_name, import_dir, reindex, should_perform_delete)
     ordered_tables = database.table_ordering(module_name)
 
     # check the database configurations are set
@@ -517,9 +550,11 @@ SQL
     tables = ordered_tables.reject do |table|
       fixture_for_creation(database, module_name, table)
     end
-    tables.reverse.each do |table|
-      info("Deleting #{table}")
-      run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+    if should_perform_delete
+      tables.reverse.each do |table|
+        info("Deleting #{table}")
+        run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+      end
     end
 
     tables.each do |table|
@@ -664,13 +699,13 @@ SQL
     run_filtered_sql(database, env, sql)
   end
 
-  def self.create_module(database, env, module_name, schema_name)
+  def self.create_module(database, env, module_name, schema_name, mode)
     init(database.key, env)
-    trace("Database Load [#{physical_database_name(database.key, env)}]: module=#{module_name}, database_key=#{database.key}, env=#{env}")
+    trace("Module #{mode == :up ? "create" : "finalize"} [#{physical_database_name(database.key, env)}]: module=#{module_name}, database_key=#{database.key}, env=#{env}")
     if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
       run_filtered_sql(database, env, "CREATE SCHEMA [#{schema_name}]")
     end
-    process_module(database, env, module_name, true)
+    process_module(database, env, module_name, mode)
   end
 
   def self.define_import_task(prefix, imp, description)
@@ -680,25 +715,25 @@ SQL
     taskname = is_default_import ? :import : :"#{imp.key}-import"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{taskname}" => ["dbt:#{imp.database.key}:load_config"] do
-      perform_import_action(imp, DbTasks::Config.environment)
+      perform_import_action(imp, DbTasks::Config.environment, true)
     end
   end
 
-  def self.perform_create_action(database, env)
+  def self.perform_create_action(database, env, mode)
     database.modules.each_with_index do |module_name, idx|
       create_database(database, env) if idx == 0
       schema_name = database.schema_name_for_module(module_name)
-      create_module(database, env, module_name, schema_name)
+      create_module(database, env, module_name, schema_name, mode)
     end
   end
 
-  def self.perform_import_action(imp, env)
+  def self.perform_import_action(imp, env, should_perform_delete)
     init(imp.database.key, env)
     imp.pre_import_dirs.each do |dir|
       run_sql_in_dirs(imp.database, env, "pre-import", dirs_for_database(imp.database, dir), true)
     end
     imp.modules.each do |module_name|
-      import(imp.database, env, module_name, imp.dir, imp.reindex?)
+      import(imp.database, env, module_name, imp.dir, imp.reindex?, should_perform_delete)
     end
     imp.post_import_dirs.each do |dir|
       run_sql_in_dirs(imp.database, env, "post-import", dirs_for_database(imp.database, dir), true)
@@ -849,12 +884,12 @@ SQL
     end
   end
 
-  def self.process_module(database, env, module_name, is_build)
-    dirs = is_build ? database.up_dirs : database.down_dirs
+  def self.process_module(database, env, module_name, mode)
+    dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
       run_sql_in_dirs(database, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(database, module_name, dir))
     end
-    load_fixtures(database, module_name) if is_build
+    load_fixtures(database, module_name) if mode == :up
   end
 
   def self.load_fixtures(database, module_name)
