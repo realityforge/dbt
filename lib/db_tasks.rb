@@ -380,9 +380,6 @@ SQL
 
   def self.database_for_key(database_key)
     database = @@databases[database_key]
-    p @@databases.keys
-    p database_key
-    p database
     raise "Missing database for key #{database_key}" unless database
     database
   end
@@ -406,7 +403,6 @@ SQL
                                           "dbt:#{database.key}:pre_build",
                                           "dbt:#{database.key}:build",
                                           "dbt:#{database.key}:post_build"]
-
 
     task "dbt:#{database.key}:banner" do
       info("**** Creating database: #{database.key} (Environment: #{DbTasks::Config.environment}) ****")
