@@ -415,6 +415,12 @@ SQL
 
   private
 
+  IMPORT_RESUME_AT_ENV_KEY = "IMPORT_RESUME_AT"
+
+  def self.partial_import_completed?
+    !!ENV[IMPORT_RESUME_AT_ENV_KEY]
+  end
+
   def self.database_for_key(database_key)
     database = @@databases[database_key]
     raise "Missing database for key #{database_key}" unless database
@@ -469,7 +475,7 @@ SQL
       database.imports.values.each do |imp|
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
-          perform_create_action(database, DbTasks::Config.environment, :up)
+          perform_create_action(database, DbTasks::Config.environment, :up) unless partial_import_completed?
           perform_import_action(imp, DbTasks::Config.environment, false)
           perform_create_action(database, DbTasks::Config.environment, :finalize)
         end
@@ -550,7 +556,7 @@ SQL
     tables = ordered_tables.reject do |table|
       fixture_for_creation(database, module_name, table)
     end
-    if should_perform_delete
+    if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
         info("Deleting #{table}")
         run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
@@ -558,7 +564,11 @@ SQL
     end
 
     tables.each do |table|
-      perform_import(database, env, module_name, table, import_dir)
+      if ENV[IMPORT_RESUME_AT_ENV_KEY] == table
+        run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+        ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
+      end
+      perform_import(database, env, module_name, table, import_dir) unless partial_import_completed?
     end
 
     if reindex
@@ -731,9 +741,12 @@ SQL
     init(imp.database.key, env)
     imp.pre_import_dirs.each do |dir|
       run_sql_in_dirs(imp.database, env, "pre-import", dirs_for_database(imp.database, dir), true)
-    end
+    end unless partial_import_completed?
     imp.modules.each do |module_name|
       import(imp.database, env, module_name, imp.dir, imp.reindex?, should_perform_delete)
+    end
+    if partial_import_completed?
+      raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
     end
     imp.post_import_dirs.each do |dir|
       run_sql_in_dirs(imp.database, env, "post-import", dirs_for_database(imp.database, dir), true)
