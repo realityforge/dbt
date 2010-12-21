@@ -65,14 +65,14 @@ class DbTasks
       attr_writer :default_up_dirs
 
       def default_up_dirs
-        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'triggers', 'misc'] unless @default_up_dirs
+        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'misc'] unless @default_up_dirs
         @default_up_dirs
       end
 
       attr_writer :default_finalize_dirs
 
       def default_finalize_dirs
-        return ['finalize'] unless @default_finalize_dirs
+        return ['triggers', 'finalize'] unless @default_finalize_dirs
         @default_finalize_dirs
       end
 
