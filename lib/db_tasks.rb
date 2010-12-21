@@ -248,6 +248,13 @@ SQL
       @datasets || []
     end
 
+    attr_writer :create_by_import
+
+    # Should a task be created to create by import?
+    def create_by_import?
+      @create_by_import || false
+    end
+
     attr_writer :backup
 
     # Should the a backup task be defined for database?
@@ -397,27 +404,15 @@ SQL
 
     # Database creation
 
-    desc "Create the #{database.key} database."
-    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:load_config",
-                                          "dbt:#{database.key}:banner",
-                                          "dbt:#{database.key}:pre_build",
-                                          "dbt:#{database.key}:build",
-                                          "dbt:#{database.key}:post_build"]
-
     task "dbt:#{database.key}:banner" do
       info("**** Creating database: #{database.key} (Environment: #{DbTasks::Config.environment}) ****")
     end
 
     task "dbt:#{database.key}:pre_build" => ["dbt:#{database.key}:load_config", 'dbt:pre_build']
 
-    task "dbt:#{database.key}:post_build"
-
-    task "dbt:#{database.key}:build" do
-      database.modules.each_with_index do |module_name, idx|
-        create_database(database, DbTasks::Config.environment) if idx == 0
-        schema_name = database.schema_name_for_module(module_name)
-        create_module(database, DbTasks::Config.environment, module_name, schema_name)
-      end
+    desc "Create the #{database.key} database."
+    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
+      perform_create_action(database, DbTasks::Config.environment)
     end
 
     # Data set loading etc
@@ -437,6 +432,16 @@ SQL
 
     database.schema_groups.each_pair do |schema_group_name, schemas|
       define_schema_group_tasks(database, schema_group_name, schemas)
+    end
+
+    if database.create_by_import?
+      database.imports.values.each do |imp|
+        desc "Create the #{database.key} database by import."
+        task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
+          perform_create_action(database, DbTasks::Config.environment)
+          perform_import_action(imp, DbTasks::Config.environment)
+        end
+      end
     end
 
     if database.backup?
@@ -675,24 +680,28 @@ SQL
     taskname = is_default_import ? :import : :"#{imp.key}-import"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{taskname}" => ["dbt:#{imp.database.key}:load_config"] do
-      init(imp.database.key, DbTasks::Config.environment)
-      imp.pre_import_dirs.each do |dir|
-        run_sql_in_dirs(imp.database,
-                        DbTasks::Config.environment,
-                        "pre-import", 
-                        dirs_for_database(imp.database, dir),
-                        true)
-      end
-      imp.modules.each do |module_name|
-        import(imp.database, DbTasks::Config.environment, module_name, imp.dir, imp.reindex?)
-      end
-      imp.post_import_dirs.each do |dir|
-        run_sql_in_dirs(imp.database,
-                        DbTasks::Config.environment,
-                        "post-import",
-                        dirs_for_database(imp.database, dir),
-                        true)
-      end
+      perform_import_action(imp, DbTasks::Config.environment)
+    end
+  end
+
+  def self.perform_create_action(database, env)
+    database.modules.each_with_index do |module_name, idx|
+      create_database(database, env) if idx == 0
+      schema_name = database.schema_name_for_module(module_name)
+      create_module(database, env, module_name, schema_name)
+    end
+  end
+
+  def self.perform_import_action(imp, env)
+    init(imp.database.key, env)
+    imp.pre_import_dirs.each do |dir|
+      run_sql_in_dirs(imp.database, env, "pre-import", dirs_for_database(imp.database, dir), true)
+    end
+    imp.modules.each do |module_name|
+      import(imp.database, env, module_name, imp.dir, imp.reindex?)
+    end
+    imp.post_import_dirs.each do |dir|
+      run_sql_in_dirs(imp.database, env, "post-import", dirs_for_database(imp.database, dir), true)
     end
   end
 
