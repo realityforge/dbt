@@ -11,7 +11,7 @@ class DbTasks
         # source file name with the source_directory path removed from its start
         src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, "")
 
-        target_file = target_directory + src_file_name.gsub(/\.sql$/, ".Documentation.sql")
+        target_file = target_directory + src_file_name.gsub(/\.sql$/, "_Documentation.sql")
 
         file(target_file => [src_file]) do
           File.open(src_file) do |f|
@@ -155,11 +155,11 @@ SQL
       end
     end
 
-    # do not include *.Documentation.sql files in the src files
+    # do not include *_Documentation.sql files in the src files
     def self.find_source_files(source_directory)
       FileList["#{source_directory}/**/*.sql"].reject do |f|
         f_name = f.to_s
-        /\.Documentation\.sql$/.match(f_name)
+        /\_Documentation\.sql$/.match(f_name)
       end
     end
   end
