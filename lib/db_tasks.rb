@@ -475,9 +475,10 @@ SQL
       database.imports.values.each do |imp|
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
-          perform_create_action(database, DbTasks::Config.environment, :up) unless partial_import_completed?
-          perform_import_action(imp, DbTasks::Config.environment, false)
-          perform_create_action(database, DbTasks::Config.environment, :finalize)
+          env = DbTasks::Config.environment
+          perform_create_action(database, env, :up) unless partial_import_completed?
+          perform_import_action(imp, env, false)
+          perform_create_action(database, env, :finalize)
         end
       end
     end
@@ -731,7 +732,7 @@ SQL
 
   def self.perform_create_action(database, env, mode)
     database.modules.each_with_index do |module_name, idx|
-      create_database(database, env) if idx == 0
+      create_database(database, env) if (idx == 0 && mode == :up)
       schema_name = database.schema_name_for_module(module_name)
       create_module(database, env, module_name, schema_name, mode)
     end
