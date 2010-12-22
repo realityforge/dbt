@@ -4,25 +4,29 @@ class DbTasks
   class DbDoc
     # Define file tasks that will transform sql documentation from the
     # source directory to the target directory. The method will return
-    # a list of the target files that will be created. 
+    # a list of the target files that will be created. The tool will
+    # skip a directory if target == source as it can be difficult to
+    # track and may be removed on clean
     def self.define_doc_tasks(source_directory, target_directory)
       target_files = []
-      find_source_files(source_directory).collect do |src_file|
-        # source file name with the source_directory path removed from its start
-        src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, "")
+      if File.expand_path(target_directory) != File.expand_path(target_directory)
+        find_source_files(source_directory).collect do |src_file|
+          # source file name with the source_directory path removed from its start
+          src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, "")
 
-        target_file = target_directory + src_file_name.gsub(/\.sql$/, "_Documentation.sql")
+          target_file = File.expand_path(target_directory + src_file_name.gsub(/\.sql$/, "_Documentation.sql"))
 
-        file(target_file => [src_file]) do
-          File.open(src_file) do |f|
-            sql = f.readlines.join
-            parsed_doc_models = []
-            parse_sql_doc(sql, parsed_doc_models)
-            generate_doc(target_file, parsed_doc_models)
+          file(target_file => [src_file]) do
+            File.open(src_file) do |f|
+              sql = f.readlines.join
+              parsed_doc_models = []
+              parse_sql_doc(sql, parsed_doc_models)
+              generate_doc(target_file, parsed_doc_models)
+            end
           end
-        end
 
-        target_files << target_file
+          target_files << target_file
+        end
       end
 
       target_files
