@@ -250,6 +250,10 @@ SQL
       @search_dirs || DbTasks::Config.default_search_dirs
     end
 
+    def dirs_for_database(subdir)
+      search_dirs.map { |d| "#{d}/#{subdir}" }
+    end
+
     attr_writer :up_dirs
 
     # Return the list of dirs to process when "upping" module
@@ -278,13 +282,6 @@ SQL
     # List of datasets that should be defined.
     def datasets
       @datasets || []
-    end
-
-    attr_writer :use_db_doc
-
-    # Should the task process every directory thru the sqldoc tool?
-    def use_db_doc?
-      @use_db_doc || false
     end
 
     attr_writer :create_by_import
@@ -345,6 +342,17 @@ SQL
       end
       task "dbt:#{key}:load_config" => load_task_name
       task "dbt:#{key}:pre_build" => generate_task_name
+    end
+
+    # Enable db doc support. Assume that all the directories in up/down will have documentation and
+    # will generate relative to specified directory.
+    def enable_db_doc(target_directory)
+      (up_dirs + down_dirs).each do |relative_dir_name|
+        dirs_for_database(relative_dir_name).each do |dir|
+          task "dbt:#{key}:pre_build" =>
+            DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
+        end
+      end
     end
   end
 
@@ -750,7 +758,7 @@ SQL
   def self.perform_import_action(imp, env, should_perform_delete)
     init(imp.database.key, env)
     imp.pre_import_dirs.each do |dir|
-      run_sql_in_dirs(imp.database, env, "pre-import", dirs_for_database(imp.database, dir), true)
+      run_sql_in_dirs(imp.database, env, "pre-import", imp.database.dirs_for_database(dir), true)
     end unless partial_import_completed?
     imp.modules.each do |module_name|
       import(imp.database, env, module_name, imp.dir, imp.reindex?, should_perform_delete)
@@ -759,7 +767,7 @@ SQL
       raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
     end
     imp.post_import_dirs.each do |dir|
-      run_sql_in_dirs(imp.database, env, "post-import", dirs_for_database(imp.database, dir), true)
+      run_sql_in_dirs(imp.database, env, "post-import", imp.database.dirs_for_database(dir), true)
     end
   end
 
@@ -1031,10 +1039,6 @@ SQL
 
   def self.dirs_for_module(database, module_name, subdir = nil)
     database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
-  end
-
-  def self.dirs_for_database(database, subdir)
-    database.search_dirs.map { |d| "#{d}/#{subdir}" }
   end
 
   def self.first_file_from(files)
