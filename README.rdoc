@@ -25,34 +25,3 @@ sub-directory of the _module_ dir. The fixture data must be in a YAML formated f
 the table named with .yml appended. The order that the fixture data is loaded in is fixed and
 described in the "Table Ordering" section below.  
 
-=== Database definition
-
-TODO
-
-== Filters
-
-TODO
-
-== Table Ordering
-
-TODO
-
-== Database Importing
-
-TODO
-
-== database.yml format
-=== default_schema
-=== force_drop
-=== no_create
-
-TODO
-
-== Datasets
-
-TODO
-
-== Credit
-
-The plugin was initially developed by StockSoftware for use in the Department
-of Sustainability and Environment, Victoria, Australia.
