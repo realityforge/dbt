@@ -15,7 +15,7 @@ class DbTasks
 
         file(target_file => [src_file]) do
           File.open(src_file) do |f|
-            sql = f.readlines.join("\n")
+            sql = f.readlines.join
             parsed_doc_models = []
             parse_sql_doc(sql, parsed_doc_models)
             generate_doc(target_file, parsed_doc_models)
@@ -125,16 +125,13 @@ class DbTasks
     end
 
     def self.generate_doc(target_file_name, doc_models)
-
-      # if there aren't any doc models, don't create any files
-      return if doc_models.length == 0
-
-      FileUtils.mkdir_p File.expand_path(File.dirname(target_file_name))
+      FileUtils.mkdir_p File.dirname(File.expand_path(target_file_name))
 
       # store all the doc models in the target_file_name
-      File.open(target_file_name, 'w') do |f|
+      # blank file if no documentation. Stops the need to keep re-running task
+      File.open(target_file_name, 'wb') do |f|
         doc_models.each do |model|
-          sql = <<SQL
+          f.write <<SQL
 EXEC sys.sp_addextendedproperty
   @name = N'MS_Description',
   @value = N'#{model.object_doc}',
@@ -142,11 +139,9 @@ EXEC sys.sp_addextendedproperty
   @level1type = N'#{model.object_type}', @level1name = '#{model.object_name}';
 GO
 SQL
-          f.write(sql.gsub(/^\s*/, ""))
-          f.write("\n\n")
 
           model.param_docs.each do |param, doc|
-            param_sql = <<SQL
+            f.write <<SQL
 EXEC sys.sp_addextendedproperty
   @name = N'MS_Description',
   @value = N'#{doc}',
@@ -155,8 +150,6 @@ EXEC sys.sp_addextendedproperty
   @level2type = N'PARAMETER', @level2name = '@#{param}';
 GO
 SQL
-            f.write(param_sql.gsub(/^\s*/, ""))
-            f.write("\n\n")
           end
         end
       end
