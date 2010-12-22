@@ -12,6 +12,8 @@
 # module_key with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
+require 'db_doc'
+
 class DbTasks
 
   class Config
@@ -276,6 +278,13 @@ SQL
     # List of datasets that should be defined.
     def datasets
       @datasets || []
+    end
+
+    attr_writer :use_db_doc
+
+    # Should the task process every directory thru the sqldoc tool?
+    def use_db_doc?
+      @use_db_doc || false
     end
 
     attr_writer :create_by_import
