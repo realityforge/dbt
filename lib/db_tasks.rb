@@ -183,7 +183,13 @@ SQL
     attr_writer :reindex
 
     def reindex?
-      @reindex || false
+      @reindex || true
+    end
+
+    attr_writer :shrink
+
+    def shrink?
+      @shrink || false
     end
 
     attr_writer :pre_import_dirs
@@ -557,7 +563,7 @@ SQL
     end
   end
 
-  def self.import(database, env, module_name, import_dir, reindex, should_perform_delete)
+  def self.import(database, env, module_name, import_dir, reindex, shrink, should_perform_delete)
     ordered_tables = database.table_ordering(module_name)
 
     # check the database configurations are set
@@ -586,21 +592,30 @@ SQL
         run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
-      perform_import(database, env, module_name, table, import_dir) unless partial_import_completed?
+      if !partial_import_completed?
+        perform_import(database, env, module_name, table, import_dir)
+        if reindex
+          info("Reindexing #{table}")
+          run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+        end
+      end
     end
 
     if reindex
-      tables.each do |table|
-        info("Reindexing #{table}")
-        run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+      if shrink
+        # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
+        # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
+        # we reindex otherwise the indexes will be highly fragmented.
+        info("Shrinking database")
+        run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+        run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+
+        tables.each do |table|
+          info("Reindexing #{table}")
+          run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+        end
       end
 
-      # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
-      # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
-      # we reindex otherwise the indexes will be highly fragmented.
-      info("Shrinking database")
-      run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-      run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
       info("Updating statistics")
       run_import_sql(database, env, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
 
@@ -761,7 +776,7 @@ SQL
       run_sql_in_dirs(imp.database, env, "pre-import", imp.database.dirs_for_database(dir), true)
     end unless partial_import_completed?
     imp.modules.each do |module_name|
-      import(imp.database, env, module_name, imp.dir, imp.reindex?, should_perform_delete)
+      import(imp.database, env, module_name, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
     end
     if partial_import_completed?
       raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
