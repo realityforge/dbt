@@ -1020,6 +1020,7 @@ SQL
     end
   end
 
+  #TODO: This is used outside this module. Should be renamed to execute_batch. ALso should add a select_all equivalent
   def self.run_filtered_sql(database, env, sql)
     sql = filter_sql(config_key(database.key, env), env, sql, database.filters)
     run_sql(sql)
@@ -1121,3 +1122,4 @@ SQL
   end
  
 end
+
