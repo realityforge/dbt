@@ -97,7 +97,7 @@ class DbTasks
 
       doc_model = DocModel.new
       doc_model.full_object_name = obj_name
-      doc_model.object_type = obj_type.upcase
+      doc_model.object_type = obj_type.upcase.strip
 
       xml_doc = REXML::Document.new(comment_xml)
       root = xml_doc.root
@@ -148,7 +148,7 @@ EXEC sys.sp_addextendedproperty
   @name = N'MS_Description',
   @value = N'#{doc}',
   @level0type = N'SCHEMA', @level0name = '#{model.schema_name}',
-  @level1type = N'  #{model.object_type}  ', @level1name = '#{model.object_name}',
+  @level1type = N'#{model.object_type}', @level1name = '#{model.object_name}',
   @level2type = N'PARAMETER', @level2name = '@#{param}';
 GO
 SQL
