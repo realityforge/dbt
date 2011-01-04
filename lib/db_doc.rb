@@ -74,20 +74,17 @@ class DbTasks
     # instances corresponding to all the documented functions and stored procedures
     # found in the file
     def self.parse_sql_doc(text, parsed_models)
-      regexp = /(\/\*\*.*?\*\/)(\s*create\s+procedure\s+)([a-zA-Z_\.]+)/mi
-      match = regexp.match(text)
+      regexp = /(\/\*\*.*?\*\/)(\s*create\s+(procedure|function|type|view)\s+)([a-zA-Z_\.]+)/mi
+      match = regexp.match(text)      
 
-      if !match
-        regexp = /(\/\*\*.*?\*\/)(\s*create\s+function\s+)([a-zA-Z_\.]+)/mi
-        match = regexp.match(text)
-        if !match
-          return
-        end
-      end
+      return if !match
 
       comment_block = Regexp.last_match(1)
       create_stmt = Regexp.last_match(2)
-      proc_name = Regexp.last_match(3)
+      obj_type = Regexp.last_match(3)
+      obj_name = Regexp.last_match(4)      
+
+      puts obj_name
 
       # strip the trailing */
       comment_block.gsub!(/\*\/\s*$/, "")
@@ -101,8 +98,8 @@ class DbTasks
       comment_xml = "<root>" + comment_block + "</root>"
 
       doc_model = DocModel.new
-      doc_model.full_object_name = proc_name
-      doc_model.object_type = /procedure/i.match(create_stmt) ? 'PROCEDURE' : 'FUNCTION'
+      doc_model.full_object_name = obj_name
+      doc_model.object_type = obj_type.upcase
 
       xml_doc = REXML::Document.new(comment_xml)
       root = xml_doc.root
@@ -120,8 +117,8 @@ class DbTasks
 
       parsed_models.push(doc_model)
 
-      # the remained of the text file
-      remainder = text[text.index(create_stmt + proc_name) + proc_name.length + create_stmt.length, text.length]
+      # remainder of the text file
+      remainder = text[text.index(create_stmt + obj_name) + create_stmt.length + obj_name.length, text.length]
 
       # parse the remainder of the text file
       parse_sql_doc(remainder, parsed_models)
@@ -143,6 +140,9 @@ EXEC sys.sp_addextendedproperty
   @level1type = N'#{model.object_type}', @level1name = '#{model.object_name}';
 GO
 SQL
+
+          # only functions and procedures have parameters
+          return if model.object_type == 'VIEW' || model.object_type == 'TYPE'
 
           model.param_docs.each do |param, doc|
             f.write <<SQL
