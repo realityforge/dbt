@@ -391,14 +391,6 @@ SQL
     define_tasks_for_database(database)
   end
 
-  def self.run_sql_in_dir(database, env, label, dir)
-    check_dir(label, dir)
-    Dir["#{dir}/*.sql"].sort.each do |sp|
-      info("#{label}: #{File.basename(sp)}")
-      run_filtered_sql(database, env, IO.readlines(sp).join)
-    end
-  end
-
   def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
     return sql if optional && ActiveRecord::Base.configurations[target_database_config_key].nil?
     sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
@@ -770,10 +762,21 @@ SQL
     end
   end
 
+  def self.collect_files(directories)
+    files = []
+    directories.each do |dir|
+      if File.exists?(dir)
+        files += Dir["#{dir}/*.sql"]
+      end
+    end
+    files.sort {|x,y| File.basename(x) <=> File.basename(y)}
+  end
+
   def self.perform_import_action(imp, env, should_perform_delete)
     init(imp.database.key, env)
     imp.pre_import_dirs.each do |dir|
-      run_sql_in_dirs(imp.database, env, "pre-import", imp.database.dirs_for_database(dir), true)
+      files = collect_files(imp.database.dirs_for_database(dir))
+      run_sql_files(imp.database, env, dir_display_name(dir), files, true)
     end unless partial_import_completed?
     imp.modules.each do |module_name|
       import(imp.database, env, module_name, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
@@ -782,8 +785,13 @@ SQL
       raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
     end
     imp.post_import_dirs.each do |dir|
-      run_sql_in_dirs(imp.database, env, "post-import", imp.database.dirs_for_database(dir), true)
+      files = collect_files(imp.database.dirs_for_database(dir))
+      run_sql_files(imp.database, env, dir_display_name(dir), files, true)
     end
+  end
+
+  def self.dir_display_name(dir)
+    (dir == '.' ? 'Base' : dir.humanize)
   end
 
   def self.define_basic_tasks
@@ -933,17 +941,14 @@ SQL
   def self.process_module(database, env, module_name, mode)
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
-      run_sql_in_dirs(database, env, (dir == '.' ? 'Base' : dir.humanize), dirs_for_module(database, module_name, dir))
+      files = collect_files(dirs_for_module(database, module_name, dir))
+      run_sql_files(database, env, dir_display_name(dir), files, false)
     end
     load_fixtures(database, module_name) if mode == :up
   end
 
   def self.load_fixtures(database, module_name)
     load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, 'fixtures'))
-  end
-
-  def self.check_dir(name, dir)
-    raise "#{name} in missing dir #{dir}" unless File.exists?(dir)
   end
 
   def self.load_dataset(database, env, module_name, dataset_name)
@@ -1034,22 +1039,19 @@ SQL
     sql
   end
 
-  def self.run_sql_in_dirs(database, env, label, dirs, is_import = false)
-    dirs.each do |dir|
-      run_sql_in_dir(database, env, label, dir, is_import) if File.exists?(dir)
+  def self.run_sql_files(database, env, label, files, is_import)
+    files.each do |filename|
+      run_sql_file(database, env, label, filename, is_import)
     end
   end
 
-  def self.run_sql_in_dir(database, env, label, dir, is_import)
-    check_dir(label, dir)
-    Dir["#{dir}/*.sql"].sort.each do |sp|
-      info("#{label}: #{File.basename(sp)}")
-      sql = IO.readlines(sp).join
-      if is_import
-        run_import_sql(database, env, nil, sql)
-      else
-        run_filtered_sql(database, env, sql)
-      end
+  def self.run_sql_file(database, env, label, filename, is_import)
+    info("#{label}: #{File.basename(filename)}")
+    sql = IO.readlines(filename).join
+    if is_import
+      run_import_sql(database, env, nil, sql)
+    else
+      run_filtered_sql(database, env, sql)
     end
   end
 
