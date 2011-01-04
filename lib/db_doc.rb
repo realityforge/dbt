@@ -9,7 +9,7 @@ class DbTasks
     # track and may be removed on clean
     def self.define_doc_tasks(source_directory, target_directory)
       target_files = []
-      if File.expand_path(target_directory) != File.expand_path(target_directory)
+      if File.expand_path(source_directory) != File.expand_path(target_directory)
         find_source_files(source_directory).collect do |src_file|
           # source file name with the source_directory path removed from its start
           src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, "")
