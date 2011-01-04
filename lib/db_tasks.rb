@@ -849,7 +849,7 @@ SQL
     has_identity = has_identity_column(table)
 
     run_import_sql(database, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ ON") if has_identity
-    run_import_sql(database, env, table, "EXEC sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
+    run_import_sql(database, env, table, "EXEC sys.sp_executesql \"DISABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
 
     fixture_file = fixture_for_import(database, module_name, table, import_dir)
     sql_file = sql_for_import(database, module_name, table, import_dir)
@@ -864,7 +864,7 @@ SQL
       perform_standard_import(database, env, table)
     end
 
-    run_import_sql(database, env, table, "EXEC sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
+    run_import_sql(database, env, table, "EXEC sys.sp_executesql \"ENABLE TRIGGER ALL ON @@TARGET@@.@@TABLE@@\"", false)
     run_import_sql(database, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ OFF") if has_identity
   end
 
