@@ -353,10 +353,12 @@ SQL
     # Enable db doc support. Assume that all the directories in up/down will have documentation and
     # will generate relative to specified directory.
     def enable_db_doc(target_directory)
+      task "dbt:#{key}:db_doc"
+      task "dbt:#{key}:pre_build" => ["dbt:#{key}:db_doc"]
+
       (up_dirs + down_dirs).each do |relative_dir_name|
         dirs_for_database(relative_dir_name).each do |dir|
-          task "dbt:#{key}:pre_build" =>
-            DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
+          task "dbt:#{key}:db_doc" => DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
         end
       end
     end
