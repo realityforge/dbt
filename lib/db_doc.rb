@@ -82,9 +82,7 @@ class DbTasks
       comment_block = Regexp.last_match(1)
       create_stmt = Regexp.last_match(2)
       obj_type = Regexp.last_match(3)
-      obj_name = Regexp.last_match(4)      
-
-      puts obj_name
+      obj_name = Regexp.last_match(4)
 
       # strip the trailing */
       comment_block.gsub!(/\*\/\s*$/, "")
