@@ -212,10 +212,10 @@ SQL
   class DatabaseDefinition
     include FilterContainer
 
-    def initialize(key, modules, options)
+    def initialize(key, options)
       @key = key
-      @modules = modules
       @collation = DbTasks::Config.default_collation
+      @modules = options[:modules] if options[:modules]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
       @schema_groups = options[:schema_groups] if options[:schema_groups]
@@ -241,8 +241,13 @@ SQL
     # List of import configurations
     attr_reader :imports
 
+    attr_writer :modules
+
     # List of modules to process for database
-    attr_reader :modules
+     def modules
+       @modules = @modules.call if @modules.is_a?(Proc)
+       @modules
+     end
 
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
@@ -380,12 +385,12 @@ SQL
     @@database_driver_hooks << block
   end
 
-  def self.add_database(database_key, modules, options = {})
+  def self.add_database(database_key, options = {})
     self.define_basic_tasks
 
     raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
 
-    database = DatabaseDefinition.new(database_key, modules, options)
+    database = DatabaseDefinition.new(database_key, options)
     @@databases[database_key] = database
 
     yield database if block_given?
