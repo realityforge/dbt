@@ -782,7 +782,21 @@ SQL
         files += Dir["#{dir}/*.sql"]
       end
     end
-    files.sort {|x,y| File.basename(x) <=> File.basename(y)}
+    files = files.sort {|x,y| File.basename(x) <=> File.basename(y)}
+
+    file_map = {}
+
+    files.each do |filename|
+      basename =  File.basename(filename)
+      file_map[basename] = (file_map[basename] || []) + [filename] 
+    end
+    duplicates = file_map.reject { |basename, filenames| filenames.size == 1 }.values
+
+    if !duplicates.empty?
+      raise "Files with duplicate basename not allowed.\n\t#{duplicates.collect{|filenames| filenames.join("\n\t")}.join("\n\t")}"
+    end
+
+    files
   end
 
   def self.perform_import_action(imp, env, should_perform_delete)
