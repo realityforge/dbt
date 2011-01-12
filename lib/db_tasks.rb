@@ -238,10 +238,10 @@ SQL
     # symbolic name of database
     attr_reader :key
 
-    # List of modules to process for database
+    # List of import configurations
     attr_reader :imports
 
-    # List of import configurations
+    # List of modules to process for database
     attr_reader :modules
 
     # Database version. Stuffed as an extended property and used when creating filename.
