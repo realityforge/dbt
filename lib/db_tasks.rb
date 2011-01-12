@@ -1148,7 +1148,5 @@ SQL
     value = get_config(config_key)[config_param_name]
     raise "Unable to locate configuration value named #{config_param_name} in section #{config_key}" if !allow_nil && value.nil?
     value
-  end
- 
+  end 
 end
-
