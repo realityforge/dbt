@@ -351,6 +351,12 @@ SQL
           object_type.sql.qualified_table_name
         end
       end
+
+      self.modules = Proc.new do
+        require 'domgen'
+        Domgen.repository_by_name(repository_key).data_modules.collect{|data_module| data_module.name}
+      end
+
       task "dbt:#{key}:load_config" => load_task_name
       task "dbt:#{key}:pre_build" => generate_task_name
     end
