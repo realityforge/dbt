@@ -81,8 +81,7 @@ class DbTasks
       attr_writer :default_pre_import_dirs
 
       def default_pre_import_dirs
-        return ['import-hooks/pre'] unless @default_post_import_dirs
-        @default_post_import_dirs
+        @default_pre_import_dirs || ['import-hooks/pre']
       end
 
       attr_writer :default_post_import_dirs
