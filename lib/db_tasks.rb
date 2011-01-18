@@ -22,22 +22,19 @@ class DbTasks
       attr_writer :environment
 
       def environment
-        return 'development' unless @environment
-        @environment
+        @environment || 'development'
       end
 
       attr_writer :default_collation
 
       def default_collation
-        return 'SQL_Latin1_General_CP1_CS_AS' unless @default_collation
-        @default_collation
+        @default_collation || 'SQL_Latin1_General_CP1_CS_AS'
       end
 
       attr_writer :default_database
 
       def default_database
-        return 'default' unless @default_database
-        @default_database
+        @default_database || 'default'
       end
 
       # config_file is where the yaml config file is located
@@ -67,15 +64,13 @@ class DbTasks
       attr_writer :default_up_dirs
 
       def default_up_dirs
-        return ['.', 'types', 'views', 'functions', 'stored-procedures', 'misc'] unless @default_up_dirs
-        @default_up_dirs
+        @default_up_dirs || ['.', 'types', 'views', 'functions', 'stored-procedures', 'misc']
       end
 
       attr_writer :default_finalize_dirs
 
       def default_finalize_dirs
-        return ['triggers', 'finalize'] unless @default_finalize_dirs
-        @default_finalize_dirs
+        @default_finalize_dirs || ['triggers', 'finalize']
       end
 
       attr_writer :default_pre_import_dirs
@@ -87,15 +82,13 @@ class DbTasks
       attr_writer :default_post_import_dirs
 
       def default_post_import_dirs
-        return ['import-hooks/post'] unless @default_post_import_dirs
-        @default_post_import_dirs
+        @default_post_import_dirs || ['import-hooks/post']
       end
 
       attr_writer :default_down_dirs
 
       def default_down_dirs
-        return ['down'] unless @default_down_dirs
-        @default_down_dirs
+        @default_down_dirs || ['down']
       end
 
       attr_writer :index_file_name
