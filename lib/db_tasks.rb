@@ -98,6 +98,13 @@ class DbTasks
         return ['down'] unless @default_down_dirs
         @default_down_dirs
       end
+
+      attr_writer :index_file_name
+
+      def index_file_name
+        @index_file_name || 'index.txt'
+      end
+
     end
   end
 
@@ -776,24 +783,57 @@ SQL
   end
 
   def self.collect_files(directories)
+
+    index = []
     files = []
+
     directories.each do |dir|
+
+      index_file = File.join(dir, DbTasks::Config.index_file_name)
+      index_entries = File.exists?(index_file) ? File.new(index_file).readlines.collect { |fname| fname.strip } : []
+      index_entries.each do |e|
+        exists = false
+        directories.each do |d|
+          if File.exists?(File.join(d, e))
+            exists = true
+            break
+          end
+        end
+        raise "A specified index entry does not exist on the disk #{e}" unless exists
+      end
+
+      index += index_entries     
+
       if File.exists?(dir)
         files += Dir["#{dir}/*.sql"]
       end
+      
     end
-    files = files.sort {|x,y| File.basename(x) <=> File.basename(y)}
 
     file_map = {}
 
     files.each do |filename|
       basename =  File.basename(filename)
-      file_map[basename] = (file_map[basename] || []) + [filename] 
+      file_map[basename] = (file_map[basename] || []) + [filename]
     end
     duplicates = file_map.reject { |basename, filenames| filenames.size == 1 }.values
 
     if !duplicates.empty?
       raise "Files with duplicate basename not allowed.\n\t#{duplicates.collect{|filenames| filenames.join("\n\t")}.join("\n\t")}"
+    end
+
+    files.sort! do |x, y|
+      x_index = index.index(File.basename(x))
+      y_index = index.index(File.basename(y))
+      if x_index.nil? && y_index.nil?
+         File.basename(x) <=> File.basename(y)
+      elsif x_index.nil? && !y_index.nil?
+        1
+      elsif y_index.nil? && !x_index.nil?
+        -1
+      else
+        x_index <=> y_index
+      end
     end
 
     files
