@@ -874,7 +874,7 @@ SQL
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.run_import_sql(database, env, table, sql, change_to_msdb = true)
+  def self.run_import_sql(database, env, table, sql, change_to_msdb = true, script_file_name = nil)
     sql = filter_sql("msdb", "import", sql, database.filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database.key, "import"))
@@ -883,10 +883,10 @@ SQL
     current_database = physical_database_name(database.key, env)
     if change_to_msdb
       c.execute "USE [msdb]"
-      run_sql(sql)
+      run_sql(sql, script_file_name)
       c.execute "USE [#{current_database}]"
     else
-      run_sql(sql)
+      run_sql(sql, script_file_name)
     end
   end
 
@@ -918,7 +918,7 @@ SQL
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
-      run_import_sql(database, env, table, IO.readlines(sql_file).join)
+      run_import_sql(database, env, table, IO.readlines(sql_file).join, true, sql_file)
     else
       perform_standard_import(database, env, table)
     end
@@ -1027,18 +1027,26 @@ SQL
     Fixtures.create_fixtures(dir, files)
   end
 
-  def self.run_sql(sql)
-    sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).each do |ddl|
+  def self.run_sql(sql, script_file_name = nil)
+    sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
-        run_sql_statement(ddl)
+        run_sql_statement(ddl, script_file_name, index)
       end
     end
   end
 
-  def self.run_sql_statement(sql)
-    ActiveRecord::Base.connection.execute(sql, nil)
+  def self.run_sql_statement(sql, script_file_name = nil, index = nil)
+    begin
+      ActiveRecord::Base.connection.execute(sql, nil)
+    rescue
+      if script_file_name.nil? || index.nil?
+        raise $!
+      else
+        raise "An error occurred while trying to execute block ##{index} of #{File.basename(script_file_name)}:\n#{$!}"
+      end
+    end
   end
 
   def self.drop_schema(database, schema_name, modules)
@@ -1085,9 +1093,9 @@ SQL
   end
 
   #TODO: This is used outside this module. Should be renamed to execute_batch. ALso should add a select_all equivalent
-  def self.run_filtered_sql(database, env, sql)
+  def self.run_filtered_sql(database, env, sql, script_file_name = nil)
     sql = filter_sql(config_key(database.key, env), env, sql, database.filters)
-    run_sql(sql)
+    run_sql(sql, script_file_name)
   end
 
   def self.filter_sql(config_key, env, sql, filters)
@@ -1108,9 +1116,9 @@ SQL
     info("#{label}: #{File.basename(filename)}")
     sql = IO.readlines(filename).join
     if is_import
-      run_import_sql(database, env, nil, sql)
+      run_import_sql(database, env, nil, sql, true, filename)
     else
-      run_filtered_sql(database, env, sql)
+      run_filtered_sql(database, env, sql, filename)
     end
   end
 
