@@ -412,7 +412,7 @@ SQL
     tables.each do |table_name|
       i = 0
       File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
-        print("Dumping #{table_name}\n")
+        puts("Dumping #{table_name}\n")
         const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
         if Object.const_defined?(const_name)
           sql = Object.const_get(const_name)
@@ -874,7 +874,7 @@ SQL
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.run_import_sql(database, env, table, sql, change_to_msdb = true, script_file_name = nil)
+  def self.run_import_sql(database, env, table, sql, change_to_msdb = true, script_file_name = nil, print_dot = false)
     sql = filter_sql("msdb", "import", sql, database.filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database.key, "import"))
@@ -883,10 +883,10 @@ SQL
     current_database = physical_database_name(database.key, env)
     if change_to_msdb
       c.execute "USE [msdb]"
-      run_sql(sql, script_file_name)
+      run_sql(sql, script_file_name, print_dot)
       c.execute "USE [#{current_database}]"
     else
-      run_sql(sql, script_file_name)
+      run_sql(sql, script_file_name, print_dot)
     end
   end
 
@@ -918,7 +918,7 @@ SQL
     if fixture_file
       Fixtures.create_fixtures(File.dirname(fixture_file), table)
     elsif is_sql
-      run_import_sql(database, env, table, IO.readlines(sql_file).join, true, sql_file)
+      run_import_sql(database, env, table, IO.readlines(sql_file).join, true, sql_file, true)
     else
       perform_standard_import(database, env, table)
     end
@@ -1027,14 +1027,16 @@ SQL
     Fixtures.create_fixtures(dir, files)
   end
 
-  def self.run_sql(sql, script_file_name = nil)
+  def self.run_sql(sql, script_file_name = nil, print_dot = false)
     sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
+      $stdout.putc '.' if print_dot
       # Transaction required to work around a bug that sometimes leaves last
       # SQL command before shutting the connection un committed.
       ActiveRecord::Base.connection.transaction do
         run_sql_statement(ddl, script_file_name, index)
       end
     end
+    $stdout.putc "\n" if print_dot
   end
 
   def self.run_sql_statement(sql, script_file_name = nil, index = nil)
