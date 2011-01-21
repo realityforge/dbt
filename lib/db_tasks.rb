@@ -1044,7 +1044,7 @@ SQL
       if script_file_name.nil? || index.nil?
         raise $!
       else
-        raise "An error occurred while trying to execute block ##{index} of #{File.basename(script_file_name)}:\n#{$!}"
+        raise "An error occurred while trying to execute batch ##{index} of #{File.basename(script_file_name)}:\n#{$!}"
       end
     end
   end
