@@ -133,7 +133,7 @@ class DbTasks
           f.write <<SQL
 EXEC sys.sp_addextendedproperty
   @name = N'MS_Description',
-  @value = N'#{model.object_doc}',
+  @value = '#{trim_doc(model.object_doc)}',
   @level0type = N'SCHEMA', @level0name = '#{model.schema_name}',
   @level1type = N'#{model.object_type}', @level1name = '#{model.object_name}';
 GO
@@ -146,7 +146,7 @@ SQL
             f.write <<SQL
 EXEC sys.sp_addextendedproperty
   @name = N'MS_Description',
-  @value = N'#{doc}',
+  @value = '#{trim_doc(doc)}',
   @level0type = N'SCHEMA', @level0name = '#{model.schema_name}',
   @level1type = N'#{model.object_type}', @level1name = '#{model.object_name}',
   @level2type = N'PARAMETER', @level2name = '@#{param}';
@@ -155,6 +155,12 @@ SQL
           end
         end
       end
+    end
+
+    MAX_EXTENDED_PROPERTY_SIZE = 7000
+
+    def self.trim_doc(doc)
+      return (doc.length < MAX_EXTENDED_PROPERTY_SIZE) ? doc :  doc[0,MAX_EXTENDED_PROPERTY_SIZE - 3] + "..." 
     end
 
     # do not include *_Documentation.sql files in the src files
