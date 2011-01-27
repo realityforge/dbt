@@ -933,6 +933,7 @@ SQL
   end
 
   def self.setup_connection(config_key)
+    require 'active_record'
     ActiveRecord::Base.colorize_logging = false
     ActiveRecord::Base.establish_connection(get_config(config_key))
     FileUtils.mkdir_p File.dirname(DbTasks::Config.log_filename)
