@@ -471,7 +471,7 @@ SQL
       info("**** Creating database: #{database.key} (Environment: #{DbTasks::Config.environment}) ****")
     end
 
-    task "dbt:#{database.key}:pre_build" => ["dbt:#{database.key}:load_config", 'dbt:pre_build']
+    task "dbt:#{database.key}:pre_build" => ['dbt:pre_build']
 
     desc "Create the #{database.key} database."
     task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
@@ -864,7 +864,7 @@ SQL
         ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
-      task "dbt:pre_build" => ["dbt:load_config"]
+      task "dbt:pre_build"
 
       @@defined_init_tasks = true
     end
