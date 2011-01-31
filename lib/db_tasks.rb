@@ -474,7 +474,9 @@ SQL
     task "dbt:#{database.key}:pre_build" => ['dbt:pre_build']
 
     desc "Create the #{database.key} database."
-    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:pre_build"] do
+    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner",
+                                          "dbt:#{database.key}:pre_build",
+                                          "dbt:#{database.key}:load_config"] do
       perform_create_action(database, DbTasks::Config.environment, :up)
       perform_create_action(database, DbTasks::Config.environment, :finalize)
     end
