@@ -632,8 +632,8 @@ SQL
   end
 
   def self.backup(database, env)
-    phsyical_name = physical_database_name(database.key, env)
-    info("Backup Database [#{phsyical_name}]: database_key=#{database.key}, env=#{env}")
+    physical_name = physical_database_name(database.key, env)
+    info("Backup Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
     registry_key = instance_registry_key(database.key, env)
     sql = <<SQL
 USE [msdb]
@@ -645,9 +645,9 @@ USE [msdb]
     @value=@BackupDir OUTPUT
   IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
   DECLARE @BackupName VARCHAR(500)
-  SET @BackupName = @BackupDir + '\\#{phsyical_name}.bak'
+  SET @BackupName = @BackupDir + '\\#{physical_name}.bak'
 
-BACKUP DATABASE [#{phsyical_name}] TO DISK = @BackupName
+BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
 WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
     init(database.key, env)
@@ -655,14 +655,14 @@ SQL
   end
 
   def self.restore(database, env)
-    phsyical_name = physical_database_name(database.key, env)
-    info("Restore Database [#{phsyical_name}]: database_key=#{database.key}, env=#{env}")
+    physical_name = physical_database_name(database.key, env)
+    info("Restore Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
     registry_key = instance_registry_key(database.key, env)
     sql = <<SQL
   USE [msdb]
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
-  SET @TargetDatabase = '#{phsyical_name}'
+  SET @TargetDatabase = '#{physical_name}'
   SET @SourceDatabase = '#{restore_from(database.key, env)}'
 
   DECLARE @BackupFile VARCHAR(400)
@@ -711,13 +711,13 @@ SQL
   EXEC(@sql)
 SQL
     init(database.key, env)
-    run_sql_statement("ALTER DATABASE [#{phsyical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+    run_sql_statement("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
     run_sql_statement(sql)
   end
 
   def self.drop(database, env)
     init_msdb
-    phsyical_name = physical_database_name(database.key, env)
+    physical_name = physical_database_name(database.key, env)
 
     sql = if force_drop?(database.key, env)
       <<SQL
@@ -726,8 +726,8 @@ GO
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{phsyical_name}')
-    ALTER DATABASE [#{phsyical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
+    ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
 GO
 SQL
     else
@@ -740,11 +740,11 @@ GO
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{phsyical_name}')
-    DROP DATABASE [#{phsyical_name}]
+      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
+    DROP DATABASE [#{physical_name}]
 GO
 SQL
-    trace("Database Drop [#{phsyical_name}]: database_key=#{database.key}, env=#{env}")
+    trace("Database Drop [#{physical_name}]: database_key=#{database.key}, env=#{env}")
     run_filtered_sql(database, env, sql)
   end
 
@@ -761,9 +761,9 @@ SQL
     is_default_import = imp.key == :default
     desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
 
-    taskname = is_default_import ? :import : :"#{imp.key}-import"
+    task_name = is_default_import ? :import : :"#{imp.key}-import"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
-    task "#{prefix}:#{taskname}" => ["dbt:#{imp.database.key}:load_config"] do
+    task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
       perform_import_action(imp, DbTasks::Config.environment, true)
     end
   end
@@ -784,7 +784,8 @@ SQL
     directories.each do |dir|
 
       index_file = File.join(dir, DbTasks::Config.index_file_name)
-      index_entries = File.exists?(index_file) ? File.new(index_file).readlines.collect { |fname| fname.strip } : []
+      index_entries =
+        File.exists?(index_file) ? File.new(index_file).readlines.collect { |filename| filename.strip } : []
       index_entries.each do |e|
         exists = false
         directories.each do |d|
