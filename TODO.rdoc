@@ -6,3 +6,15 @@
 
 perform_standard_import currently assumes any column named BatchID should be set to 0. We should
 allow the app the chance to configure transforms on different columns
+
+== Implement importing of a specified (list) of tables for a module
+
+e.g. 
+  env_override = ENV['IMPORT_TABLES']
+  unless env_override.nil? || env_override.empty?
+    tables = env_override.split(',')
+    p "Overriding tables with #{tables}"
+  end
+
+But, you know, better. ;)
+
