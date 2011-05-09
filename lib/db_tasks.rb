@@ -546,7 +546,7 @@ SQL
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless schemas.include?(schema_name)
-        process_module(database.key, DbTasks::Config.environment, module_name, :down)
+        process_module(database, DbTasks::Config.environment, module_name, :down)
       end
       schema_2_module = {}
       database.modules.each do |module_name|
