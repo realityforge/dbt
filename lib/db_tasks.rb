@@ -182,13 +182,13 @@ SQL
     attr_writer :reindex
 
     def reindex?
-      @reindex || true
+      @reindex.nil? ? true : @reindex
     end
 
     attr_writer :shrink
 
     def shrink?
-      @shrink || false
+      @shrink.nil? ? false : @shrink
     end
 
     attr_writer :pre_import_dirs
@@ -208,6 +208,26 @@ SQL
     end
   end
 
+  class ModuleGroupDefinition
+
+    def initialize(database, key, options)
+      @database = database
+      @key = key
+      @modules = options[:modules]
+      @import_enabled = options[:import_enabled]
+    end
+
+    attr_accessor :database
+    attr_accessor :key
+
+    attr_accessor :modules
+
+    def import_enabled?
+      @import_enabled.nil? ? false : @import_enabled
+    end
+
+  end
+
   class DatabaseDefinition
     include FilterContainer
 
@@ -217,7 +237,6 @@ SQL
       @modules = options[:modules] if options[:modules]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
-      @module_groups = options[:module_groups] if options[:module_groups]
       @datasets = options[:datasets] if options[:datasets]
       @collation = options[:collation] if options[:collation]
       @schema_overrides = options[:schema_overrides] if options[:schema_overrides]
@@ -232,6 +251,16 @@ SQL
           end
         end
       end
+      @module_groups = {}
+      module_groups_config = options[:module_groups]
+      if module_groups_config
+        module_groups_config.keys.each do |module_group_key|
+          module_group_config = module_groups_config[module_group_key]
+          if module_group_config
+            @module_groups[module_group_key] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
+          end
+        end
+      end
     end
 
     # symbolic name of database
@@ -239,6 +268,9 @@ SQL
 
     # List of import configurations
     attr_reader :imports
+
+    # List of module_groups configurations
+    attr_reader :module_groups
 
     attr_writer :modules
 
@@ -328,12 +360,6 @@ SQL
 
     def schema_name_for_module(module_name)
       schema_overrides[module_name] || module_name
-    end
-
-    # A map of names => {:modules => [:Module1, :Module2], :import_enabled => true}.
-    # A module group is a set of modules that can be managed as a group. i.e. Upped or downed together.
-    def module_groups
-      @module_groups || {}
     end
 
     def define_table_order_resolver(&block)
@@ -503,11 +529,8 @@ SQL
       end
     end
 
-    # names => {:modules => [:Module1, :Module2], :import_enabled => true}.
-    database.module_groups.each_pair do |module_group_name, group_data|
-      modules = group_data[:modules]
-      import_enabled = group_data[:import_enabled].nil? ? false : !!group_data[:import_enabled]
-      define_module_group_tasks(database, module_group_name, modules, import_enabled)
+    database.module_groups.each_pair do |module_group_key, module_group|
+      define_module_group_tasks(module_group)
     end
 
     if database.enable_import_task_as_part_of_create?
@@ -516,7 +539,7 @@ SQL
         task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
           env = DbTasks::Config.environment
           perform_create_action(database, env, :up) unless partial_import_completed?
-          perform_import_action(imp, env, false)
+          perform_import_action(imp, env, false, nil)
           perform_create_action(database, env, :finalize)
         end
       end
@@ -537,25 +560,26 @@ SQL
     end
   end
 
-  def self.define_module_group_tasks(database, module_group_name, modules, import_enabled)
-    desc "Up the #{module_group_name} module group in the #{database.key} database."
-    task "dbt:#{database.key}:#{module_group_name}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Upping schema group: #{module_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+  def self.define_module_group_tasks(module_group)
+    database = module_group.database
+    desc "Up the #{module_group.key} module group in the #{database.key} database."
+    task "dbt:#{database.key}:#{module_group.key}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Upping schema group: #{module_group.key} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
-        next unless modules.include?(schema_name)
+        next unless module_group.modules.include?(schema_name)
         create_module(database, DbTasks::Config.environment, module_name, schema_name, :up)
         create_module(database, DbTasks::Config.environment, module_name, schema_name, :finalize)
       end
     end
 
-    desc "Down the #{module_group_name} schema group in the #{database.key} database."
-    task "dbt:#{database.key}:#{module_group_name}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Downing schema group: #{module_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+    desc "Down the #{module_group.key} schema group in the #{database.key} database."
+    task "dbt:#{database.key}:#{module_group.key}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Downing schema group: #{module_group.key} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
       init(database.key, DbTasks::Config.environment)
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
-        next unless modules.include?(schema_name)
+        next unless module_group.modules.include?(schema_name)
         process_module(database, DbTasks::Config.environment, module_name, :down)
       end
       schema_2_module = {}
@@ -563,18 +587,18 @@ SQL
         schema_name = database.schema_name_for_module(module_name)
         (schema_2_module[schema_name] ||= []) << module_name
       end
-      modules.reverse.each do |schema_name|
+      module_group.modules.reverse.each do |schema_name|
         drop_schema(database, schema_name, schema_2_module[schema_name])
       end
     end
 
     database.imports.values.each do |imp|
       import_modules = imp.modules.select do |module_name|
-        modules.include?(database.schema_name_for_module(module_name))
+        module_group.modules.include?(database.schema_name_for_module(module_name))
       end
-      if import_enabled && !import_modules.empty?
-        description = "contents of the #{module_group_name} schema group"
-        define_import_task("dbt:#{database.key}:#{module_group_name}", imp, description)
+      if module_group.import_enabled? && !import_modules.empty?
+        description = "contents of the #{module_group.key} module group"
+        define_import_task("dbt:#{database.key}:#{module_group.key}", imp, description, module_group)
       end
     end
   end
@@ -767,14 +791,14 @@ SQL
     process_module(database, env, module_name, mode)
   end
 
-  def self.define_import_task(prefix, imp, description)
+  def self.define_import_task(prefix, imp, description, module_group = nil)
     is_default_import = imp.key == :default
     desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
 
     task_name = is_default_import ? :import : :"#{imp.key}-import"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
-      perform_import_action(imp, DbTasks::Config.environment, true)
+      perform_import_action(imp, DbTasks::Config.environment, true, module_group)
     end
   end
 
@@ -844,21 +868,27 @@ SQL
     files
   end
 
-  def self.perform_import_action(imp, env, should_perform_delete)
+  def self.perform_import_action(imp, env, should_perform_delete, module_group)
     init(imp.database.key, env)
-    imp.pre_import_dirs.each do |dir|
-      files = collect_files(imp.database.dirs_for_database(dir))
-      run_sql_files(imp.database, env, dir_display_name(dir), files, true)
-    end unless partial_import_completed?
-    imp.modules.each do |module_name|
-      import(imp.database, env, module_name, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
+    if module_group.nil?
+      imp.pre_import_dirs.each do |dir|
+        files = collect_files(imp.database.dirs_for_database(dir))
+        run_sql_files(imp.database, env, dir_display_name(dir), files, true)
+      end unless partial_import_completed?
+    end
+    imp.modules.each do |module_key|
+      if module_group.nil? || module_group.modules.include?(module_key)
+        import(imp.database, env, module_key, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
+      end
     end
     if partial_import_completed?
       raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
     end
-    imp.post_import_dirs.each do |dir|
-      files = collect_files(imp.database.dirs_for_database(dir))
-      run_sql_files(imp.database, env, dir_display_name(dir), files, true)
+    if module_group.nil?
+      imp.post_import_dirs.each do |dir|
+        files = collect_files(imp.database.dirs_for_database(dir))
+        run_sql_files(imp.database, env, dir_display_name(dir), files, true)
+      end
     end
   end
 
