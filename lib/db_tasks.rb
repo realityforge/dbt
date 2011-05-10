@@ -294,11 +294,16 @@ SQL
       @datasets || []
     end
 
-    attr_writer :create_by_import
+    attr_writer :enable_separate_import_task
 
-    # Should a task be created to create by import?
-    def create_by_import?
-      @create_by_import || false
+    def enable_separate_import_task?
+      @enable_separate_import_task.nil? ? false : @enable_separate_import_task
+    end
+
+    attr_writer :enable_import_task_as_part_of_create
+
+    def enable_import_task_as_part_of_create?
+      @enable_import_task_as_part_of_create.nil? ? false : @enable_import_task_as_part_of_create
     end
 
     attr_writer :backup
@@ -492,15 +497,17 @@ SQL
     end
 
     # Import tasks
-    database.imports.values.each do |imp|
-      define_import_task("dbt:#{database.key}", imp, "contents")
+    if database.enable_separate_import_task?
+      database.imports.values.each do |imp|
+        define_import_task("dbt:#{database.key}", imp, "contents")
+      end
     end
 
     database.schema_groups.each_pair do |schema_group_name, schemas|
       define_schema_group_tasks(database, schema_group_name, schemas)
     end
 
-    if database.create_by_import?
+    if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
@@ -562,7 +569,7 @@ SQL
       import_modules = imp.modules.select do |module_name|
         schemas.include?(database.schema_name_for_module(module_name))
       end
-      if !import_modules.empty?
+      if database.enable_separate_import_task? && !import_modules.empty?
         description = "contents of the #{schema_group_name} schema group"
         define_import_task("dbt:#{database.key}:#{schema_group_name}", imp, description)
       end
