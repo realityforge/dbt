@@ -217,7 +217,7 @@ SQL
       @modules = options[:modules] if options[:modules]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
-      @schema_groups = options[:schema_groups] if options[:schema_groups]
+      @module_groups = options[:module_groups] if options[:module_groups]
       @datasets = options[:datasets] if options[:datasets]
       @collation = options[:collation] if options[:collation]
       @schema_overrides = options[:schema_overrides] if options[:schema_overrides]
@@ -330,10 +330,10 @@ SQL
       schema_overrides[module_name] || module_name
     end
 
-    # A map of names => schema groups.
-    # A schema group is a set of database schemas that can be managed as a group. i.e. Upped or downed together.
-    def schema_groups
-      @schema_groups || {}
+    # A map of names => {:modules => [:Module1, :Module2], :import_enabled => true}.
+    # A module group is a set of modules that can be managed as a group. i.e. Upped or downed together.
+    def module_groups
+      @module_groups || {}
     end
 
     def define_table_order_resolver(&block)
@@ -503,8 +503,11 @@ SQL
       end
     end
 
-    database.schema_groups.each_pair do |schema_group_name, schemas|
-      define_schema_group_tasks(database, schema_group_name, schemas)
+    # names => {:modules => [:Module1, :Module2], :import_enabled => true}.
+    database.module_groups.each_pair do |module_group_name, group_data|
+      modules = group_data[:modules]
+      import_enabled = group_data[:import_enabled].nil? ? false : !!group_data[:import_enabled]
+      define_module_group_tasks(database, module_group_name, modules, import_enabled)
     end
 
     if database.enable_import_task_as_part_of_create?
@@ -534,25 +537,25 @@ SQL
     end
   end
 
-  def self.define_schema_group_tasks(database, schema_group_name, schemas)
-    desc "Up the #{schema_group_name} schema group in the #{database.key} database."
-    task "dbt:#{database.key}:#{schema_group_name}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Upping schema group: #{schema_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+  def self.define_module_group_tasks(database, module_group_name, modules, import_enabled)
+    desc "Up the #{module_group_name} module group in the #{database.key} database."
+    task "dbt:#{database.key}:#{module_group_name}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Upping schema group: #{module_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
-        next unless schemas.include?(schema_name)
+        next unless modules.include?(schema_name)
         create_module(database, DbTasks::Config.environment, module_name, schema_name, :up)
         create_module(database, DbTasks::Config.environment, module_name, schema_name, :finalize)
       end
     end
 
-    desc "Down the #{schema_group_name} schema group in the #{database.key} database."
-    task "dbt:#{database.key}:#{schema_group_name}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Downing schema group: #{schema_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+    desc "Down the #{module_group_name} schema group in the #{database.key} database."
+    task "dbt:#{database.key}:#{module_group_name}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+      info("**** Downing schema group: #{module_group_name} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
       init(database.key, DbTasks::Config.environment)
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
-        next unless schemas.include?(schema_name)
+        next unless modules.include?(schema_name)
         process_module(database, DbTasks::Config.environment, module_name, :down)
       end
       schema_2_module = {}
@@ -560,18 +563,18 @@ SQL
         schema_name = database.schema_name_for_module(module_name)
         (schema_2_module[schema_name] ||= []) << module_name
       end
-      schemas.reverse.each do |schema_name|
+      modules.reverse.each do |schema_name|
         drop_schema(database, schema_name, schema_2_module[schema_name])
       end
     end
 
     database.imports.values.each do |imp|
       import_modules = imp.modules.select do |module_name|
-        schemas.include?(database.schema_name_for_module(module_name))
+        modules.include?(database.schema_name_for_module(module_name))
       end
-      if database.enable_separate_import_task? && !import_modules.empty?
-        description = "contents of the #{schema_group_name} schema group"
-        define_import_task("dbt:#{database.key}:#{schema_group_name}", imp, description)
+      if import_enabled && !import_modules.empty?
+        description = "contents of the #{module_group_name} schema group"
+        define_import_task("dbt:#{database.key}:#{module_group_name}", imp, description)
       end
     end
   end
