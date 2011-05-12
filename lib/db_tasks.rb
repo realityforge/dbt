@@ -535,8 +535,10 @@ SQL
 
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
+        key = ""
+        key = ":" + imp.key.to_s if imp.key != :default
         desc "Create the #{database.key} database by import."
-        task "dbt:#{database.key}:create_by_import" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+        task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
           env = DbTasks::Config.environment
           perform_create_action(database, env, :up) unless partial_import_completed?
           perform_import_action(imp, env, false, nil)
