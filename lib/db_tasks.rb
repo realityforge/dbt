@@ -529,7 +529,7 @@ SQL
       end
     end
 
-    database.module_groups.each_pair do |module_group_key, module_group|
+    database.module_groups.values.each do |module_group|
       define_module_group_tasks(module_group)
     end
 
