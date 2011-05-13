@@ -797,7 +797,7 @@ SQL
     is_default_import = imp.key == :default
     desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
 
-    task_name = is_default_import ? :import : :"#{imp.key}-import"
+    task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
       perform_import_action(imp, DbTasks::Config.environment, true, module_group)
