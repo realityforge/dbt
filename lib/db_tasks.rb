@@ -1061,14 +1061,35 @@ SQL
 
   def self.load_fixtures_from_dirs(database, module_name, dirs)
     require 'active_record/fixtures'
-    dir = dirs.select { |dir| File.exists?(dir) }[0]
-    return unless dir
-    files = []
-    database.table_ordering(module_name).each do |t|
-      files += [t] if File.exist?("#{dir}/#{t}.yml")
+    database.table_ordering(module_name).each do |table_name|
+      dirs.each do |dir|
+        filename = "#{dir}/#{table_name}.yml"
+        if File.exists?(filename)
+          info("Loading fixture: #{table_name}")
+          yaml = YAML::load(IO.read(filename))
+
+          # NFI
+          yaml_value =
+            if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
+              yaml.value
+            else
+              [yaml]
+            end
+
+          yaml_value.each do |fixture|
+            raise Fixture::FormatError, "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
+            fixture.each do |name, data|
+              unless data
+                raise Fixture::FormatError, "Bad data for #{table_name} fixture named #{name} (nil)"
+              end
+
+              fixture = Fixture.new(data, nil)
+              ActiveRecord::Base.connection.insert_fixture(fixture, table_name)
+            end
+          end
+        end
+      end
     end
-    info("Loading fixtures: #{files.join(',')}")
-    Fixtures.create_fixtures(dir, files)
   end
 
   def self.run_sql(sql, script_file_name = nil, print_dot = false)
