@@ -962,7 +962,7 @@ SQL
 
     info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
-      Fixtures.create_fixtures(File.dirname(fixture_file), table)
+      load_fixture(table, fixture_file)
     elsif is_sql
       run_import_sql(database, env, table, IO.readlines(sql_file).join, true, sql_file, true)
     else
@@ -1076,28 +1076,33 @@ SQL
     end
 
     database.table_ordering(module_name).each do |table_name|
-      next unless fixtures[table_name]
+      filename = fixtures[table_name]
+      next unless filename
       info("Loading fixture: #{table_name}")
-      yaml = YAML::load(IO.read(fixtures[table_name]))
-      # Skip empty files
-      next unless yaml
-      # NFI
-      yaml_value =
-        if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
-          yaml.value
-        else
-          [yaml]
-        end
+      load_fixture(table_name, filename)
+    end
+  end
 
-      yaml_value.each do |fixture|
-        raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
-        fixture.each do |name, data|
-          raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
+  def self.load_fixture(table_name, filename)
+    yaml = YAML::load(IO.read(filename))
+    # Skip empty files
+    next unless yaml
+    # NFI
+    yaml_value =
+      if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
+        yaml.value
+      else
+        [yaml]
+      end
 
-          column_names = data.keys.collect{ |column_name| ActiveRecord::Base.connection.quote_column_name(column_name) }
-          value_list = data.values.collect{|value| ActiveRecord::Base.connection.quote(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
-          run_sql_statement("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
-        end
+    yaml_value.each do |fixture|
+      raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
+      fixture.each do |name, data|
+        raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
+
+        column_names = data.keys.collect { |column_name| ActiveRecord::Base.connection.quote_column_name(column_name) }
+        value_list = data.values.collect { |value| ActiveRecord::Base.connection.quote(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
+        run_sql_statement("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
       end
     end
   end
