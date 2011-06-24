@@ -926,12 +926,11 @@ SQL
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database.key, "import"))
     sql = filter_database_name(sql, /@@TARGET@@/, "msdb", config_key(database.key, env))
-    c = ActiveRecord::Base.connection
     current_database = physical_database_name(database.key, env)
     if change_to_msdb
-      c.execute "USE [msdb]"
+      ActiveRecord::Base.connection.execute "USE [msdb]"
       run_sql(sql, script_file_name, print_dot)
-      c.execute "USE [#{current_database}]"
+      ActiveRecord::Base.connection.execute "USE [#{current_database}]"
     else
       run_sql(sql, script_file_name, print_dot)
     end
