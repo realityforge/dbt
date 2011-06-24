@@ -108,8 +108,8 @@ class DbTasks
     end
 
     def add_database_name_filter(pattern, database_key)
-      add_filter do |current_config, env, sql|
-        DbTasks.filter_database_name(sql, pattern, current_config, DbTasks.config_key(database_key, env), false)
+      add_filter do |env, sql|
+        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key, env), false)
       end
     end
 
@@ -128,8 +128,7 @@ class DbTasks
     #   ASSERT(@Id IS NULL)
     #
     def add_import_assert_filters
-      #noinspection RubyUnusedLocalVariable
-      add_filter do |current_config, env, sql|
+      add_filter do |env, sql|
         sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (SELECT COUNT(*) FROM @@SOURCE@@.@@TABLE@@)
 BEGIN
@@ -437,9 +436,9 @@ SQL
     define_tasks_for_database(database)
   end
 
-  def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
+  def self.filter_database_name(sql, pattern, target_database_config_key, optional = true)
     return sql if optional && self.configurations[target_database_config_key].nil?
-    sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
+    sql.gsub(pattern, get_config(target_database_config_key)['database'])
   end
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
@@ -925,8 +924,8 @@ SQL
   def self.run_import_sql(database, env, table, sql, change_to_msdb = true, script_file_name = nil, print_dot = false)
     sql = filter_sql("msdb", "import", sql, database.filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
-    sql = filter_database_name(sql, /@@SOURCE@@/, "msdb", config_key(database.key, "import"))
-    sql = filter_database_name(sql, /@@TARGET@@/, "msdb", config_key(database.key, env))
+    sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
+    sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key, env))
     current_database = physical_database_name(database.key, env)
     if change_to_msdb
       ActiveRecord::Base.connection.execute "USE [msdb]"
@@ -1159,16 +1158,6 @@ SQL
     c
   end
 
-  def self.get_db_spec(current_config_key, target_config_key)
-    current = self.configurations[current_config_key]
-    target = get_config(target_config_key)
-    if current.nil? || current['host'] != target['host']
-      "#{target['host']}.#{target['database']}"
-    else
-      target['database']
-    end
-  end
-
   def self.configurations
     @@configurations || {}
   end
@@ -1185,9 +1174,9 @@ SQL
 
   def self.filter_sql(config_key, env, sql, filters)
     filters.each do |filter|
-      sql = filter.call(config_key, env, sql)
+      sql = filter.call(env, sql)
     end
-    sql = filter_database_name(sql, /@@SELF@@/, config_key, config_key)
+    sql = filter_database_name(sql, /@@SELF@@/, config_key)
     sql
   end
 
