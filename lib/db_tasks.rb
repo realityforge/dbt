@@ -407,6 +407,7 @@ SQL
     end
   end
 
+  @@trace = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
   @@defined_init_tasks = false
   @@database_driver_hooks = []
   @@databases = {}
@@ -984,7 +985,7 @@ SQL
     ActiveRecord::Base.establish_connection(get_config(config_key))
     FileUtils.mkdir_p File.dirname(DbTasks::Config.log_filename)
     ActiveRecord::Base.logger = Logger.new(File.open(DbTasks::Config.log_filename, 'a'))
-    ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
+    ActiveRecord::Migration.verbose = @@trace
   end
 
   def self.create_database(database, env)
@@ -1231,7 +1232,7 @@ SQL
   end
 
   def self.trace(message)
-    puts message if ActiveRecord::Migration.verbose
+    puts message if @@trace
   end
 
   def self.no_create?(database_key, env)
