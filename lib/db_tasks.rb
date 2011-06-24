@@ -1111,11 +1111,7 @@ SQL
 
   def self.run_sql_statement(sql, script_file_name = nil, index = nil)
     begin
-      # Transaction required to work around a bug that sometimes leaves last
-      # SQL command before shutting the connection un committed.
-      ActiveRecord::Base.connection.transaction do
-        ActiveRecord::Base.connection.execute(sql, nil)
-      end
+      ActiveRecord::Base.connection.execute(sql, nil)
     rescue
       if script_file_name.nil? || index.nil?
         raise $!
