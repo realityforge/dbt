@@ -14,6 +14,8 @@
 
 require 'db_doc'
 
+require 'activerecord'
+
 class DbTasks
 
   class Config
@@ -266,10 +268,10 @@ SQL
     # symbolic name of database
     attr_reader :key
 
-    # List of import configurations
+    # List of modules to import
     attr_reader :imports
 
-    # List of module_groups configurations
+    # List of module_groups configs
     attr_reader :module_groups
 
     attr_writer :modules
@@ -435,7 +437,7 @@ SQL
   end
 
   def self.filter_database_name(sql, pattern, current_config_key, target_database_config_key, optional = true)
-    return sql if optional && ActiveRecord::Base.configurations[target_database_config_key].nil?
+    return sql if optional && self.configurations[target_database_config_key].nil?
     sql.gsub(pattern, get_db_spec(current_config_key, target_database_config_key))
   end
 
@@ -906,7 +908,7 @@ SQL
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
-        ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
+        self.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
       task "dbt:pre_build"
@@ -1151,20 +1153,27 @@ SQL
   end
 
   def self.get_config(config_key)
-    require 'activerecord'
-    c = ActiveRecord::Base.configurations[config_key]
+    c = self.configurations[config_key]
     raise "Missing config for #{config_key}" unless c
     c
   end
 
   def self.get_db_spec(current_config_key, target_config_key)
-    current = ActiveRecord::Base.configurations[current_config_key]
+    current = self.configurations[current_config_key]
     target = get_config(target_config_key)
     if current.nil? || current['host'] != target['host']
       "#{target['host']}.#{target['database']}"
     else
       target['database']
     end
+  end
+
+  def self.configurations
+    @@configurations || {}
+  end
+
+  def self.configurations=(configurations)
+    @@configurations = configurations
   end
 
   #TODO: This is used outside this module. Should be renamed to execute_batch. ALso should add a select_all equivalent
