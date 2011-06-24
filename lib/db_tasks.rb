@@ -1105,18 +1105,18 @@ SQL
   def self.run_sql(sql, script_file_name = nil, print_dot = false)
     sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
       $stdout.putc '.' if print_dot
-      # Transaction required to work around a bug that sometimes leaves last
-      # SQL command before shutting the connection un committed.
-      ActiveRecord::Base.connection.transaction do
-        run_sql_statement(ddl, script_file_name, index)
-      end
+      run_sql_statement(ddl, script_file_name, index)
     end
     $stdout.putc "\n" if print_dot
   end
 
   def self.run_sql_statement(sql, script_file_name = nil, index = nil)
     begin
-      ActiveRecord::Base.connection.execute(sql, nil)
+      # Transaction required to work around a bug that sometimes leaves last
+      # SQL command before shutting the connection un committed.
+      ActiveRecord::Base.connection.transaction do
+        ActiveRecord::Base.connection.execute(sql, nil)
+      end
     rescue
       if script_file_name.nil? || index.nil?
         raise $!
