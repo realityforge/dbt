@@ -592,7 +592,9 @@ SQL
         (schema_2_module[schema_name] ||= []) << module_name
       end
       module_group.modules.reverse.each do |schema_name|
-        drop_schema(database, schema_name, schema_2_module[schema_name])
+        drop_module_group(database, schema_name, schema_2_module[schema_name])
+        tables = schema_2_module[schema_name].each { |module_name| database.table_ordering(module_name) }.flatten
+        drop_schema(schema_name, tables)
       end
     end
 
@@ -672,10 +674,9 @@ SQL
   def self.backup(database, env)
     physical_name = physical_database_name(database.key, env)
     info("Backup Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
+    db.select_database(nil)
     registry_key = instance_registry_key(database.key, env)
     sql = <<SQL
-USE [msdb]
-
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
     @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
@@ -689,15 +690,15 @@ BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
 WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
     init(database.key, env)
-    run_sql_statement(sql)
+    db.execute(sql)
   end
 
   def self.restore(database, env)
     physical_name = physical_database_name(database.key, env)
     info("Restore Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
+    db.select_database(nil)
     registry_key = instance_registry_key(database.key, env)
     sql = <<SQL
-  USE [msdb]
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
   SET @TargetDatabase = '#{physical_name}'
@@ -749,17 +750,17 @@ SQL
   EXEC(@sql)
 SQL
     init(database.key, env)
-    run_sql_statement("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
-    run_sql_statement(sql)
+    db.execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+    db.execute(sql)
   end
 
   def self.drop(database, env)
     init_msdb
+    db.select_database(nil)
     physical_name = physical_database_name(database.key, env)
 
     sql = if force_drop?(database.key, env)
       <<SQL
-USE [msdb]
 GO
   IF EXISTS
     ( SELECT *
@@ -773,7 +774,6 @@ SQL
     end
 
     sql << <<SQL
-USE [msdb]
 GO
   IF EXISTS
     ( SELECT *
@@ -783,15 +783,13 @@ GO
 GO
 SQL
     trace("Database Drop [#{physical_name}]: database_key=#{database.key}, env=#{env}")
-    run_filtered_sql(database, env, sql)
+    run_filtered_sql_batch(database, env, sql)
   end
 
   def self.create_module(database, env, module_name, schema_name, mode)
     init(database.key, env)
     trace("Module #{mode == :up ? "create" : "finalize"} [#{physical_database_name(database.key, env)}]: module=#{module_name}, database_key=#{database.key}, env=#{env}")
-    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
-      run_filtered_sql(database, env, "CREATE SCHEMA [#{schema_name}]")
-    end
+    db.create_schema(schema_name)
     process_module(database, env, module_name, mode)
   end
 
@@ -921,24 +919,19 @@ SQL
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.run_import_sql(database, env, table, sql, change_to_msdb = true, script_file_name = nil, print_dot = false)
-    sql = filter_sql("msdb", "import", sql, database.filters)
+  def self.run_import_sql(database, env, table, sql, script_file_name = nil, print_dot = false)
+    sql = filter_sql("import", sql, database.filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
     sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key, env))
-    current_database = physical_database_name(database.key, env)
-    if change_to_msdb
-      ActiveRecord::Base.connection.execute "USE [msdb]"
-      run_sql(sql, script_file_name, print_dot)
-      ActiveRecord::Base.connection.execute "USE [#{current_database}]"
-    else
-      run_sql(sql, script_file_name, print_dot)
-    end
+    db.select_database(nil)
+    run_sql_batch(sql, script_file_name, print_dot)
+    db.select_database(physical_database_name(database.key, env))
   end
 
   def self.generate_standard_import_sql(table)
     sql = "INSERT INTO @@TARGET@@.#{table}("
-    columns = ActiveRecord::Base.connection.columns(table).collect { |c| "[#{c.name}]" }
+    columns = db.column_names_for_table(table)
     sql += columns.join(', ')
     sql += ")\n  SELECT "
     sql += columns.collect { |c| c == '[BatchID]' ? "0" : c }.join(', ')
@@ -951,9 +944,8 @@ SQL
   end
 
   def self.perform_import(database, env, module_name, table, import_dir)
-    has_identity = has_identity_column(table)
-
-    run_import_sql(database, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ ON") if has_identity
+    identity_insert_sql = db.get_identity_insert_sql(table, true)
+    run_import_sql(database, env, table, identity_insert_sql) if identity_insert_sql
 
     fixture_file = fixture_for_import(database, module_name, table, import_dir)
     sql_file = sql_for_import(database, module_name, table, import_dir)
@@ -963,28 +955,17 @@ SQL
     if fixture_file
       load_fixture(table, fixture_file)
     elsif is_sql
-      run_import_sql(database, env, table, IO.readlines(sql_file).join, true, sql_file, true)
+      run_import_sql(database, env, table, IO.readlines(sql_file).join, sql_file, true)
     else
       perform_standard_import(database, env, table)
     end
 
-    run_import_sql(database, env, table, "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ OFF") if has_identity
-  end
-
-  def self.has_identity_column(table)
-    ActiveRecord::Base.connection.columns(table).each do |c|
-      return true if c.identity == true
-    end
-    false
+    identity_insert_sql = db.get_identity_insert_sql(table, false)
+    run_import_sql(database, env, table, identity_insert_sql) if identity_insert_sql
   end
 
   def self.setup_connection(config_key)
-    require 'active_record'
-    ActiveRecord::Base.colorize_logging = false
-    ActiveRecord::Base.establish_connection(get_config(config_key))
-    FileUtils.mkdir_p File.dirname(DbTasks::Config.log_filename)
-    ActiveRecord::Base.logger = Logger.new(File.open(DbTasks::Config.log_filename, 'a'))
-    ActiveRecord::Migration.verbose = @@trace
+    db.open(get_config(config_key), DbTasks::Config.log_filename, @@trace)
   end
 
   def self.create_database(database, env)
@@ -1028,17 +1009,16 @@ ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT OFF
 ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
 ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
-
-GO
-  USE [#{physical_name}]
 SQL
     trace("Database Create [#{physical_name}]: database_key=#{database.key}, env=#{env}")
-    run_filtered_sql(database, env, sql)
+    run_filtered_sql_batch(database, env, sql)
+
+    db.select_database(physical_name)
     if !database.version.nil?
       sql = <<SQL
     EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database.version}'
 SQL
-      run_filtered_sql(database, env, sql)
+      run_filtered_sql_batch(database, env, sql)
     end
   end
 
@@ -1061,7 +1041,6 @@ SQL
   end
 
   def self.load_fixtures_from_dirs(database, module_name, dirs)
-    require 'active_record/fixtures'
     fixtures = {}
     database.table_ordering(module_name).each do |table_name|
       dirs.each do |dir|
@@ -1071,7 +1050,7 @@ SQL
     end
 
     database.table_ordering(module_name).reverse.each do |table_name|
-      run_sql_statement("DELETE FROM #{table_name}") if fixtures[table_name]
+      db.execute("DELETE FROM #{table_name}") if fixtures[table_name]
     end
 
     database.table_ordering(module_name).each do |table_name|
@@ -1099,57 +1078,27 @@ SQL
       fixture.each do |name, data|
         raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
 
-        column_names = data.keys.collect { |column_name| ActiveRecord::Base.connection.quote_column_name(column_name) }
-        value_list = data.values.collect { |value| ActiveRecord::Base.connection.quote(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
-        run_sql_statement("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
+        column_names = data.keys.collect { |column_name| db.quote_column_name(column_name) }
+        value_list = data.values.collect { |value| db.quote_value(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
+        db.execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
       end
     end
   end
 
-  def self.run_sql(sql, script_file_name = nil, print_dot = false)
+  def self.run_sql_batch(sql, script_file_name, print_dot)
     sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
       $stdout.putc '.' if print_dot
-      run_sql_statement(ddl, script_file_name, index)
+      begin
+        db.execute(ddl)
+      rescue
+        if script_file_name.nil? || index.nil?
+          raise $!
+        else
+          raise "An error occurred while trying to execute batch ##{index + 1} of #{File.basename(script_file_name)}:\n#{$!}"
+        end
+      end
     end
     $stdout.putc "\n" if print_dot
-  end
-
-  def self.run_sql_statement(sql, script_file_name = nil, index = nil)
-    begin
-      ActiveRecord::Base.connection.execute(sql, nil)
-    rescue
-      if script_file_name.nil? || index.nil?
-        raise $!
-      else
-        raise "An error occurred while trying to execute batch ##{index + 1} of #{File.basename(script_file_name)}:\n#{$!}"
-      end
-    end
-  end
-
-  def self.drop_schema(database, schema_name, modules)
-    database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| run_sql("DROP PROCEDURE #{name}") }
-    database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
-    database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
-    database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| run_sql("DROP FUNCTION #{name}") }
-    database_objects("VIEW", schema_name).each { |name| run_sql("DROP VIEW #{name}") }
-    modules.reverse.each do |module_name|
-      database.table_ordering(module_name).reverse.each do |t|
-        run_sql("DROP TABLE #{t}")
-      end
-    end
-    run_sql("DROP SCHEMA #{schema_name}")
-  end
-
-  def self.database_objects(object_type, schema_name)
-    sql = <<SQL
-SELECT QUOTENAME(S.name) + '.' + QUOTENAME(O.name)
-FROM
-sys.objects O
-JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AND O.parent_object_id = 0
-WHERE type_desc = '#{object_type}'
-ORDER BY create_date DESC
-SQL
-    ActiveRecord::Base.connection.select_values(sql)
   end
 
   def self.get_config(config_key)
@@ -1166,17 +1115,15 @@ SQL
     @@configurations = configurations
   end
 
-  #TODO: This is used outside this module. Should be renamed to execute_batch. ALso should add a select_all equivalent
-  def self.run_filtered_sql(database, env, sql, script_file_name = nil)
-    sql = filter_sql(config_key(database.key, env), env, sql, database.filters)
-    run_sql(sql, script_file_name)
+  def self.run_filtered_sql_batch(database, env, sql, script_file_name = nil)
+    sql = filter_sql(env, sql, database.filters)
+    run_sql_batch(sql, script_file_name, false)
   end
 
-  def self.filter_sql(config_key, env, sql, filters)
+  def self.filter_sql(env, sql, filters)
     filters.each do |filter|
       sql = filter.call(env, sql)
     end
-    sql = filter_database_name(sql, /@@SELF@@/, config_key)
     sql
   end
 
@@ -1190,9 +1137,9 @@ SQL
     info("#{label}: #{File.basename(filename)}")
     sql = IO.readlines(filename).join
     if is_import
-      run_import_sql(database, env, nil, sql, true, filename)
+      run_import_sql(database, env, nil, sql, filename)
     else
-      run_filtered_sql(database, env, sql, filename)
+      run_filtered_sql_batch(database, env, sql, filename)
     end
   end
 
@@ -1262,5 +1209,95 @@ SQL
     value = get_config(config_key)[config_param_name]
     raise "Unable to locate configuration value named #{config_param_name} in section #{config_key}" if !allow_nil && value.nil?
     value
-  end 
+  end
+
+  def self.db
+    self
+  end
+
+  def self.quote_column_name(column_name)
+    ActiveRecord::Base.connection.quote_column_name(column_name)
+  end
+
+  def self.quote_value(value)
+    ActiveRecord::Base.connection.quote(value)
+  end
+
+  def self.execute(sql)
+    ActiveRecord::Base.connection.execute(sql, nil)
+  end
+
+  def self.select_values(sql)
+    ActiveRecord::Base.connection.select_values(sql, nil)
+  end
+
+  def self.create_schema(schema_name)
+    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      execute("CREATE SCHEMA [#{schema_name}]")
+    end
+  end
+
+  def self.drop_schema(schema_name, tables)
+    database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
+    database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+    database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+    database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+    database_objects("VIEW", schema_name).each { |name| execute("DROP VIEW #{name}") }
+    tables.reverse.each do |table|
+      execute("DROP TABLE #{t}")
+    end
+    execute("DROP SCHEMA #{schema_name}")
+  end
+
+  def self.database_objects(object_type, schema_name)
+    sql = <<SQL
+SELECT QUOTENAME(S.name) + '.' + QUOTENAME(O.name)
+FROM
+sys.objects O
+JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AND O.parent_object_id = 0
+WHERE type_desc = '#{object_type}'
+ORDER BY create_date DESC
+SQL
+    self.select_values(sql)
+  end
+
+  def self.column_names_for_table(table)
+    ActiveRecord::Base.connection.columns(table).collect { |c| db.quote_column_name(c.name) }
+  end
+
+  def self.open(config, log_filename, trace)
+    require 'active_record'
+    ActiveRecord::Base.colorize_logging = false
+    ActiveRecord::Base.establish_connection(config)
+
+    require 'active_record'
+    ActiveRecord::Base.colorize_logging = false
+    ActiveRecord::Base.establish_connection(config)
+    FileUtils.mkdir_p File.dirname(log_filename)
+    ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
+    ActiveRecord::Migration.verbose = trace
+  end
+
+  def self.has_identity_column(table)
+    ActiveRecord::Base.connection.columns(table).each do |c|
+      return true if c.identity == true
+    end
+    false
+  end
+
+  def self.get_identity_insert_sql(table, value)
+    if has_identity_column(table)
+      "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ #{value ? 'ON' : 'OFF'}"
+    else
+      nil
+    end
+  end
+
+  def self.select_database(database_name)
+    if database_name.nil?
+      ActiveRecord::Base.connection.execute "USE [msdb]"
+    else
+      ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+    end
+  end
 end
