@@ -1090,9 +1090,9 @@ SQL
         end
 
       yaml_value.each do |fixture|
-        raise Fixture::FormatError, "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
+        raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
         fixture.each do |name, data|
-          raise Fixture::FormatError, "Bad data for #{table_name} fixture named #{name} (nil)" unless data
+          raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
 
           column_names = data.keys.collect{ |column_name| ActiveRecord::Base.connection.quote_column_name(column_name) }
           value_list = data.values.collect{|value| ActiveRecord::Base.connection.quote(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
