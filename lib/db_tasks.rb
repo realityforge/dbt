@@ -619,6 +619,26 @@ SQL
     end
   end
 
+  def self.backup(database)
+    init_msdb
+    db.backup(database, get_config(config_key(database.key)))
+  end
+
+  def self.restore(database)
+    init_msdb
+    db.restore(database, get_config(config_key(database.key)))
+  end
+
+  def self.create_database(database)
+    init_msdb
+    db.create_database(database, get_config(config_key(database.key)))
+  end
+
+  def self.drop(database)
+    init_msdb
+    db.drop(database, get_config(config_key(database.key)))
+  end
+
   def self.import(database, module_name, import_dir, reindex, shrink, should_perform_delete)
     ordered_tables = database.table_ordering(module_name)
 
@@ -675,21 +695,6 @@ SQL
       info("Updating usage statistics")
       run_sql_batch("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
     end
-  end
-
-  def self.backup(database)
-    init_msdb
-    db.backup(database, get_config(config_key(database.key)))
-  end
-
-  def self.restore(database)
-    init_msdb
-    db.restore(database, get_config(config_key(database.key)))
-  end
-
-  def self.drop(database)
-    init_msdb
-    db.drop(database, get_config(config_key(database.key)))
   end
 
   def self.create_module(database, module_name, schema_name, mode)
@@ -872,11 +877,6 @@ SQL
       yield
       db.close
     end
-  end
-
-  def self.create_database(database)
-    init_msdb
-    db.create_database(database, get_config(config_key(database.key)))
   end
 
   def self.process_module(database, module_name, mode)
