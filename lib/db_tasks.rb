@@ -408,6 +408,7 @@ SQL
   @@defined_init_tasks = false
   @@database_driver_hooks = []
   @@databases = {}
+  @@configurations = {}
 
   def self.init(database_key, env)
     setup_connection(config_key(database_key, env))
@@ -1104,7 +1105,7 @@ SQL
   end
 
   def self.configurations
-    @@configurations || {}
+    @@configurations
   end
 
   def self.configurations=(configurations)
