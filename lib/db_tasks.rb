@@ -1269,10 +1269,6 @@ SQL
     require 'active_record'
     ActiveRecord::Base.colorize_logging = false
     ActiveRecord::Base.establish_connection(config)
-
-    require 'active_record'
-    ActiveRecord::Base.colorize_logging = false
-    ActiveRecord::Base.establish_connection(config)
     FileUtils.mkdir_p File.dirname(log_filename)
     ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
     ActiveRecord::Migration.verbose = trace
