@@ -441,7 +441,6 @@ SQL
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
     tables.each do |table_name|
-      i = 0
       File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
         puts("Dumping #{table_name}\n")
         const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
@@ -456,6 +455,7 @@ SQL
         end
 
         records = YAML::Omap.new
+        i = 0
         dump_class.find_by_sql(sql).collect do |record|
           records["r#{i += 1}"] = record.attributes
         end
