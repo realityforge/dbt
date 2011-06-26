@@ -44,7 +44,7 @@ class DbTasks
       end
 
       def add_param_doc(p_name, p_doc)
-        @param_docs[p_name] = p_doc;
+        @param_docs[p_name] = p_doc
       end
 
       def object_name
