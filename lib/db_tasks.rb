@@ -782,7 +782,7 @@ GO
     DROP DATABASE [#{physical_name}]
 GO
 SQL
-    run_filtered_sql_batch(database, sql)
+    run_sql_batch(database, sql)
   end
 
   def self.create_module(database, module_name, schema_name, mode)
@@ -1011,14 +1011,14 @@ ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
 ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
 SQL
-    run_filtered_sql_batch(database, sql)
+    run_sql_batch(database, sql)
 
     db.select_database(physical_name)
     if !database.version.nil?
       sql = <<SQL
     EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database.version}'
 SQL
-      run_filtered_sql_batch(database, sql)
+      run_sql_batch(database, sql)
     end
   end
 
