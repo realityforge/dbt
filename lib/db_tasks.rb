@@ -375,8 +375,8 @@ SQL
     def enable_domgen(repository_key, load_task_name, generate_task_name)
       define_table_order_resolver do |module_key|
         require 'domgen'
-        schema = Domgen.repository_by_name(repository_key).data_module_by_name(module_key.to_s)
-        schema.object_types.select { |object_type| !object_type.abstract? }.collect do |object_type|
+        data_module = Domgen.repository_by_name(repository_key).data_module_by_name(module_key.to_s)
+        data_module.object_types.select { |object_type| !object_type.abstract? }.collect do |object_type|
           object_type.sql.qualified_table_name
         end
       end
