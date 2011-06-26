@@ -511,6 +511,8 @@ SQL
     database.datasets.each do |dataset_name|
       desc "Loads #{dataset_name} data"
       task "dbt:#{database.key}:datasets:#{dataset_name}" => ["dbt:#{database.key}:load_config"] do
+        banner("Loading Dataset #{dataset_name}", database.key)
+        init(database.key)
         database.modules.each do |module_name|
           load_dataset(database, module_name, dataset_name)
         end
@@ -607,13 +609,8 @@ SQL
   def self.import(database, module_name, import_dir, reindex, shrink, should_perform_delete)
     ordered_tables = database.table_ordering(module_name)
 
-    # check the database configurations are set
-    target_config = config_key(database.key)
-    source_config = config_key(database.key, "import")
-    get_config(target_config)
-    get_config(source_config)
-
-    setup_connection(target_config)
+    # check the import configuration is set
+    get_config(config_key(database.key, "import"))
 
     # Iterate over module in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
@@ -667,6 +664,7 @@ SQL
 
   def self.backup(database)
     banner("Backing up Database", database.key)
+    init(database.key)
     physical_name = physical_database_name(database.key)
     db.select_database(nil)
     registry_key = instance_registry_key(database.key)
@@ -683,12 +681,12 @@ SQL
 BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
 WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
-    init(database.key)
     db.execute(sql)
   end
 
   def self.restore(database)
     banner("Restoring Database", database.key)
+    init(database.key)
     physical_name = physical_database_name(database.key)
     db.select_database(nil)
     registry_key = instance_registry_key(database.key)
@@ -743,7 +741,6 @@ SQL
   '
   EXEC(@sql)
 SQL
-    init(database.key)
     db.execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
     db.execute(sql)
   end
@@ -1025,7 +1022,6 @@ SQL
   end
 
   def self.load_dataset(database, module_name, dataset_name)
-    init(database.key)
     load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, "datasets/#{dataset_name}"))
   end
 
