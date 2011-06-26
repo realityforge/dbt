@@ -106,15 +106,14 @@ class DbTasks
     end
 
     def add_database_name_filter(pattern, database_key)
-      add_filter do |env, sql|
-        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key, env), false)
+      add_filter do |sql|
+        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key), false)
       end
     end
 
     # Filter the SQL files replacing specified pattern with specified value
     def add_property_filter(pattern, value)
-      #noinspection RubyUnusedLocalVariable
-      add_filter do |env, sql|
+      add_filter do |sql|
         sql.gsub(pattern, value)
       end
     end
@@ -126,7 +125,7 @@ class DbTasks
     #   ASSERT(@Id IS NULL)
     #
     def add_import_assert_filters
-      add_filter do |env, sql|
+      add_filter do |sql|
         sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (SELECT COUNT(*) FROM @@SOURCE@@.@@TABLE@@)
 BEGIN
@@ -410,8 +409,8 @@ SQL
   @@databases = {}
   @@configurations = {}
 
-  def self.init(database_key, env)
-    setup_connection(config_key(database_key, env))
+  def self.init(database_key)
+    setup_connection(config_key(database_key))
   end
 
   def self.init_msdb
@@ -466,9 +465,9 @@ SQL
     end
   end
 
-  def self.load_modules_fixtures(database_key, env, module_name)
+  def self.load_modules_fixtures(database_key, module_name)
     database = database_for_key(database_key)
-    init(database.key, env)
+    init(database.key)
     load_fixtures(database, module_name)
   end
 
@@ -494,7 +493,7 @@ SQL
     desc "Drop the #{database.key} database."
     task "dbt:#{database.key}:drop" => ["dbt:#{database.key}:load_config"] do
       info("**** Dropping database: #{database.key} ****")
-      drop(database, DbTasks::Config.environment)
+      drop(database)
     end
 
     # Database creation
@@ -509,8 +508,8 @@ SQL
     task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner",
                                           "dbt:#{database.key}:pre_build",
                                           "dbt:#{database.key}:load_config"] do
-      perform_create_action(database, DbTasks::Config.environment, :up)
-      perform_create_action(database, DbTasks::Config.environment, :finalize)
+      perform_create_action(database, :up)
+      perform_create_action(database, :finalize)
     end
 
     # Data set loading etc
@@ -518,7 +517,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "dbt:#{database.key}:datasets:#{dataset_name}" => ["dbt:#{database.key}:load_config"] do
         database.modules.each do |module_name|
-          load_dataset(database, DbTasks::Config.environment, module_name, dataset_name)
+          load_dataset(database, module_name, dataset_name)
         end
       end
     end
@@ -540,10 +539,9 @@ SQL
         key = ":" + imp.key.to_s if imp.key != :default
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-          env = DbTasks::Config.environment
-          perform_create_action(database, env, :up) unless partial_import_completed?
-          perform_import_action(imp, env, false, nil)
-          perform_create_action(database, env, :finalize)
+          perform_create_action(database, :up) unless partial_import_completed?
+          perform_import_action(imp, false, nil)
+          perform_create_action(database, :finalize)
         end
       end
     end
@@ -551,14 +549,14 @@ SQL
     if database.backup?
       desc "Perform backup of #{database.key} database"
       task "dbt:#{database.key}:backup" => ["dbt:#{database.key}:load_config"] do
-        backup(database, DbTasks::Config.environment)
+        backup(database)
       end
     end
 
     if database.restore?
       desc "Perform restore of #{database.key} database"
       task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
-        DbTasks.restore(database, DbTasks::Config.environment)
+        DbTasks.restore(database)
       end
     end
   end
@@ -571,19 +569,19 @@ SQL
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless module_group.modules.include?(schema_name)
-        create_module(database, DbTasks::Config.environment, module_name, schema_name, :up)
-        create_module(database, DbTasks::Config.environment, module_name, schema_name, :finalize)
+        create_module(database, module_name, schema_name, :up)
+        create_module(database, module_name, schema_name, :finalize)
       end
     end
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
       info("**** Downing schema group: #{module_group.key} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
-      init(database.key, DbTasks::Config.environment)
+      init(database.key)
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless module_group.modules.include?(schema_name)
-        process_module(database, DbTasks::Config.environment, module_name, :down)
+        process_module(database, module_name, :down)
       end
       schema_2_module = {}
       database.modules.each do |module_name|
@@ -608,16 +606,16 @@ SQL
     end
   end
 
-  def self.import(database, env, module_name, import_dir, reindex, shrink, should_perform_delete)
+  def self.import(database, module_name, import_dir, reindex, shrink, should_perform_delete)
     ordered_tables = database.table_ordering(module_name)
 
     # check the database configurations are set
-    target_config = config_key(database.key, env)
+    target_config = config_key(database.key)
     source_config = config_key(database.key, "import")
     get_config(target_config)
     get_config(source_config)
 
-    trace("Database Import [#{physical_database_name(database.key, env)}]: module_name=#{module_name}, database_key=#{database.key}, env=#{env}, source_key=#{source_config} target_key=#{target_config}")
+    trace("Database Import [#{physical_database_name(database.key)}]: module_name=#{module_name}, database_key=#{database.key}, env=#{DbTasks::Config.environment}, source_key=#{source_config} target_key=#{target_config}")
     setup_connection(target_config)
 
     # Iterate over module in dependency order doing import as appropriate
@@ -628,20 +626,20 @@ SQL
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
         info("Deleting #{table}")
-        run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+        run_import_sql(database, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
       end
     end
 
     tables.each do |table|
       if ENV[IMPORT_RESUME_AT_ENV_KEY] == table
-        run_import_sql(database, env, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+        run_import_sql(database, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
       if !partial_import_completed?
-        perform_import(database, env, module_name, table, import_dir)
+        perform_import(database, module_name, table, import_dir)
         if reindex
           info("Reindexing #{table}")
-          run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+          run_import_sql(database, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
         end
       end
     end
@@ -652,29 +650,29 @@ SQL
         # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
         # we reindex otherwise the indexes will be highly fragmented.
         info("Shrinking database")
-        run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-        run_import_sql(database, env, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+        run_import_sql(database, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
+        run_import_sql(database, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
 
         tables.each do |table|
           info("Reindexing #{table}")
-          run_import_sql(database, env, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+          run_import_sql(database, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
         end
       end
 
       info("Updating statistics")
-      run_import_sql(database, env, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
+      run_import_sql(database, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
 
       # This updates the usage details for the database. i.e. how much space is take for each index/table 
       info("Updating usage statistics")
-      run_import_sql(database, env, nil, "DBCC UPDATEUSAGE(N'@@TARGET@@') WITH NO_INFOMSGS, COUNT_ROWS")
+      run_import_sql(database, nil, "DBCC UPDATEUSAGE(N'@@TARGET@@') WITH NO_INFOMSGS, COUNT_ROWS")
     end
   end
 
-  def self.backup(database, env)
-    physical_name = physical_database_name(database.key, env)
-    info("Backup Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
+  def self.backup(database)
+    physical_name = physical_database_name(database.key)
+    info("Backup Database [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.select_database(nil)
-    registry_key = instance_registry_key(database.key, env)
+    registry_key = instance_registry_key(database.key)
     sql = <<SQL
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
@@ -688,20 +686,20 @@ SQL
 BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
 WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
-    init(database.key, env)
+    init(database.key)
     db.execute(sql)
   end
 
-  def self.restore(database, env)
-    physical_name = physical_database_name(database.key, env)
-    info("Restore Database [#{physical_name}]: database_key=#{database.key}, env=#{env}")
+  def self.restore(database)
+    physical_name = physical_database_name(database.key)
+    info("Restore Database [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.select_database(nil)
-    registry_key = instance_registry_key(database.key, env)
+    registry_key = instance_registry_key(database.key)
     sql = <<SQL
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
   SET @TargetDatabase = '#{physical_name}'
-  SET @SourceDatabase = '#{restore_from(database.key, env)}'
+  SET @SourceDatabase = '#{restore_from(database.key)}'
 
   DECLARE @BackupFile VARCHAR(400)
   DECLARE @DataLogicalName VARCHAR(400)
@@ -748,17 +746,17 @@ SQL
   '
   EXEC(@sql)
 SQL
-    init(database.key, env)
+    init(database.key)
     db.execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
     db.execute(sql)
   end
 
-  def self.drop(database, env)
+  def self.drop(database)
     init_msdb
     db.select_database(nil)
-    physical_name = physical_database_name(database.key, env)
+    physical_name = physical_database_name(database.key)
 
-    sql = if force_drop?(database.key, env)
+    sql = if force_drop?(database.key)
       <<SQL
 GO
   IF EXISTS
@@ -781,15 +779,15 @@ GO
     DROP DATABASE [#{physical_name}]
 GO
 SQL
-    trace("Database Drop [#{physical_name}]: database_key=#{database.key}, env=#{env}")
-    run_filtered_sql_batch(database, env, sql)
+    trace("Database Drop [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
+    run_filtered_sql_batch(database, sql)
   end
 
-  def self.create_module(database, env, module_name, schema_name, mode)
-    init(database.key, env)
-    trace("Module #{mode == :up ? "create" : "finalize"} [#{physical_database_name(database.key, env)}]: module=#{module_name}, database_key=#{database.key}, env=#{env}")
+  def self.create_module(database, module_name, schema_name, mode)
+    init(database.key)
+    trace("Module #{mode == :up ? "create" : "finalize"} [#{physical_database_name(database.key)}]: module=#{module_name}, database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.create_schema(schema_name)
-    process_module(database, env, module_name, mode)
+    process_module(database, module_name, mode)
   end
 
   def self.define_import_task(prefix, imp, description, module_group = nil)
@@ -799,15 +797,15 @@ SQL
     task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
-      perform_import_action(imp, DbTasks::Config.environment, true, module_group)
+      perform_import_action(imp, true, module_group)
     end
   end
 
-  def self.perform_create_action(database, env, mode)
+  def self.perform_create_action(database, mode)
     database.modules.each_with_index do |module_name, idx|
-      create_database(database, env) if (idx == 0 && mode == :up)
+      create_database(database) if (idx == 0 && mode == :up)
       schema_name = database.schema_name_for_module(module_name)
-      create_module(database, env, module_name, schema_name, mode)
+      create_module(database, module_name, schema_name, mode)
     end
   end
 
@@ -869,17 +867,17 @@ SQL
     files
   end
 
-  def self.perform_import_action(imp, env, should_perform_delete, module_group)
-    init(imp.database.key, env)
+  def self.perform_import_action(imp, should_perform_delete, module_group)
+    init(imp.database.key)
     if module_group.nil?
       imp.pre_import_dirs.each do |dir|
         files = collect_files(imp.database.dirs_for_database(dir))
-        run_sql_files(imp.database, env, dir_display_name(dir), files, true)
+        run_sql_files(imp.database, dir_display_name(dir), files, true)
       end unless partial_import_completed?
     end
     imp.modules.each do |module_key|
       if module_group.nil? || module_group.modules.include?(module_key)
-        import(imp.database, env, module_key, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
+        import(imp.database, module_key, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
       end
     end
     if partial_import_completed?
@@ -888,7 +886,7 @@ SQL
     if module_group.nil?
       imp.post_import_dirs.each do |dir|
         files = collect_files(imp.database.dirs_for_database(dir))
-        run_sql_files(imp.database, env, dir_display_name(dir), files, true)
+        run_sql_files(imp.database, dir_display_name(dir), files, true)
       end
     end
   end
@@ -912,18 +910,18 @@ SQL
     end
   end
 
-  def self.config_key(database_key, env)
+  def self.config_key(database_key, env = DbTasks::Config.environment)
     database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
   end
 
-  def self.run_import_sql(database, env, table, sql, script_file_name = nil, print_dot = false)
-    sql = filter_sql("import", sql, database.filters)
+  def self.run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
+    sql = filter_sql(sql, database.filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
-    sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key, env))
+    sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
     db.select_database(nil)
     run_sql_batch(sql, script_file_name, print_dot)
-    db.select_database(physical_database_name(database.key, env))
+    db.select_database(physical_database_name(database.key))
   end
 
   def self.generate_standard_import_sql(table)
@@ -936,13 +934,13 @@ SQL
     sql
   end
 
-  def self.perform_standard_import(database, env, table)
-    run_import_sql(database, env, table, generate_standard_import_sql(table))
+  def self.perform_standard_import(database, table)
+    run_import_sql(database, table, generate_standard_import_sql(table))
   end
 
-  def self.perform_import(database, env, module_name, table, import_dir)
+  def self.perform_import(database, module_name, table, import_dir)
     identity_insert_sql = db.get_identity_insert_sql(table, true)
-    run_import_sql(database, env, table, identity_insert_sql) if identity_insert_sql
+    run_import_sql(database, table, identity_insert_sql) if identity_insert_sql
 
     fixture_file = fixture_for_import(database, module_name, table, import_dir)
     sql_file = sql_for_import(database, module_name, table, import_dir)
@@ -952,31 +950,31 @@ SQL
     if fixture_file
       load_fixture(table, fixture_file)
     elsif is_sql
-      run_import_sql(database, env, table, IO.readlines(sql_file).join, sql_file, true)
+      run_import_sql(database, table, IO.readlines(sql_file).join, sql_file, true)
     else
-      perform_standard_import(database, env, table)
+      perform_standard_import(database, table)
     end
 
     identity_insert_sql = db.get_identity_insert_sql(table, false)
-    run_import_sql(database, env, table, identity_insert_sql) if identity_insert_sql
+    run_import_sql(database, table, identity_insert_sql) if identity_insert_sql
   end
 
   def self.setup_connection(config_key)
     db.open(get_config(config_key), DbTasks::Config.log_filename, @@trace)
   end
 
-  def self.create_database(database, env)
-    return if no_create?(database.key, env)
+  def self.create_database(database)
+    return if no_create?(database.key)
     init_msdb
-    drop(database, env)
-    physical_name = physical_database_name(database.key, env)
+    drop(database)
+    physical_name = physical_database_name(database.key)
     if database.version.nil?
       db_filename = physical_name
     else
       db_filename = "#{physical_name}_#{database.version.gsub(/\./, '_')}"
     end
-    base_data_path = data_path(database.key, env)
-    base_log_path = log_path(database.key, env)
+    base_data_path = data_path(database.key)
+    base_log_path = log_path(database.key)
 
     db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
     log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
@@ -1007,23 +1005,23 @@ ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
 ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
 SQL
-    trace("Database Create [#{physical_name}]: database_key=#{database.key}, env=#{env}")
-    run_filtered_sql_batch(database, env, sql)
+    trace("Database Create [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
+    run_filtered_sql_batch(database, sql)
 
     db.select_database(physical_name)
     if !database.version.nil?
       sql = <<SQL
     EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database.version}'
 SQL
-      run_filtered_sql_batch(database, env, sql)
+      run_filtered_sql_batch(database, sql)
     end
   end
 
-  def self.process_module(database, env, module_name, mode)
+  def self.process_module(database, module_name, mode)
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
       files = collect_files(dirs_for_module(database, module_name, dir))
-      run_sql_files(database, env, dir_display_name(dir), files, false)
+      run_sql_files(database, dir_display_name(dir), files, false)
     end
     load_fixtures(database, module_name) if mode == :up
   end
@@ -1032,8 +1030,8 @@ SQL
     load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, 'fixtures'))
   end
 
-  def self.load_dataset(database, env, module_name, dataset_name)
-    init(database.key, env)
+  def self.load_dataset(database, module_name, dataset_name)
+    init(database.key)
     load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, "datasets/#{dataset_name}"))
   end
 
@@ -1112,31 +1110,31 @@ SQL
     @@configurations = configurations
   end
 
-  def self.run_filtered_sql_batch(database, env, sql, script_file_name = nil)
-    sql = filter_sql(env, sql, database.filters)
+  def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
+    sql = filter_sql(sql, database.filters)
     run_sql_batch(sql, script_file_name, false)
   end
 
-  def self.filter_sql(env, sql, filters)
+  def self.filter_sql(sql, filters)
     filters.each do |filter|
-      sql = filter.call(env, sql)
+      sql = filter.call(sql)
     end
     sql
   end
 
-  def self.run_sql_files(database, env, label, files, is_import)
+  def self.run_sql_files(database, label, files, is_import)
     files.each do |filename|
-      run_sql_file(database, env, label, filename, is_import)
+      run_sql_file(database, label, filename, is_import)
     end
   end
 
-  def self.run_sql_file(database, env, label, filename, is_import)
+  def self.run_sql_file(database, label, filename, is_import)
     info("#{label}: #{File.basename(filename)}")
     sql = IO.readlines(filename).join
     if is_import
-      run_import_sql(database, env, nil, sql, filename)
+      run_import_sql(database, nil, sql, filename)
     else
-      run_filtered_sql_batch(database, env, sql, filename)
+      run_filtered_sql_batch(database, sql, filename)
     end
   end
 
@@ -1173,36 +1171,36 @@ SQL
     puts message if @@trace
   end
 
-  def self.no_create?(database_key, env)
-    true == config_value(database_key, env, "no_create", true)
+  def self.no_create?(database_key)
+    true == config_value(database_key, "no_create", true)
   end
 
-  def self.force_drop?(database_key, env)
-    true == config_value(database_key, env, "force_drop", true)
+  def self.force_drop?(database_key)
+    true == config_value(database_key, "force_drop", true)
   end
 
-  def self.data_path(database_key, env)
-    config_value(database_key, env, "data_path", true)
+  def self.data_path(database_key)
+    config_value(database_key, "data_path", true)
   end
 
-  def self.log_path(database_key, env)
-    config_value(database_key, env, "log_path", true)
+  def self.log_path(database_key)
+    config_value(database_key, "log_path", true)
   end
 
-  def self.restore_from(database_key, env)
-    config_value(database_key, env, "restore_from", false)
+  def self.restore_from(database_key)
+    config_value(database_key, "restore_from", false)
   end
 
-  def self.instance_registry_key(database_key, env)
-    config_value(database_key, env, "instance_registry_key", false)
+  def self.instance_registry_key(database_key)
+    config_value(database_key, "instance_registry_key", false)
   end
 
-  def self.physical_database_name(database_key, env)
-    config_value(database_key, env, "database", false)
+  def self.physical_database_name(database_key)
+    config_value(database_key, "database", false)
   end
 
-  def self.config_value(database_key, env, config_param_name, allow_nil)
-    config_key = config_key(database_key, env)
+  def self.config_value(database_key, config_param_name, allow_nil)
+    config_key = config_key(database_key)
     value = get_config(config_key)[config_param_name]
     raise "Unable to locate configuration value named #{config_param_name} in section #{config_key}" if !allow_nil && value.nil?
     value
