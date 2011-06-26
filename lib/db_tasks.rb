@@ -272,6 +272,10 @@ SQL
 
     attr_writer :modules
 
+    def task_prefix
+      "dbt#{:default == self.key ? '' : ":#{self.key}"}"
+    end
+
     # List of modules to process for database
      def modules
        @modules = @modules.call if @modules.is_a?(Proc)
@@ -385,19 +389,19 @@ SQL
         Domgen.repository_by_name(repository_key).data_modules.collect{|data_module| data_module.name}
       end
 
-      task "dbt:#{key}:load_config" => load_task_name
-      task "dbt:#{key}:pre_build" => generate_task_name
+      task "#{task_prefix}:load_config" => load_task_name
+      task "#{task_prefix}:pre_build" => generate_task_name
     end
 
     # Enable db doc support. Assume that all the directories in up/down will have documentation and
     # will generate relative to specified directory.
     def enable_db_doc(target_directory)
-      task "dbt:#{key}:db_doc"
-      task "dbt:#{key}:pre_build" => ["dbt:#{key}:db_doc"]
+      task "#{task_prefix}:db_doc"
+      task "#{task_prefix}:pre_build" => ["#{task_prefix}:db_doc"]
 
       (up_dirs + down_dirs).each do |relative_dir_name|
         dirs_for_database(relative_dir_name).each do |dir|
-          task "dbt:#{key}:db_doc" => DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
+          task "#{task_prefix}:db_doc" => DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
         end
       end
     end
@@ -487,22 +491,22 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
-    task "dbt:#{database.key}:load_config" => ["dbt:load_config"]
-
+    task "#{database.task_prefix}:load_config" => ["dbt:all:load_config"]
+                         
     # Database dropping
 
     desc "Drop the #{database.key} database."
-    task "dbt:#{database.key}:drop" => ["dbt:#{database.key}:load_config"] do
+    task "#{database.task_prefix}:drop" => ["#{database.task_prefix}:load_config"] do
       banner('Dropping database', database.key)
       drop(database)
     end
 
     # Database creation
 
-    task "dbt:#{database.key}:pre_build" => ['dbt:pre_build']
+    task "#{database.task_prefix}:pre_build" => ['dbt:all:pre_build']
 
     desc "Create the #{database.key} database."
-    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:pre_build", "dbt:#{database.key}:load_config"] do
+    task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
       banner('Creating database', database.key)
       init_database(database.key) do
         perform_create_action(database, :up)
@@ -513,7 +517,7 @@ SQL
     # Data set loading etc
     database.datasets.each do |dataset_name|
       desc "Loads #{dataset_name} data"
-      task "dbt:#{database.key}:datasets:#{dataset_name}" => ["dbt:#{database.key}:load_config"] do
+      task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:load_config"] do
         banner("Loading Dataset #{dataset_name}", database.key)
         init_database(database.key) do
           database.modules.each do |module_name|
@@ -526,7 +530,7 @@ SQL
     # Import tasks
     if database.enable_separate_import_task?
       database.imports.values.each do |imp|
-        define_import_task("dbt:#{database.key}", imp, "contents")
+        define_import_task("#{database.task_prefix}", imp, "contents")
       end
     end
 
@@ -539,7 +543,7 @@ SQL
         key = ""
         key = ":" + imp.key.to_s if imp.key != :default
         desc "Create the #{database.key} database by import."
-        task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+        task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
           banner("Creating Database By Import", database.key)
           init_database(database.key) do
             perform_create_action(database, :up) unless partial_import_completed?
@@ -552,7 +556,7 @@ SQL
 
     if database.backup?
       desc "Perform backup of #{database.key} database"
-      task "dbt:#{database.key}:backup" => ["dbt:#{database.key}:load_config"] do
+      task "#{database.task_prefix}:backup" => ["#{database.task_prefix}:load_config"] do
         banner("Backing up Database", database.key)
         init_database(database.key) do
           backup(database)
@@ -562,7 +566,7 @@ SQL
 
     if database.restore?
       desc "Perform restore of #{database.key} database"
-      task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
+      task "#{database.task_prefix}:restore" => ["#{database.task_prefix}:load_config"] do
         banner("Restoring Database", database.key)
         init_database(database.key) do
           restore(database)
@@ -574,7 +578,7 @@ SQL
   def self.define_module_group_tasks(module_group)
     database = module_group.database
     desc "Up the #{module_group.key} module group in the #{database.key} database."
-    task "dbt:#{database.key}:#{module_group.key}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+    task "#{database.task_prefix}:#{module_group.key}:up" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       banner("Upping module group '#{module_group.key}'", database.key)
       init_database(database.key) do
         database.modules.each do |module_name|
@@ -587,7 +591,7 @@ SQL
     end
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
-    task "dbt:#{database.key}:#{module_group.key}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+    task "#{database.task_prefix}:#{module_group.key}:down" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       banner("Downing module group '#{module_group.key}'", database.key)
       init_database(database.key) do
         database.modules.reverse.each do |module_name|
@@ -614,7 +618,7 @@ SQL
       end
       if module_group.import_enabled? && !import_modules.empty?
         description = "contents of the #{module_group.key} module group"
-        define_import_task("dbt:#{database.key}:#{module_group.key}", imp, description, module_group)
+        define_import_task("#{database.task_prefix}:#{module_group.key}", imp, description, module_group)
       end
     end
   end
@@ -708,7 +712,7 @@ SQL
 
     task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
-    task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
+    task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:load_config"] do
       banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
       init_database(imp.database.key) do
         perform_import_action(imp, true, module_group)
@@ -811,14 +815,14 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task "dbt:load_config" do
+      task "dbt:all:load_config" do
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
         self.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
-      task "dbt:pre_build"
+      task "dbt:all:pre_build"
 
       @@defined_init_tasks = true
     end
