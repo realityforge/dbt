@@ -34,7 +34,7 @@ class DbTasks
       attr_writer :default_database
 
       def default_database
-        @default_database || 'default'
+        @default_database || :default
       end
 
       # config_file is where the yaml config file is located
