@@ -756,33 +756,7 @@ SQL
 
   def self.drop(database)
     init_msdb
-    db.select_database(nil)
-    physical_name = physical_database_name(database.key)
-
-    sql = if force_drop?(database.key)
-      <<SQL
-GO
-  IF EXISTS
-    ( SELECT *
-      FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
-    ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
-GO
-SQL
-    else
-      ''
-    end
-
-    sql << <<SQL
-GO
-  IF EXISTS
-    ( SELECT *
-      FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
-    DROP DATABASE [#{physical_name}]
-GO
-SQL
-    run_sql_batch(database, sql)
+    db.drop(database, get_config(config_key(database.key)))
   end
 
   def self.create_module(database, module_name, schema_name, mode)
@@ -970,56 +944,8 @@ SQL
   end
 
   def self.create_database(database)
-    return if no_create?(database.key)
     init_msdb
-    drop(database)
-    physical_name = physical_database_name(database.key)
-    if database.version.nil?
-      db_filename = physical_name
-    else
-      db_filename = "#{physical_name}_#{database.version.gsub(/\./, '_')}"
-    end
-    base_data_path = data_path(database.key)
-    base_log_path = log_path(database.key)
-
-    db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
-    log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
-
-    collation_def = database.collation ? "COLLATE #{database.collation}" : ""
-
-    sql = <<SQL
-CREATE DATABASE [#{physical_name}] #{db_def} #{log_def} #{collation_def}
-GO
-ALTER DATABASE [#{physical_name}] SET CURSOR_DEFAULT LOCAL
-ALTER DATABASE [#{physical_name}] SET CURSOR_CLOSE_ON_COMMIT ON
-
-ALTER DATABASE [#{physical_name}] SET AUTO_CREATE_STATISTICS ON
-ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS ON
-ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
-
-ALTER DATABASE [#{physical_name}] SET ANSI_NULL_DEFAULT ON
-ALTER DATABASE [#{physical_name}] SET ANSI_NULLS ON
-ALTER DATABASE [#{physical_name}] SET ANSI_PADDING ON
-ALTER DATABASE [#{physical_name}] SET ANSI_WARNINGS ON
-ALTER DATABASE [#{physical_name}] SET ARITHABORT ON
-ALTER DATABASE [#{physical_name}] SET CONCAT_NULL_YIELDS_NULL ON
-ALTER DATABASE [#{physical_name}] SET QUOTED_IDENTIFIER ON
--- NUMERIC_ROUNDABORT OFF is required for filtered indexes. The optimizer will also
--- not consider indexed views if the setting is not set. 
-ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT OFF
-ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
-
-ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
-SQL
-    run_sql_batch(database, sql)
-
-    db.select_database(physical_name)
-    if !database.version.nil?
-      sql = <<SQL
-    EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database.version}'
-SQL
-      run_sql_batch(database, sql)
-    end
+    db.create_database(database, get_config(config_key(database.key)))
   end
 
   def self.process_module(database, module_name, mode)
@@ -1299,6 +1225,111 @@ SQL
       else
         ActiveRecord::Base.connection.execute "USE [#{database_name}]"
       end
+    end
+
+    def create_database(database, configuration)
+      return if no_create?(configuration)
+      drop(database, configuration)
+
+      database_version = database.version
+
+      physical_name = physical_database_name(configuration)
+      if database_version.nil?
+        db_filename = physical_name
+      else
+        db_filename = "#{physical_name}_#{database_version.gsub(/\./, '_')}"
+      end
+      base_data_path = data_path(configuration)
+      base_log_path = log_path(configuration)
+
+      db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
+      log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
+
+      collation_def = database.collation ? "COLLATE #{database.collation}" : ""
+
+      execute("CREATE DATABASE [#{physical_name}] #{db_def} #{log_def} #{collation_def}")
+      execute(<<SQL)
+ALTER DATABASE [#{physical_name}] SET CURSOR_DEFAULT LOCAL
+ALTER DATABASE [#{physical_name}] SET CURSOR_CLOSE_ON_COMMIT ON
+
+ALTER DATABASE [#{physical_name}] SET AUTO_CREATE_STATISTICS ON
+ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS ON
+ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
+
+ALTER DATABASE [#{physical_name}] SET ANSI_NULL_DEFAULT ON
+ALTER DATABASE [#{physical_name}] SET ANSI_NULLS ON
+ALTER DATABASE [#{physical_name}] SET ANSI_PADDING ON
+ALTER DATABASE [#{physical_name}] SET ANSI_WARNINGS ON
+ALTER DATABASE [#{physical_name}] SET ARITHABORT ON
+ALTER DATABASE [#{physical_name}] SET CONCAT_NULL_YIELDS_NULL ON
+ALTER DATABASE [#{physical_name}] SET QUOTED_IDENTIFIER ON
+-- NUMERIC_ROUNDABORT OFF is required for filtered indexes. The optimizer will also
+-- not consider indexed views if the setting is not set.
+ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT OFF
+ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
+
+ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
+SQL
+      select_database(physical_name)
+      unless database_version.nil?
+        execute("EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database_version}'")
+      end
+    end
+
+    def drop(database, configuration)
+    physical_name = physical_database_name(configuration)
+
+    if force_drop?(configuration)
+      execute(<<SQL)
+  IF EXISTS
+    ( SELECT *
+      FROM  sys.master_files
+      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
+    ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+SQL
+    end
+
+    execute(<<SQL)
+  IF EXISTS
+    ( SELECT *
+      FROM  sys.master_files
+      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
+    DROP DATABASE [#{physical_name}]
+SQL
+  end
+
+    def no_create?(configuration)
+      true == config_value(configuration, "no_create", true)
+    end
+
+    def force_drop?(configuration)
+      true == config_value(configuration, "force_drop", true)
+    end
+
+    def data_path(configuration)
+      config_value(configuration, "data_path", true)
+    end
+
+    def log_path(configuration)
+      config_value(configuration, "log_path", true)
+    end
+
+    def restore_from(configuration)
+      config_value(configuration, "restore_from", false)
+    end
+
+    def instance_registry_key(configuration)
+      config_value(configuration, "instance_registry_key", false)
+    end
+
+    def physical_database_name(configuration)
+      config_value(configuration, "database", false)
+    end
+
+    def config_value(configuration, config_param_name, allow_nil)
+      value = configuration[config_param_name]
+      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
+      value
     end
   end
 end
