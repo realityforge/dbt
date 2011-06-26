@@ -1026,7 +1026,7 @@ SQL
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
       files = collect_files(dirs_for_module(database, module_name, dir))
-      run_sql_files(database, dir_display_name(dir), files, false)
+      run_sql_files(database, "#{'%-10s' % "#{module_name}:" } #{dir_display_name(dir)}", files, false)
     end
     load_fixtures(database, module_name) if mode == :up
   end
