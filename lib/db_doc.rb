@@ -37,7 +37,10 @@ class DbTasks
     # Class holding documentation info for a given function or stored procedure
     class DocModel
 
-      attr_accessor :full_object_name, :object_doc, :object_type, :param_docs
+      attr_accessor :full_object_name
+      attr_accessor :object_doc
+      attr_accessor :object_type
+      attr_accessor :param_docs
 
       def initialize
         @param_docs = {}
