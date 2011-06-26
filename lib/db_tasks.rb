@@ -901,8 +901,6 @@ SQL
   def self.define_basic_tasks
     if !@@defined_init_tasks
       task "dbt:load_config" do
-        require 'activerecord'
-        require 'active_record/fixtures'
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
