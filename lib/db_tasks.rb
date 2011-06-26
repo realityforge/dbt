@@ -403,7 +403,6 @@ SQL
     end
   end
 
-  @@trace = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
   @@defined_init_tasks = false
   @@database_driver_hooks = []
   @@databases = {}
@@ -503,6 +502,7 @@ SQL
     desc "Create the #{database.key} database."
     task "dbt:#{database.key}:create" => ["dbt:#{database.key}:pre_build", "dbt:#{database.key}:load_config"] do
       banner('Creating database', database.key)
+      init(database.key)
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
     end
@@ -535,6 +535,7 @@ SQL
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
           banner("Creating Database By Import", database.key)
+          init(database.key)
           perform_create_action(database, :up) unless partial_import_completed?
           perform_import_action(imp, false, nil)
           perform_create_action(database, :finalize)
@@ -562,6 +563,7 @@ SQL
     desc "Up the #{module_group.key} module group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
       banner("Upping module group '#{module_group.key}'", database.key)
+      init(database.key)
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless module_group.modules.include?(schema_name)
@@ -611,7 +613,6 @@ SQL
     get_config(target_config)
     get_config(source_config)
 
-    trace("Database Import [#{physical_database_name(database.key)}]: module_name=#{module_name}, database_key=#{database.key}, env=#{DbTasks::Config.environment}, source_key=#{source_config} target_key=#{target_config}")
     setup_connection(target_config)
 
     # Iterate over module in dependency order doing import as appropriate
@@ -775,13 +776,10 @@ GO
     DROP DATABASE [#{physical_name}]
 GO
 SQL
-    trace("Database Drop [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     run_filtered_sql_batch(database, sql)
   end
 
   def self.create_module(database, module_name, schema_name, mode)
-    init(database.key)
-    trace("Module #{mode == :up ? "create" : "finalize"} [#{physical_database_name(database.key)}]: module=#{module_name}, database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.create_schema(schema_name)
     process_module(database, module_name, mode)
   end
@@ -957,7 +955,7 @@ SQL
   end
 
   def self.setup_connection(config_key)
-    db.open(get_config(config_key), DbTasks::Config.log_filename, @@trace)
+    db.open(get_config(config_key), DbTasks::Config.log_filename)
   end
 
   def self.create_database(database)
@@ -1002,7 +1000,6 @@ ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
 
 ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
 SQL
-    trace("Database Create [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     run_filtered_sql_batch(database, sql)
 
     db.select_database(physical_name)
@@ -1168,10 +1165,6 @@ SQL
     puts message
   end
 
-  def self.trace(message)
-    puts message if @@trace
-  end
-
   def self.no_create?(database_key)
     true == config_value(database_key, "no_create", true)
   end
@@ -1262,13 +1255,13 @@ SQL
       ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
     end
 
-    def open(config, log_filename, trace)
+    def open(config, log_filename)
       require 'active_record'
       ActiveRecord::Base.colorize_logging = false
       ActiveRecord::Base.establish_connection(config)
       FileUtils.mkdir_p File.dirname(log_filename)
       ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
-      ActiveRecord::Migration.verbose = trace
+      ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
     end
 
     def has_identity_column(table)
