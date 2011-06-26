@@ -492,22 +492,17 @@ SQL
 
     desc "Drop the #{database.key} database."
     task "dbt:#{database.key}:drop" => ["dbt:#{database.key}:load_config"] do
-      info("**** Dropping database: #{database.key} ****")
+      banner('Dropping database', database.key)
       drop(database)
     end
 
     # Database creation
 
-    task "dbt:#{database.key}:banner" do
-      info("**** Creating database: #{database.key} (Environment: #{DbTasks::Config.environment}) ****")
-    end
-
     task "dbt:#{database.key}:pre_build" => ['dbt:pre_build']
 
     desc "Create the #{database.key} database."
-    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:banner",
-                                          "dbt:#{database.key}:pre_build",
-                                          "dbt:#{database.key}:load_config"] do
+    task "dbt:#{database.key}:create" => ["dbt:#{database.key}:pre_build", "dbt:#{database.key}:load_config"] do
+      banner('Creating database', database.key)
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
     end
@@ -538,7 +533,8 @@ SQL
         key = ""
         key = ":" + imp.key.to_s if imp.key != :default
         desc "Create the #{database.key} database by import."
-        task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:banner", "dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+        task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
+          banner("Creating Database By Import", database.key)
           perform_create_action(database, :up) unless partial_import_completed?
           perform_import_action(imp, false, nil)
           perform_create_action(database, :finalize)
@@ -556,7 +552,7 @@ SQL
     if database.restore?
       desc "Perform restore of #{database.key} database"
       task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
-        DbTasks.restore(database)
+        restore(database)
       end
     end
   end
@@ -565,7 +561,7 @@ SQL
     database = module_group.database
     desc "Up the #{module_group.key} module group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Upping schema group: #{module_group.key} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+      banner("Upping module group '#{module_group.key}'", database.key)
       database.modules.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
         next unless module_group.modules.include?(schema_name)
@@ -576,7 +572,7 @@ SQL
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
-      info("**** Downing schema group: #{module_group.key} (Database: #{database.key}, Environment: #{DbTasks::Config.environment}) ****")
+      banner("Downing module group '#{module_group.key}'", database.key)
       init(database.key)
       database.modules.reverse.each do |module_name|
         schema_name = database.schema_name_for_module(module_name)
@@ -669,8 +665,8 @@ SQL
   end
 
   def self.backup(database)
+    banner("Backing up Database", database.key)
     physical_name = physical_database_name(database.key)
-    info("Backup Database [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.select_database(nil)
     registry_key = instance_registry_key(database.key)
     sql = <<SQL
@@ -691,8 +687,8 @@ SQL
   end
 
   def self.restore(database)
+    banner("Restoring Database", database.key)
     physical_name = physical_database_name(database.key)
-    info("Restore Database [#{physical_name}]: database_key=#{database.key}, env=#{DbTasks::Config.environment}")
     db.select_database(nil)
     registry_key = instance_registry_key(database.key)
     sql = <<SQL
@@ -797,6 +793,7 @@ SQL
     task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
+      banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
       perform_import_action(imp, true, module_group)
     end
   end
@@ -1161,6 +1158,10 @@ SQL
 
   def self.sql_for_import(database, module_name, table, import_dir)
     first_file_from(dirs_for_module(database, module_name, "#{import_dir}/#{table}.sql"))
+  end
+
+  def self.banner(message, database_key)
+    info("**** #{message}: (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
   end
 
   def self.info(message)
