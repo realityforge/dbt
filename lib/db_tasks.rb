@@ -553,14 +553,20 @@ SQL
     if database.backup?
       desc "Perform backup of #{database.key} database"
       task "dbt:#{database.key}:backup" => ["dbt:#{database.key}:load_config"] do
-        backup(database)
+        banner("Backing up Database", database.key)
+        init(database.key) do
+          backup(database)
+        end
       end
     end
 
     if database.restore?
       desc "Perform restore of #{database.key} database"
       task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
-        restore(database)
+        banner("Restoring Database", database.key)
+        init(database.key) do
+          restore(database)
+        end
       end
     end
   end
@@ -627,131 +633,58 @@ SQL
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
         info("Deleting #{table}")
-        run_import_sql(database, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+        run_sql_batch("DELETE FROM #{table}")
       end
     end
 
     tables.each do |table|
       if ENV[IMPORT_RESUME_AT_ENV_KEY] == table
-        run_import_sql(database, table, "DELETE FROM @@TARGET@@.@@TABLE@@")
+        run_sql_batch("DELETE FROM #{table}")
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
       if !partial_import_completed?
         perform_import(database, module_name, table, import_dir)
         if reindex
           info("Reindexing #{table}")
-          run_import_sql(database, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+          run_sql_batch("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
         end
       end
     end
 
     if reindex && ENV[IMPORT_RESUME_AT_ENV_KEY].nil?
+      sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
+
       if shrink
         # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
         # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
         # we reindex otherwise the indexes will be highly fragmented.
         info("Shrinking database")
-        run_import_sql(database, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, NOTRUNCATE) WITH NO_INFOMSGS")
-        run_import_sql(database, nil, "DBCC SHRINKDATABASE(N'@@TARGET@@', 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+        run_sql_batch("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
+        run_sql_batch("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
 
         tables.each do |table|
           info("Reindexing #{table}")
-          run_import_sql(database, table, "DBCC DBREINDEX (N'@@TARGET@@.@@TABLE@@', '', 0) WITH NO_INFOMSGS")
+          run_sql_batch("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
         end
       end
 
       info("Updating statistics")
-      run_import_sql(database, nil, "EXEC @@TARGET@@.dbo.sp_updatestats")
+      run_sql_batch("EXEC dbo.sp_updatestats")
 
       # This updates the usage details for the database. i.e. how much space is take for each index/table 
       info("Updating usage statistics")
-      run_import_sql(database, nil, "DBCC UPDATEUSAGE(N'@@TARGET@@') WITH NO_INFOMSGS, COUNT_ROWS")
+      run_sql_batch("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
     end
   end
 
   def self.backup(database)
-    banner("Backing up Database", database.key)
-    init(database.key) do
-      physical_name = physical_database_name(database.key)
-      db.select_database(nil)
-      registry_key = instance_registry_key(database.key)
-      sql = <<SQL
-  DECLARE @BackupDir VARCHAR(400)
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
-    @value_name='BackupDirectory',
-    @value=@BackupDir OUTPUT
-  IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
-  DECLARE @BackupName VARCHAR(500)
-  SET @BackupName = @BackupDir + '\\#{physical_name}.bak'
-
-BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
-WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
-SQL
-      db.execute(sql)
-    end
+    init_msdb
+    db.backup(database, get_config(config_key(database.key)))
   end
 
   def self.restore(database)
-    banner("Restoring Database", database.key)
-    init(database.key) do
-      physical_name = physical_database_name(database.key)
-      db.select_database(nil)
-      registry_key = instance_registry_key(database.key)
-      sql = <<SQL
-  DECLARE @TargetDatabase VARCHAR(400)
-  DECLARE @SourceDatabase VARCHAR(400)
-  SET @TargetDatabase = '#{physical_name}'
-  SET @SourceDatabase = '#{restore_from(database.key)}'
-
-  DECLARE @BackupFile VARCHAR(400)
-  DECLARE @DataLogicalName VARCHAR(400)
-  DECLARE @LogLogicalName VARCHAR(400)
-  DECLARE @DataDir VARCHAR(400)
-  DECLARE @LogDir VARCHAR(400)
-
-  SELECT
-  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
-  FROM
-    msdb.dbo.backupset BS
-  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
-  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
-  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
-  WHERE
-    BS.backup_set_id =
-    (
-      SELECT TOP 1 backup_set_id
-      FROM msdb.dbo.backupset
-      WHERE database_name = @SourceDatabase
-      ORDER BY backup_start_date DESC
-    )
-
-  IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
-
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
-    @value_name='DefaultData',
-    @value=@DataDir OUTPUT
-  IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
-    @value_name='DefaultLog',
-    @value=@LogDir OUTPUT
-  IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
-
-  DECLARE @sql VARCHAR(4000)
-  SET @sql = 'RESTORE DATABASE [' + @TargetDatabase + '] FROM DISK = N''' + @BackupFile + ''' WITH  FILE = 1,
-  MOVE N''' + @DataLogicalName + ''' TO N''' + @DataDir + '\\' + @TargetDatabase + '.MDF'',
-  MOVE N''' + @LogLogicalName + ''' TO N''' + @LogDir + '\\' + @TargetDatabase + '.LDF'',
-  NOUNLOAD,
-  REPLACE,
-  STATS = 10
-  '
-  EXEC(@sql)
-SQL
-      db.execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
-      db.execute(sql)
-    end
+    init_msdb
+    db.restore(database, get_config(config_key(database.key)))
   end
 
   def self.drop(database)
@@ -895,9 +828,7 @@ SQL
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
     sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
-    db.select_database(nil)
-    run_sql_batch(sql, script_file_name, print_dot)
-    db.select_database(physical_database_name(database.key))
+    run_sql_batch(sql, script_file_name, print_dot, true)
   end
 
   def self.generate_standard_import_sql(table)
@@ -916,7 +847,7 @@ SQL
 
   def self.perform_import(database, module_name, table, import_dir)
     identity_insert_sql = db.get_identity_insert_sql(table, true)
-    run_import_sql(database, table, identity_insert_sql) if identity_insert_sql
+    run_sql_batch(identity_insert_sql) if identity_insert_sql
 
     fixture_file = fixture_for_import(database, module_name, table, import_dir)
     sql_file = sql_for_import(database, module_name, table, import_dir)
@@ -932,7 +863,7 @@ SQL
     end
 
     identity_insert_sql = db.get_identity_insert_sql(table, false)
-    run_import_sql(database, table, identity_insert_sql) if identity_insert_sql
+    run_sql_batch(identity_insert_sql) if identity_insert_sql
   end
 
   def self.setup_connection(config_key, &block)
@@ -975,7 +906,9 @@ SQL
     end
 
     database.table_ordering(module_name).reverse.each do |table_name|
-      db.execute("DELETE FROM #{table_name}") if fixtures[table_name]
+      if fixtures[table_name]
+        run_sql_batch("DELETE FROM #{table_name}")
+      end
     end
 
     database.table_ordering(module_name).each do |table_name|
@@ -1010,11 +943,11 @@ SQL
     end
   end
 
-  def self.run_sql_batch(sql, script_file_name, print_dot)
+  def self.run_sql_batch(sql, script_file_name = nil, print_dot = false, execute_in_control_database = false)
     sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
       $stdout.putc '.' if print_dot
       begin
-        db.execute(ddl)
+        db.execute(ddl, execute_in_control_database)
       rescue
         if script_file_name.nil? || index.nil?
           raise $!
@@ -1042,7 +975,7 @@ SQL
 
   def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
     sql = filter_sql(sql, database.filters)
-    run_sql_batch(sql, script_file_name, false)
+    run_sql_batch(sql, script_file_name)
   end
 
   def self.filter_sql(sql, filters)
@@ -1101,41 +1034,6 @@ SQL
     puts message
   end
 
-  def self.no_create?(database_key)
-    true == config_value(database_key, "no_create", true)
-  end
-
-  def self.force_drop?(database_key)
-    true == config_value(database_key, "force_drop", true)
-  end
-
-  def self.data_path(database_key)
-    config_value(database_key, "data_path", true)
-  end
-
-  def self.log_path(database_key)
-    config_value(database_key, "log_path", true)
-  end
-
-  def self.restore_from(database_key)
-    config_value(database_key, "restore_from", false)
-  end
-
-  def self.instance_registry_key(database_key)
-    config_value(database_key, "instance_registry_key", false)
-  end
-
-  def self.physical_database_name(database_key)
-    config_value(database_key, "database", false)
-  end
-
-  def self.config_value(database_key, config_param_name, allow_nil)
-    config_key = config_key(database_key)
-    value = get_config(config_key)[config_param_name]
-    raise "Unable to locate configuration value named #{config_param_name} in section #{config_key}" if !allow_nil && value.nil?
-    value
-  end
-
   def self.db
     DbDriver.new
   end
@@ -1149,8 +1047,14 @@ SQL
       ActiveRecord::Base.connection.quote(value)
     end
 
-    def execute(sql)
+    def execute(sql, execute_in_control_database = false)
+      current_database = nil
+      if execute_in_control_database
+        current_database = ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+        select_database(nil)
+      end
       ActiveRecord::Base.connection.execute(sql, nil)
+      select_database(current_database) if execute_in_control_database
     end
 
     def select_values(sql)
@@ -1213,17 +1117,9 @@ SQL
 
     def get_identity_insert_sql(table, value)
       if has_identity_column(table)
-        "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ #{value ? 'ON' : 'OFF'}"
+        "SET IDENTITY_INSERT #{table} #{value ? 'ON' : 'OFF'}"
       else
         nil
-      end
-    end
-
-    def select_database(database_name)
-      if database_name.nil?
-        ActiveRecord::Base.connection.execute "USE [msdb]"
-      else
-        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
       end
     end
 
@@ -1296,7 +1192,94 @@ SQL
       WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
     DROP DATABASE [#{physical_name}]
 SQL
-  end
+    end
+
+    def backup(database, configuration)
+      physical_name = physical_database_name(configuration)
+      registry_key = instance_registry_key(configuration)
+      sql = <<SQL
+  DECLARE @BackupDir VARCHAR(400)
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @value_name='BackupDirectory',
+    @value=@BackupDir OUTPUT
+  IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
+  DECLARE @BackupName VARCHAR(500)
+  SET @BackupName = @BackupDir + '\\#{physical_name}.bak'
+
+BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
+WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
+SQL
+      execute(sql)
+    end
+
+    def restore(database, configuration)
+      physical_name = physical_database_name(configuration)
+      registry_key = instance_registry_key(configuration)
+      sql = <<SQL
+  DECLARE @TargetDatabase VARCHAR(400)
+  DECLARE @SourceDatabase VARCHAR(400)
+  SET @TargetDatabase = '#{physical_name}'
+  SET @SourceDatabase = '#{restore_from(configuration)}'
+
+  DECLARE @BackupFile VARCHAR(400)
+  DECLARE @DataLogicalName VARCHAR(400)
+  DECLARE @LogLogicalName VARCHAR(400)
+  DECLARE @DataDir VARCHAR(400)
+  DECLARE @LogDir VARCHAR(400)
+
+  SELECT
+  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
+  FROM
+    msdb.dbo.backupset BS
+  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
+  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
+  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
+  WHERE
+    BS.backup_set_id =
+    (
+      SELECT TOP 1 backup_set_id
+      FROM msdb.dbo.backupset
+      WHERE database_name = @SourceDatabase
+      ORDER BY backup_start_date DESC
+    )
+
+  IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
+
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @value_name='DefaultData',
+    @value=@DataDir OUTPUT
+  IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @value_name='DefaultLog',
+    @value=@LogDir OUTPUT
+  IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
+
+  DECLARE @sql VARCHAR(4000)
+  SET @sql = 'RESTORE DATABASE [' + @TargetDatabase + '] FROM DISK = N''' + @BackupFile + ''' WITH  FILE = 1,
+  MOVE N''' + @DataLogicalName + ''' TO N''' + @DataDir + '\\' + @TargetDatabase + '.MDF'',
+  MOVE N''' + @LogLogicalName + ''' TO N''' + @LogDir + '\\' + @TargetDatabase + '.LDF'',
+  NOUNLOAD,
+  REPLACE,
+  STATS = 10
+  '
+  EXEC(@sql)
+SQL
+      execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+      execute(sql)
+    end
+
+    private
+
+    def select_database(database_name)
+      if database_name.nil?
+        ActiveRecord::Base.connection.execute "USE [msdb]"
+      else
+        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+      end
+    end
 
     def no_create?(configuration)
       true == config_value(configuration, "no_create", true)
