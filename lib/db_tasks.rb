@@ -1207,45 +1207,46 @@ SQL
   end
 
   def self.db
-    self
+    DbDriver.new
   end
 
-  def self.quote_column_name(column_name)
-    ActiveRecord::Base.connection.quote_column_name(column_name)
-  end
-
-  def self.quote_value(value)
-    ActiveRecord::Base.connection.quote(value)
-  end
-
-  def self.execute(sql)
-    ActiveRecord::Base.connection.execute(sql, nil)
-  end
-
-  def self.select_values(sql)
-    ActiveRecord::Base.connection.select_values(sql, nil)
-  end
-
-  def self.create_schema(schema_name)
-    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
-      execute("CREATE SCHEMA [#{schema_name}]")
+  class DbDriver
+    def quote_column_name(column_name)
+      ActiveRecord::Base.connection.quote_column_name(column_name)
     end
-  end
 
-  def self.drop_schema(schema_name, tables)
-    database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
-    database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-    database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-    database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-    database_objects("VIEW", schema_name).each { |name| execute("DROP VIEW #{name}") }
-    tables.reverse.each do |table|
-      execute("DROP TABLE #{t}")
+    def quote_value(value)
+      ActiveRecord::Base.connection.quote(value)
     end
-    execute("DROP SCHEMA #{schema_name}")
-  end
 
-  def self.database_objects(object_type, schema_name)
-    sql = <<SQL
+    def execute(sql)
+      ActiveRecord::Base.connection.execute(sql, nil)
+    end
+
+    def select_values(sql)
+      ActiveRecord::Base.connection.select_values(sql, nil)
+    end
+
+    def create_schema(schema_name)
+      if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+        execute("CREATE SCHEMA [#{schema_name}]")
+      end
+    end
+
+    def drop_schema(schema_name, tables)
+      database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
+      database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+      database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+      database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+      database_objects("VIEW", schema_name).each { |name| execute("DROP VIEW #{name}") }
+      tables.reverse.each do |table|
+        execute("DROP TABLE #{t}")
+      end
+      execute("DROP SCHEMA #{schema_name}")
+    end
+
+    def database_objects(object_type, schema_name)
+      sql = <<SQL
 SELECT QUOTENAME(S.name) + '.' + QUOTENAME(O.name)
 FROM
 sys.objects O
@@ -1253,42 +1254,43 @@ JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AN
 WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
-    self.select_values(sql)
-  end
-
-  def self.column_names_for_table(table)
-    ActiveRecord::Base.connection.columns(table).collect { |c| db.quote_column_name(c.name) }
-  end
-
-  def self.open(config, log_filename, trace)
-    require 'active_record'
-    ActiveRecord::Base.colorize_logging = false
-    ActiveRecord::Base.establish_connection(config)
-    FileUtils.mkdir_p File.dirname(log_filename)
-    ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
-    ActiveRecord::Migration.verbose = trace
-  end
-
-  def self.has_identity_column(table)
-    ActiveRecord::Base.connection.columns(table).each do |c|
-      return true if c.identity == true
+      select_values(sql)
     end
-    false
-  end
 
-  def self.get_identity_insert_sql(table, value)
-    if has_identity_column(table)
-      "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ #{value ? 'ON' : 'OFF'}"
-    else
-      nil
+    def column_names_for_table(table)
+      ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
     end
-  end
 
-  def self.select_database(database_name)
-    if database_name.nil?
-      ActiveRecord::Base.connection.execute "USE [msdb]"
-    else
-      ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+    def open(config, log_filename, trace)
+      require 'active_record'
+      ActiveRecord::Base.colorize_logging = false
+      ActiveRecord::Base.establish_connection(config)
+      FileUtils.mkdir_p File.dirname(log_filename)
+      ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
+      ActiveRecord::Migration.verbose = trace
+    end
+
+    def has_identity_column(table)
+      ActiveRecord::Base.connection.columns(table).each do |c|
+        return true if c.identity == true
+      end
+      false
+    end
+
+    def get_identity_insert_sql(table, value)
+      if has_identity_column(table)
+        "SET IDENTITY_INSERT @@TARGET@@.@@TABLE@@ #{value ? 'ON' : 'OFF'}"
+      else
+        nil
+      end
+    end
+
+    def select_database(database_name)
+      if database_name.nil?
+        ActiveRecord::Base.connection.execute "USE [msdb]"
+      else
+        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+      end
     end
   end
 end
