@@ -1087,7 +1087,7 @@ SQL
   end
 
   def self.get_config(config_key)
-    c = self.configurations[config_key]
+    c = self.configurations[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
     c
   end
