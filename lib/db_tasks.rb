@@ -408,12 +408,12 @@ SQL
   @@databases = {}
   @@configurations = {}
 
-  def self.init(database_key, &block)
-    setup_connection(config_key(database_key), &block)
+  def self.init_database(database_key, &block)
+    setup_connection(config_key(database_key), false, &block)
   end
 
-  def self.init_msdb(&block)
-    setup_connection(:msdb, &block)
+  def self.init_control_database(database_key, &block)
+    setup_connection(config_key(database_key), true, &block)
   end
 
   def self.add_database_driver_hook(&block)
@@ -466,7 +466,7 @@ SQL
 
   def self.load_modules_fixtures(database_key, module_name)
     database = database_for_key(database_key)
-    init(database.key) do
+    init_database(database.key) do
       load_fixtures(database, module_name)
     end
 
@@ -504,7 +504,7 @@ SQL
     desc "Create the #{database.key} database."
     task "dbt:#{database.key}:create" => ["dbt:#{database.key}:pre_build", "dbt:#{database.key}:load_config"] do
       banner('Creating database', database.key)
-      init(database.key) do
+      init_database(database.key) do
         perform_create_action(database, :up)
         perform_create_action(database, :finalize)
       end
@@ -515,7 +515,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "dbt:#{database.key}:datasets:#{dataset_name}" => ["dbt:#{database.key}:load_config"] do
         banner("Loading Dataset #{dataset_name}", database.key)
-        init(database.key) do
+        init_database(database.key) do
           database.modules.each do |module_name|
             load_dataset(database, module_name, dataset_name)
           end
@@ -541,7 +541,7 @@ SQL
         desc "Create the #{database.key} database by import."
         task "dbt:#{database.key}:create_by_import#{key}" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
           banner("Creating Database By Import", database.key)
-          init(database.key) do
+          init_database(database.key) do
             perform_create_action(database, :up) unless partial_import_completed?
             perform_import_action(imp, false, nil)
             perform_create_action(database, :finalize)
@@ -554,7 +554,7 @@ SQL
       desc "Perform backup of #{database.key} database"
       task "dbt:#{database.key}:backup" => ["dbt:#{database.key}:load_config"] do
         banner("Backing up Database", database.key)
-        init(database.key) do
+        init_database(database.key) do
           backup(database)
         end
       end
@@ -564,7 +564,7 @@ SQL
       desc "Perform restore of #{database.key} database"
       task "dbt:#{database.key}:restore" => ["dbt:#{database.key}:load_config"] do
         banner("Restoring Database", database.key)
-        init(database.key) do
+        init_database(database.key) do
           restore(database)
         end
       end
@@ -576,7 +576,7 @@ SQL
     desc "Up the #{module_group.key} module group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:up" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
       banner("Upping module group '#{module_group.key}'", database.key)
-      init(database.key) do
+      init_database(database.key) do
         database.modules.each do |module_name|
           schema_name = database.schema_name_for_module(module_name)
           next unless module_group.modules.include?(schema_name)
@@ -589,7 +589,7 @@ SQL
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
     task "dbt:#{database.key}:#{module_group.key}:down" => ["dbt:#{database.key}:load_config", "dbt:#{database.key}:pre_build"] do
       banner("Downing module group '#{module_group.key}'", database.key)
-      init(database.key) do
+      init_database(database.key) do
         database.modules.reverse.each do |module_name|
           schema_name = database.schema_name_for_module(module_name)
           next unless module_group.modules.include?(schema_name)
@@ -620,22 +620,22 @@ SQL
   end
 
   def self.backup(database)
-    init_msdb
+    init_control_database(database.key)
     db.backup(database, get_config(config_key(database.key)))
   end
 
   def self.restore(database)
-    init_msdb
+    init_control_database(database.key)
     db.restore(database, get_config(config_key(database.key)))
   end
 
   def self.create_database(database)
-    init_msdb
+    init_control_database(database.key)
     db.create_database(database, get_config(config_key(database.key)))
   end
 
   def self.drop(database)
-    init_msdb
+    init_control_database(database.key)
     db.drop(database, get_config(config_key(database.key)))
   end
 
@@ -710,7 +710,7 @@ SQL
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["dbt:#{imp.database.key}:load_config"] do
       banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
-      init(imp.database.key) do
+      init_database(imp.database.key) do
         perform_import_action(imp, true, module_group)
       end
     end
@@ -871,8 +871,8 @@ SQL
     run_sql_batch(identity_insert_sql) if identity_insert_sql
   end
 
-  def self.setup_connection(config_key, &block)
-    db.open(get_config(config_key), DbTasks::Config.log_filename)
+  def self.setup_connection(config_key, open_control_database, &block)
+    db.open(get_config(config_key), open_control_database, DbTasks::Config.log_filename)
     if block_given?
       yield
       db.close
@@ -1095,10 +1095,12 @@ SQL
       ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
     end
 
-    def open(config, log_filename)
+    def open(config, open_control_database, log_filename)
       require 'active_record'
       ActiveRecord::Base.colorize_logging = false
-      ActiveRecord::Base.establish_connection(config)
+      connection_config = config.dup
+      connection_config['database'] = 'msdb' if open_control_database
+      ActiveRecord::Base.establish_connection(connection_config)
       FileUtils.mkdir_p File.dirname(log_filename)
       ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
       ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
