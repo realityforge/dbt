@@ -14,8 +14,6 @@
 
 require 'db_doc'
 
-require 'activerecord'
-
 class DbTasks
 
   class Config
