@@ -114,7 +114,7 @@ class DbTasks
     # Filter the SQL files replacing specified pattern with specified value
     def add_property_filter(pattern, value)
       #noinspection RubyUnusedLocalVariable
-      add_filter do |current_config, env, sql|
+      add_filter do |env, sql|
         sql.gsub(pattern, value)
       end
     end
