@@ -25,6 +25,12 @@ class DbTasks
         @environment || 'development'
       end
 
+      attr_writer :task_prefix
+
+      def task_prefix
+        @task_prefix || 'dbt'
+      end
+
       attr_writer :default_collation
 
       def default_collation
@@ -279,7 +285,7 @@ SQL
     attr_writer :modules
 
     def task_prefix
-      "dbt#{default_database?(self.key) ? '' : ":#{self.key}"}"
+      "#{DbTasks::Config.task_prefix}#{DbTasks.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 
     # List of modules to process for database
@@ -291,7 +297,7 @@ SQL
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
 
-    # The collation name for database. Nil means take the dbt default_collation, if that is nil then take db default
+    # The collation name for database. Nil means take the default_collation, if that is nil then take db default
     attr_accessor :collation
 
     attr_writer :search_dirs
@@ -497,7 +503,7 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
-    task "#{database.task_prefix}:load_config" => ["dbt:all:load_config"]
+    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:all:load_config"]
                          
     # Database dropping
 
@@ -509,7 +515,7 @@ SQL
 
     # Database creation
 
-    task "#{database.task_prefix}:pre_build" => ['dbt:all:pre_build']
+    task "#{database.task_prefix}:pre_build" => ["#{DbTasks::Config.task_prefix}:all:pre_build"]
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
@@ -797,14 +803,14 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task "dbt:all:load_config" do
+      task "#{DbTasks::Config.task_prefix}:all:load_config" do
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
         self.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
-      task "dbt:all:pre_build"
+      task "#{DbTasks::Config.task_prefix}:all:pre_build"
 
       @@defined_init_tasks = true
     end
