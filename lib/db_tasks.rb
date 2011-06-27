@@ -1093,7 +1093,7 @@ SQL
       raise NotImplementedError
     end
 
-    def select_values(sql)
+    def select_rows(sql)
       raise NotImplementedError
     end
 

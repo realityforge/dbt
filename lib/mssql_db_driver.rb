@@ -18,8 +18,8 @@ class DbTasks
       select_database(current_database) if execute_in_control_database
     end
 
-    def select_values(sql)
-      ActiveRecord::Base.connection.select_values(sql, nil)
+    def select_rows(sql)
+      ActiveRecord::Base.connection.select_rows(sql, nil)
     end
 
     def create_schema(schema_name)
@@ -267,7 +267,7 @@ JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AN
 WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
-      select_values(sql)
+      ActiveRecord::Base.connection.select_values(sql)
     end
 
     def select_database(database_name)
