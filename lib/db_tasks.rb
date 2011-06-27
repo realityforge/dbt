@@ -37,6 +37,13 @@ class DbTasks
         @default_database || :default
       end
 
+      attr_writer :default_import
+
+      def default_import
+        @default_import || :default
+      end
+
+
       # config_file is where the yaml config file is located
       attr_writer :config_filename
 
@@ -273,7 +280,7 @@ SQL
     attr_writer :modules
 
     def task_prefix
-      "dbt#{:default == self.key ? '' : ":#{self.key}"}"
+      "dbt#{default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 
     # List of modules to process for database
@@ -541,7 +548,7 @@ SQL
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
         key = ""
-        key = ":" + imp.key.to_s if imp.key != :default
+        key = ":" + imp.key.to_s unless default_import?(imp.key)
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
           banner("Creating Database By Import", database.key)
@@ -683,7 +690,7 @@ SQL
   end
 
   def self.define_import_task(prefix, imp, description, module_group = nil)
-    is_default_import = imp.key == :default
+    is_default_import = default_import?(imp.key)
     desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
 
     task_name = is_default_import ? :import : :"import:#{imp.key}"
@@ -805,7 +812,15 @@ SQL
   end
 
   def self.config_key(database_key, env = DbTasks::Config.environment)
-    database_key.to_s == DbTasks::Config.default_database.to_s ? env : "#{database_key}_#{env}"
+    default_database?(database_key) ? env : "#{database_key}_#{env}"
+  end
+
+  def self.default_database?(database_key)
+    database_key.to_s == DbTasks::Config.default_database.to_s
+  end
+
+  def self.default_import?(import_key)
+    import_key.to_s == DbTasks::Config.default_import.to_s
   end
 
   def self.run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
