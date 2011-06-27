@@ -31,6 +31,7 @@ class DbTasks
         @task_prefix || 'dbt'
       end
 
+      # TODO: Move to specific DbConfig
       attr_writer :default_collation
 
       def default_collation
@@ -189,12 +190,14 @@ SQL
       @dir || "import"
     end
 
+    # TODO: Move to specific DbConfig
     attr_writer :reindex
 
     def reindex?
       @reindex.nil? ? true : @reindex
     end
 
+    # TODO: Move to specific DbConfig
     attr_writer :shrink
 
     def shrink?
