@@ -643,16 +643,16 @@ SQL
     db.drop(database, get_config(config_key(database.key)))
   end
 
-  def self.import(database, module_name, import_dir, reindex, shrink, should_perform_delete)
-    ordered_tables = database.table_ordering(module_name)
+  def self.import(imp, module_name, should_perform_delete)
+    ordered_tables = imp.database.table_ordering(module_name)
 
     # check the import configuration is set
-    get_config(config_key(database.key, "import"))
+    get_config(config_key(imp.database.key, "import"))
 
     # Iterate over module in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
     tables = ordered_tables.reject do |table|
-      fixture_for_creation(database, module_name, table)
+      fixture_for_creation(imp.database, module_name, table)
     end
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
@@ -667,37 +667,13 @@ SQL
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
       if !partial_import_completed?
-        perform_import(database, module_name, table, import_dir)
-        if reindex
-          info("Reindexing #{table}")
-          run_sql_batch("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
-        end
+        perform_import(imp.database, module_name, table, imp.dir)
+        db.post_table_import(imp, module_name, table)
       end
     end
 
-    if reindex && ENV[IMPORT_RESUME_AT_ENV_KEY].nil?
-      sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
-
-      if shrink
-        # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
-        # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
-        # we reindex otherwise the indexes will be highly fragmented.
-        info("Shrinking database")
-        run_sql_batch("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
-        run_sql_batch("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-
-        tables.each do |table|
-          info("Reindexing #{table}")
-          run_sql_batch("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
-        end
-      end
-
-      info("Updating statistics")
-      run_sql_batch("EXEC dbo.sp_updatestats")
-
-      # This updates the usage details for the database. i.e. how much space is take for each index/table 
-      info("Updating usage statistics")
-      run_sql_batch("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
+    if ENV[IMPORT_RESUME_AT_ENV_KEY].nil?
+      db.post_data_module_import(imp, module_name)
     end
   end
 
@@ -795,7 +771,7 @@ SQL
     end
     imp.modules.each do |module_key|
       if module_group.nil? || module_group.modules.include?(module_key)
-        import(imp.database, module_key, imp.dir, imp.reindex?, imp.shrink?, should_perform_delete)
+        import(imp, module_key, should_perform_delete)
       end
     end
     if partial_import_completed?
@@ -1275,6 +1251,40 @@ SQL
 SQL
       execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
       execute(sql)
+    end
+
+    def post_table_import(imp, module_name, table)
+      if imp.reindex?
+        DbTasks.info("Reindexing #{table}")
+        execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
+      end
+    end
+
+    def post_data_module_import(imp, module_name)
+      if imp.reindex?
+        sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
+
+        if imp.shrink?
+          # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
+          # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
+          # we reindex otherwise the indexes will be highly fragmented.
+          DbTasks.info("Shrinking database")
+          execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
+          execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+
+          imp.database.table_ordering(module_name).each do |table|
+            DbTasks.info("Reindexing #{table}")
+            execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
+          end
+        end
+
+        DbTasks.info("Updating statistics")
+        execute("EXEC dbo.sp_updatestats")
+
+        # This updates the usage details for the database. i.e. how much space is take for each index/table
+        DbTasks.info("Updating usage statistics")
+        execute("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
+      end
     end
 
     private
