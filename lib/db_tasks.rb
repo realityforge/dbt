@@ -465,14 +465,10 @@ SQL
           sql = "SELECT * FROM #{table_name}"
         end
 
-        dump_class = Class.new(ActiveRecord::Base) do
-          set_table_name table_name
-        end
-
         records = YAML::Omap.new
         i = 0
-        dump_class.find_by_sql(sql).collect do |record|
-          records["r#{i += 1}"] = record.attributes
+        db.select_rows(sql).each do |record|
+          records["r#{i += 1}"] = record
         end
 
         file.write records.to_yaml
