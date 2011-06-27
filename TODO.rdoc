@@ -1,6 +1,0 @@
-= TODO
-
-== perform_standard_import hook
-
-perform_standard_import currently assumes any column named BatchID should be set to 0. We should
-allow the app the chance to configure transforms on different columns
