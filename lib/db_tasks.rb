@@ -43,7 +43,6 @@ class DbTasks
         @default_import || :default
       end
 
-
       # config_file is where the yaml config file is located
       attr_writer :config_filename
 
