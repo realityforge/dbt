@@ -451,7 +451,7 @@ SQL
 
   def self.filter_database_name(sql, pattern, target_database_config_key, optional = true)
     return sql if optional && self.configurations[target_database_config_key].nil?
-    sql.gsub(pattern, get_config(target_database_config_key)['database'])
+    sql.gsub(pattern, get_config(target_database_config_key).catalog_name)
   end
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
@@ -962,7 +962,7 @@ SQL
   def self.get_config(config_key)
     c = self.configurations[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    c
+    DbConfig.new(c)
   end
 
   def self.configurations
@@ -1038,6 +1038,48 @@ SQL
     DbDriver.new
   end
 
+  class DbConfig
+    def initialize(configuration)
+      @configuration = configuration
+    end
+
+    attr_reader :configuration
+
+    def no_create?
+      true == config_value("no_create", true)
+    end
+
+    def force_drop?
+      true == config_value("force_drop", true)
+    end
+
+    def data_path
+      config_value("data_path", true)
+    end
+
+    def log_path
+      config_value("log_path", true)
+    end
+
+    def restore_from
+      config_value("restore_from", false)
+    end
+
+    def instance_registry_key
+      config_value("instance_registry_key", false)
+    end
+
+    def catalog_name
+      config_value( "database", false)
+    end
+
+    def config_value(config_param_name, allow_nil)
+      value = self.configuration[config_param_name]
+      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
+      value
+    end
+  end
+
   class DbDriver
     def quote_column_name(column_name)
       ActiveRecord::Base.connection.quote_column_name(column_name)
@@ -1098,7 +1140,7 @@ SQL
     def open(config, open_control_database, log_filename)
       require 'active_record'
       ActiveRecord::Base.colorize_logging = false
-      connection_config = config.dup
+      connection_config = config.configuration.dup
       connection_config['database'] = 'msdb' if open_control_database
       ActiveRecord::Base.establish_connection(connection_config)
       FileUtils.mkdir_p File.dirname(log_filename)
@@ -1126,19 +1168,19 @@ SQL
     end
 
     def create_database(database, configuration)
-      return if no_create?(configuration)
+      return if configuration.no_create?
       drop(database, configuration)
 
       database_version = database.version
 
-      physical_name = physical_database_name(configuration)
+      physical_name = configuration.catalog_name
       if database_version.nil?
         db_filename = physical_name
       else
         db_filename = "#{physical_name}_#{database_version.gsub(/\./, '_')}"
       end
-      base_data_path = data_path(configuration)
-      base_log_path = log_path(configuration)
+      base_data_path = configuration.data_path
+      base_log_path = configuration.log_path
 
       db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
       log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
@@ -1175,10 +1217,10 @@ SQL
     end
 
     def drop(database, configuration)
-    physical_name = physical_database_name(configuration)
+      physical_name = configuration.catalog_name
 
-    if force_drop?(configuration)
-      execute(<<SQL)
+      if configuration.force_drop?
+        execute(<<SQL)
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
@@ -1197,8 +1239,8 @@ SQL
     end
 
     def backup(database, configuration)
-      physical_name = physical_database_name(configuration)
-      registry_key = instance_registry_key(configuration)
+      physical_name = configuration.catalog_name
+      registry_key = configuration.instance_registry_key
       sql = <<SQL
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
@@ -1216,13 +1258,13 @@ SQL
     end
 
     def restore(database, configuration)
-      physical_name = physical_database_name(configuration)
-      registry_key = instance_registry_key(configuration)
+      physical_name = configuration.catalog_name
+      registry_key = configuration.instance_registry_key
       sql = <<SQL
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
   SET @TargetDatabase = '#{physical_name}'
-  SET @SourceDatabase = '#{restore_from(configuration)}'
+  SET @SourceDatabase = '#{configuration.restore_from}'
 
   DECLARE @BackupFile VARCHAR(400)
   DECLARE @DataLogicalName VARCHAR(400)
@@ -1315,40 +1357,6 @@ SQL
       else
         ActiveRecord::Base.connection.execute "USE [#{database_name}]"
       end
-    end
-
-    def no_create?(configuration)
-      true == config_value(configuration, "no_create", true)
-    end
-
-    def force_drop?(configuration)
-      true == config_value(configuration, "force_drop", true)
-    end
-
-    def data_path(configuration)
-      config_value(configuration, "data_path", true)
-    end
-
-    def log_path(configuration)
-      config_value(configuration, "log_path", true)
-    end
-
-    def restore_from(configuration)
-      config_value(configuration, "restore_from", false)
-    end
-
-    def instance_registry_key(configuration)
-      config_value(configuration, "instance_registry_key", false)
-    end
-
-    def physical_database_name(configuration)
-      config_value(configuration, "database", false)
-    end
-
-    def config_value(configuration, config_param_name, allow_nil)
-      value = configuration[config_param_name]
-      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
-      value
     end
   end
 end
