@@ -270,7 +270,6 @@ SQL
       select_values(sql)
     end
 
-
     def select_database(database_name)
       if database_name.nil?
         ActiveRecord::Base.connection.execute "USE [msdb]"
