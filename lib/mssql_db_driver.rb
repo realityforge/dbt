@@ -1,13 +1,5 @@
 class DbTasks
   class MssqlDbDriver < DbTasks::DbDriver
-    def quote_column_name(column_name)
-      ActiveRecord::Base.connection.quote_column_name(column_name)
-    end
-
-    def quote_value(value)
-      ActiveRecord::Base.connection.quote(value)
-    end
-
     def execute(sql, execute_in_control_database = false)
       current_database = nil
       if execute_in_control_database
@@ -16,6 +8,12 @@ class DbTasks
       end
       ActiveRecord::Base.connection.execute(sql, nil)
       select_database(current_database) if execute_in_control_database
+    end
+
+    def insert_row(table_name, row)
+      column_names = row.keys.collect { |column_name| quote_column_name(column_name) }
+      value_list = row.values.collect { |value| quote_value(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
+      execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
 
     def select_rows(sql)
@@ -58,14 +56,6 @@ class DbTasks
 
     def close
       ActiveRecord::Base.connection.disconnect! if ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?
-    end
-
-    def get_identity_insert_sql(table, value)
-      if has_identity_column(table)
-        "SET IDENTITY_INSERT #{table} #{value ? 'ON' : 'OFF'}"
-      else
-        nil
-      end
     end
 
     def create_database(database, configuration)
@@ -216,7 +206,14 @@ SQL
       execute(sql)
     end
 
+    def pre_table_import(imp, module_name, table)
+      identity_insert_sql = get_identity_insert_sql(table, true)
+      execute(identity_insert_sql) if identity_insert_sql
+    end
+
     def post_table_import(imp, module_name, table)
+      identity_insert_sql = get_identity_insert_sql(table, false)
+      execute(identity_insert_sql) if identity_insert_sql
       if imp.reindex?
         DbTasks.info("Reindexing #{table}")
         execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
@@ -251,6 +248,22 @@ SQL
     end
 
     private
+
+    def quote_column_name(column_name)
+      ActiveRecord::Base.connection.quote_column_name(column_name)
+    end
+
+    def quote_value(value)
+      ActiveRecord::Base.connection.quote(value)
+    end
+
+    def get_identity_insert_sql(table, value)
+      if has_identity_column(table)
+        "SET IDENTITY_INSERT #{table} #{value ? 'ON' : 'OFF'}"
+      else
+        nil
+      end
+    end
 
     def has_identity_column(table)
       ActiveRecord::Base.connection.columns(table).each do |c|

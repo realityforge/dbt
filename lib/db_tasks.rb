@@ -675,6 +675,7 @@ SQL
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
       if !partial_import_completed?
+        db.pre_table_import(imp, module_name, table)
         perform_import(imp.database, module_name, table, imp.dir)
         db.post_table_import(imp, module_name, table)
       end
@@ -847,9 +848,6 @@ SQL
   end
 
   def self.perform_import(database, module_name, table, import_dir)
-    identity_insert_sql = db.get_identity_insert_sql(table, true)
-    run_sql_batch(identity_insert_sql) if identity_insert_sql
-
     fixture_file = fixture_for_import(database, module_name, table, import_dir)
     sql_file = sql_for_import(database, module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
@@ -862,9 +860,6 @@ SQL
     else
       perform_standard_import(database, table)
     end
-
-    identity_insert_sql = db.get_identity_insert_sql(table, false)
-    run_sql_batch(identity_insert_sql) if identity_insert_sql
   end
 
   def self.setup_connection(config_key, open_control_database, &block)
@@ -932,9 +927,7 @@ SQL
       fixture.each do |name, data|
         raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
 
-        column_names = data.keys.collect { |column_name| db.quote_column_name(column_name) }
-        value_list = data.values.collect { |value| db.quote_value(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
-        db.execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
+        db.insert_row(table_name, data)
       end
     end
   end
@@ -1077,11 +1070,7 @@ SQL
   end
 
   class DbDriver
-    def quote_column_name(column_name)
-      raise NotImplementedError
-    end
-
-    def quote_value(value)
+    def insert_row(table_name, row)
       raise NotImplementedError
     end
 
@@ -1113,10 +1102,6 @@ SQL
       raise NotImplementedError
     end
 
-    def get_identity_insert_sql(table, value)
-      raise NotImplementedError
-    end
-
     def create_database(database, configuration)
       raise NotImplementedError
     end
@@ -1130,6 +1115,10 @@ SQL
     end
 
     def restore(database, configuration)
+      raise NotImplementedError
+    end
+
+    def pre_table_import(imp, module_name, table)
       raise NotImplementedError
     end
 
