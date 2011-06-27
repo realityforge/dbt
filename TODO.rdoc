@@ -1,7 +1,5 @@
 = TODO
 
-== msdb config should be inferred
-
 == perform_standard_import hook
 
 perform_standard_import currently assumes any column named BatchID should be set to 0. We should
