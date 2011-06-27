@@ -951,7 +951,7 @@ SQL
   def self.get_config(config_key)
     c = self.configurations[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    DbConfig.new(c)
+    MssqlDbConfig.new(c)
   end
 
   def self.configurations
@@ -1029,43 +1029,11 @@ SQL
 
   class DbConfig
     def initialize(configuration)
-      @configuration = configuration
-    end
-
-    attr_reader :configuration
-
-    def no_create?
-      true == config_value("no_create", true)
-    end
-
-    def force_drop?
-      true == config_value("force_drop", true)
-    end
-
-    def data_path
-      config_value("data_path", true)
-    end
-
-    def log_path
-      config_value("log_path", true)
-    end
-
-    def restore_from
-      config_value("restore_from", false)
-    end
-
-    def instance_registry_key
-      config_value("instance_registry_key", false)
+      raise NotImplementedError
     end
 
     def catalog_name
-      config_value( "database", false)
-    end
-
-    def config_value(config_param_name, allow_nil)
-      value = self.configuration[config_param_name]
-      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
-      value
+      raise NotImplementedError
     end
   end
 
