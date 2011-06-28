@@ -401,4 +401,63 @@ SQL
       end
     end
   end
+
+  class PostgresDbDriver < ActiveRecordDbDriver
+    def create_schema(schema_name)
+    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+        execute("CREATE SCHEMA \"#{schema_name}\"")
+      end
+    end
+
+    def drop_schema(schema_name, tables)
+      execute("DROP SCHEMA \"#{schema_name}\"")
+    end
+
+    def create_database(database, configuration)
+      execute(<<SQL)
+CREATE DATABASE #{configuration.catalog_name}
+SQL
+      select_database(configuration.catalog_name)
+    end
+
+    def drop(database, configuration)
+      raise NotImplementedError
+    end
+
+    def backup(database, configuration)
+      raise NotImplementedError
+    end
+
+    def restore(database, configuration)
+      raise NotImplementedError
+    end
+
+    def pre_table_import(imp, module_name, table)
+    end
+
+    def post_table_import(imp, module_name, table)
+    end
+
+    def post_data_module_import(imp, module_name)
+    end
+
+    protected
+
+    def current_database
+      ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+    end
+
+    def control_database_name
+      'postgres'
+    end
+
+    def select_database(database_name)
+      if database_name.nil?
+        ActiveRecord::Base.connection.execute "USE [msdb]"
+      else
+        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+      end
+    end
+  end
+
 end
