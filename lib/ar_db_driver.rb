@@ -71,6 +71,10 @@ class DbTasks
       ActiveRecord::Base.connection.select_value(sql)
     end
 
+    def select_values(sql)
+      ActiveRecord::Base.connection.select_values(sql)
+    end
+
     def open?
       ActiveRecord::Base.connection && ActiveRecord::Base.connection.active? rescue false
     end

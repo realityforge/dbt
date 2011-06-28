@@ -312,7 +312,7 @@ JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AN
 WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
-      ActiveRecord::Base.connection.select_values(sql)
+      select_values(sql)
     end
 
     def current_database
