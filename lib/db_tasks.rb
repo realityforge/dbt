@@ -426,6 +426,7 @@ SQL
   @@database_driver_hooks = []
   @@databases = {}
   @@configurations = {}
+  @@configuration_data = {}
 
   def self.init_database(database_key, &block)
     setup_connection(config_key(database_key), false, &block)
@@ -452,9 +453,9 @@ SQL
     define_tasks_for_database(database)
   end
 
-  def self.filter_database_name(sql, pattern, target_database_config_key, optional = true)
-    return sql if optional && self.configurations[target_database_config_key].nil?
-    sql.gsub(pattern, get_config(target_database_config_key).catalog_name)
+  def self.filter_database_name(sql, pattern, config_key, optional = true)
+    return sql if optional && self.configuration_data[config_key].nil?
+    sql.gsub(pattern, configuration_for_key(config_key).catalog_name)
   end
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
@@ -636,29 +637,29 @@ SQL
 
   def self.backup(database)
     init_control_database(database.key)
-    db.backup(database, get_config(config_key(database.key)))
+    db.backup(database, configuration_for_key(config_key(database.key)))
   end
 
   def self.restore(database)
     init_control_database(database.key)
-    db.restore(database, get_config(config_key(database.key)))
+    db.restore(database, configuration_for_key(config_key(database.key)))
   end
 
   def self.create_database(database)
     init_control_database(database.key)
-    db.create_database(database, get_config(config_key(database.key)))
+    db.create_database(database, configuration_for_key(config_key(database.key)))
   end
 
   def self.drop(database)
     init_control_database(database.key)
-    db.drop(database, get_config(config_key(database.key)))
+    db.drop(database, configuration_for_key(config_key(database.key)))
   end
 
   def self.import(imp, module_name, should_perform_delete)
     ordered_tables = imp.database.table_ordering(module_name)
 
     # check the import configuration is set
-    get_config(config_key(imp.database.key, "import"))
+    configuration_for_key(config_key(imp.database.key, "import"))
 
     # Iterate over module in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
@@ -807,7 +808,7 @@ SQL
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
-        self.configurations = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
+        self.configuration_data = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
       end
 
       task "#{DbTasks::Config.task_prefix}:all:pre_build"
@@ -867,7 +868,7 @@ SQL
   end
 
   def self.setup_connection(config_key, open_control_database, &block)
-    db.open(get_config(config_key), open_control_database, DbTasks::Config.log_filename)
+    db.open(configuration_for_key(config_key), open_control_database, DbTasks::Config.log_filename)
     if block_given?
       yield
       db.close
@@ -952,18 +953,22 @@ SQL
     $stdout.putc "\n" if print_dot
   end
 
-  def self.get_config(config_key)
-    c = self.configurations[config_key.to_s]
+  def self.configuration_for_key(config_key)
+    existing = @@configurations[config_key.to_s]
+    return existing if existing
+    c = self.configuration_data[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    MssqlDbConfig.new(c)
+    configuration = MssqlDbConfig.new(c)
+    @@configurations[config_key.to_s] = configuration
   end
 
-  def self.configurations
-    @@configurations
+  def self.configuration_data
+    @@configuration_data
   end
 
-  def self.configurations=(configurations)
-    @@configurations = configurations
+  def self.configuration_data=(configuration_data)
+    @@configuration_data = configuration_data
+    @@configurations = {}
   end
 
   def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
