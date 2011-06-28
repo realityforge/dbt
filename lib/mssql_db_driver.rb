@@ -41,11 +41,11 @@ class DbTasks
     end
   end
 
-  class MssqlDbDriver < DbTasks::DbDriver
+  class ActiveRecordDbDriver < DbTasks::DbDriver
     def execute(sql, execute_in_control_database = false)
       current_database = nil
       if execute_in_control_database
-        current_database = ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+        current_database = self.current_database
         select_database(nil)
       end
       ActiveRecord::Base.connection.execute(sql, nil)
@@ -63,6 +63,37 @@ class DbTasks
       ActiveRecord::Base.connection.select_rows(sql, nil)
     end
 
+    def column_names_for_table(table)
+      ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
+    end
+
+    def open(config, open_control_database, log_filename)
+      require 'active_record'
+      ActiveRecord::Base.colorize_logging = false
+      connection_config = config.configuration.dup
+      connection_config['database'] = self.control_database_name if open_control_database
+      ActiveRecord::Base.establish_connection(connection_config)
+      FileUtils.mkdir_p File.dirname(log_filename)
+      ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
+      ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
+    end
+
+    def close
+      ActiveRecord::Base.connection.disconnect! if ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?
+    end
+
+    protected
+
+    def quote_column_name(column_name)
+      ActiveRecord::Base.connection.quote_column_name(column_name)
+    end
+
+    def quote_value(value)
+      ActiveRecord::Base.connection.quote(value)
+    end
+  end
+
+  class MssqlDbDriver < ActiveRecordDbDriver
     def create_schema(schema_name)
       if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA [#{schema_name}]")
@@ -145,29 +176,7 @@ ORDER BY t.Ordinal, t.Name
       execute("DROP SCHEMA #{schema_name}")
     end
 
-    def column_names_for_table(table)
-      ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
-    end
-
-    def open(config, open_control_database, log_filename)
-      require 'active_record'
-      ActiveRecord::Base.colorize_logging = false
-      connection_config = config.configuration.dup
-      connection_config['database'] = 'msdb' if open_control_database
-      ActiveRecord::Base.establish_connection(connection_config)
-      FileUtils.mkdir_p File.dirname(log_filename)
-      ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
-      ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
-    end
-
-    def close
-      ActiveRecord::Base.connection.disconnect! if ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?
-    end
-
     def create_database(database, configuration)
-      return if configuration.no_create?
-      drop(database, configuration)
-
       database_version = database.version
 
       catalog_name = configuration.catalog_name
@@ -347,14 +356,13 @@ SQL
       end
     end
 
-    private
+    protected
 
-    def quote_column_name(column_name)
-      ActiveRecord::Base.connection.quote_column_name(column_name)
-    end
-
-    def quote_value(value)
-      ActiveRecord::Base.connection.quote(value)
+    def has_identity_column(table)
+      ActiveRecord::Base.connection.columns(table).each do |c|
+        return true if c.identity == true
+      end
+      false
     end
 
     def get_identity_insert_sql(table, value)
@@ -363,13 +371,6 @@ SQL
       else
         nil
       end
-    end
-
-    def has_identity_column(table)
-      ActiveRecord::Base.connection.columns(table).each do |c|
-        return true if c.identity == true
-      end
-      false
     end
 
     def database_objects(object_type, schema_name)
@@ -382,6 +383,14 @@ WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
       ActiveRecord::Base.connection.select_values(sql)
+    end
+
+    def current_database
+      ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+    end
+
+    def control_database_name
+      'msdb'
     end
 
     def select_database(database_name)
