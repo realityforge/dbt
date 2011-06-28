@@ -70,6 +70,70 @@ class DbTasks
     end
 
     def drop_schema(schema_name, tables)
+      #TODO: A better dependency list is as follows
+=begin
+WITH TablesCTE(SchemaName, Name, type, Ordinal, object_id) AS
+(
+    SELECT
+        OBJECT_SCHEMA_NAME(so.object_id),
+        OBJECT_NAME(so.object_id),
+        so.type,
+        0 AS Ordinal,
+        so.object_id
+    FROM
+        sys.objects AS so
+    WHERE
+        so.is_ms_Shipped = 0
+    UNION ALL
+    SELECT
+        OBJECT_SCHEMA_NAME(so.object_id),
+        OBJECT_NAME(so.object_id),
+        so.type,
+        tt.Ordinal + 1 AS Ordinal,
+        so.object_id
+    FROM
+        sys.objects AS so
+    JOIN sys.foreign_keys AS f
+        ON f.parent_object_id = so.object_id AND f.parent_object_id != f.referenced_object_id
+    JOIN TablesCTE AS tt
+        ON f.referenced_object_id = tt.object_id
+    WHERE
+        so.is_ms_Shipped = 0
+)
+SELECT DISTINCT
+        t.Ordinal,
+        t.SchemaName,
+        t.Name,
+        t.type
+    FROM
+        TablesCTE AS t
+    JOIN
+        (
+            SELECT
+                itt.SchemaName,
+                itt.Name,
+                itt.type,
+                Max(itt.Ordinal) as Ordinal
+            FROM
+                TablesCTE AS itt
+            GROUP BY
+                itt.SchemaName,
+                itt.Name,
+                itt.type
+        ) AS tt
+        ON t.SchemaName = tt.SchemaName AND t.Name = tt.Name AND t.type = tt.type AND t.Ordinal = tt.Ordinal
+WHERE t.type IN (
+  'FN', -- SQL scalar function
+  'IF', -- SQL inline table-valued function
+  'P', -- SQL Stored Procedure
+  'TF', -- SQL table-valued-function
+  'TR', -- SQL DML trigger
+  'U', -- Table (user-defined)
+  'V' -- View
+)
+ORDER BY t.Ordinal, t.Name
+=end
+
       database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
       database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
       database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
