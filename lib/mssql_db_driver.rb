@@ -170,11 +170,11 @@ ORDER BY t.Ordinal, t.Name
 
       database_version = database.version
 
-      physical_name = configuration.catalog_name
+      catalog_name = configuration.catalog_name
       if database_version.nil?
-        db_filename = physical_name
+        db_filename = catalog_name
       else
-        db_filename = "#{physical_name}_#{database_version.gsub(/\./, '_')}"
+        db_filename = "#{catalog_name}_#{database_version.gsub(/\./, '_')}"
       end
       base_data_path = configuration.data_path
       base_log_path = configuration.log_path
@@ -184,45 +184,43 @@ ORDER BY t.Ordinal, t.Name
 
       collation_def = database.collation ? "COLLATE #{database.collation}" : ""
 
-      execute("CREATE DATABASE [#{physical_name}] #{db_def} #{log_def} #{collation_def}")
+      execute("CREATE DATABASE [#{catalog_name}] #{db_def} #{log_def} #{collation_def}")
       execute(<<SQL)
-ALTER DATABASE [#{physical_name}] SET CURSOR_DEFAULT LOCAL
-ALTER DATABASE [#{physical_name}] SET CURSOR_CLOSE_ON_COMMIT ON
+ALTER DATABASE [#{catalog_name}] SET CURSOR_DEFAULT LOCAL
+ALTER DATABASE [#{catalog_name}] SET CURSOR_CLOSE_ON_COMMIT ON
 
-ALTER DATABASE [#{physical_name}] SET AUTO_CREATE_STATISTICS ON
-ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS ON
-ALTER DATABASE [#{physical_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
+ALTER DATABASE [#{catalog_name}] SET AUTO_CREATE_STATISTICS ON
+ALTER DATABASE [#{catalog_name}] SET AUTO_UPDATE_STATISTICS ON
+ALTER DATABASE [#{catalog_name}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
 
-ALTER DATABASE [#{physical_name}] SET ANSI_NULL_DEFAULT ON
-ALTER DATABASE [#{physical_name}] SET ANSI_NULLS ON
-ALTER DATABASE [#{physical_name}] SET ANSI_PADDING ON
-ALTER DATABASE [#{physical_name}] SET ANSI_WARNINGS ON
-ALTER DATABASE [#{physical_name}] SET ARITHABORT ON
-ALTER DATABASE [#{physical_name}] SET CONCAT_NULL_YIELDS_NULL ON
-ALTER DATABASE [#{physical_name}] SET QUOTED_IDENTIFIER ON
+ALTER DATABASE [#{catalog_name}] SET ANSI_NULL_DEFAULT ON
+ALTER DATABASE [#{catalog_name}] SET ANSI_NULLS ON
+ALTER DATABASE [#{catalog_name}] SET ANSI_PADDING ON
+ALTER DATABASE [#{catalog_name}] SET ANSI_WARNINGS ON
+ALTER DATABASE [#{catalog_name}] SET ARITHABORT ON
+ALTER DATABASE [#{catalog_name}] SET CONCAT_NULL_YIELDS_NULL ON
+ALTER DATABASE [#{catalog_name}] SET QUOTED_IDENTIFIER ON
 -- NUMERIC_ROUNDABORT OFF is required for filtered indexes. The optimizer will also
 -- not consider indexed views if the setting is not set.
-ALTER DATABASE [#{physical_name}] SET NUMERIC_ROUNDABORT OFF
-ALTER DATABASE [#{physical_name}] SET RECURSIVE_TRIGGERS ON
+ALTER DATABASE [#{catalog_name}] SET NUMERIC_ROUNDABORT OFF
+ALTER DATABASE [#{catalog_name}] SET RECURSIVE_TRIGGERS ON
 
-ALTER DATABASE [#{physical_name}] SET RECOVERY SIMPLE
+ALTER DATABASE [#{catalog_name}] SET RECOVERY SIMPLE
 SQL
-      select_database(physical_name)
+      select_database(catalog_name)
       unless database_version.nil?
         execute("EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database_version}'")
       end
     end
 
     def drop(database, configuration)
-      physical_name = configuration.catalog_name
-
       if configuration.force_drop?
         execute(<<SQL)
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
-    ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+      WHERE state = 0 AND db_name(database_id) = '#{configuration.catalog_name}')
+    ALTER DATABASE [#{configuration.catalog_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
 SQL
       end
 
@@ -230,37 +228,33 @@ SQL
   IF EXISTS
     ( SELECT *
       FROM  sys.master_files
-      WHERE state = 0 AND db_name(database_id) = '#{physical_name}')
-    DROP DATABASE [#{physical_name}]
+      WHERE state = 0 AND db_name(database_id) = '#{configuration.catalog_name}')
+    DROP DATABASE [#{configuration.catalog_name}]
 SQL
     end
 
     def backup(database, configuration)
-      physical_name = configuration.catalog_name
-      registry_key = configuration.instance_registry_key
       sql = <<SQL
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='BackupDirectory',
     @value=@BackupDir OUTPUT
   IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
   DECLARE @BackupName VARCHAR(500)
-  SET @BackupName = @BackupDir + '\\#{physical_name}.bak'
+  SET @BackupName = @BackupDir + '\\#{configuration.catalog_name}.bak'
 
-BACKUP DATABASE [#{physical_name}] TO DISK = @BackupName
+BACKUP DATABASE [#{configuration.catalog_name}] TO DISK = @BackupName
 WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
       execute(sql)
     end
 
     def restore(database, configuration)
-      physical_name = configuration.catalog_name
-      registry_key = configuration.instance_registry_key
       sql = <<SQL
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
-  SET @TargetDatabase = '#{physical_name}'
+  SET @TargetDatabase = '#{configuration.catalog_name}'
   SET @SourceDatabase = '#{configuration.restore_from}'
 
   DECLARE @BackupFile VARCHAR(400)
@@ -288,12 +282,12 @@ SQL
   IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
 
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='DefaultData',
     @value=@DataDir OUTPUT
   IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{registry_key}\\MSSQLServer',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='DefaultLog',
     @value=@LogDir OUTPUT
   IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
@@ -308,7 +302,7 @@ SQL
   '
   EXEC(@sql)
 SQL
-      execute("ALTER DATABASE [#{physical_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+      execute("ALTER DATABASE [#{configuration.catalog_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
       execute(sql)
     end
 
