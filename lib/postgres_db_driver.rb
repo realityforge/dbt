@@ -5,21 +5,22 @@ class DbTasks
   class PostgresDbDriver < ActiveRecordDbDriver
     def create_schema(schema_name)
       if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
-        execute("CREATE SCHEMA \"#{schema_name}\"")
+        execute("CREATE SCHEMA #{quote_table_name(schema_name)}")
       end
     end
 
     def drop_schema(schema_name, tables)
-      execute("DROP SCHEMA \"#{schema_name}\"")
+      # TODO: Drop dependents
+      execute("DROP SCHEMA #{quote_table_name(schema_name)}")
     end
 
     def create_database(database, configuration)
-      execute("CREATE DATABASE \"#{configuration.catalog_name}\"")
+      execute("CREATE DATABASE #{quote_table_name(configuration.catalog_name)}")
     end
 
     def drop(database, configuration)
       unless select_rows("SELECT * FROM pg_catalog.pg_database WHERE datname = '#{configuration.catalog_name}'").empty?
-        execute("DROP DATABASE \"#{configuration.catalog_name}\"")
+        execute("DROP DATABASE #{quote_table_name(configuration.catalog_name)}")
       end
     end
 

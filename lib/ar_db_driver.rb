@@ -37,7 +37,7 @@ class DbTasks
     def insert_row(table_name, row)
       column_names = row.keys.collect { |column_name| quote_column_name(column_name) }
       value_list = row.values.collect { |value| quote_value(value).gsub('[^\]\\n', "\n").gsub('[^\]\\r', "\r") }
-      execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
+      execute("INSERT INTO #{quote_table_name(table_name)} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
 
     def select_rows(sql)
@@ -77,6 +77,10 @@ class DbTasks
 
     def quote_column_name(column_name)
       ActiveRecord::Base.connection.quote_column_name(column_name)
+    end
+
+    def quote_table_name(column_name)
+      ActiveRecord::Base.connection.quote_table_name(column_name)
     end
 
     def quote_value(value)
