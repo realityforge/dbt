@@ -24,7 +24,7 @@ class DbTasks
 
   class MssqlDbDriver < ActiveRecordDbDriver
     def create_schema(schema_name)
-      if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA [#{schema_name}]")
       end
     end
@@ -315,7 +315,7 @@ SQL
     end
 
     def current_database
-      ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+      select_value("SELECT DB_NAME()")
     end
 
     def control_database_name
@@ -324,9 +324,9 @@ SQL
 
     def select_database(database_name)
       if database_name.nil?
-        ActiveRecord::Base.connection.execute "USE [msdb]"
+        execute("USE [msdb]")
       else
-        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
+        execute("USE [#{database_name}]")
       end
     end
   end
