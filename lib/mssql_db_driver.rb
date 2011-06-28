@@ -409,7 +409,7 @@ SQL
 
   class PostgresDbDriver < ActiveRecordDbDriver
     def create_schema(schema_name)
-    if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA \"#{schema_name}\"")
       end
     end
@@ -422,11 +422,12 @@ SQL
       execute(<<SQL)
 CREATE DATABASE #{configuration.catalog_name}
 SQL
-      select_database(configuration.catalog_name)
     end
 
     def drop(database, configuration)
-      raise NotImplementedError
+      unless ActiveRecord::Base.connection.select_all("SELECT * FROM pg_catalog.pg_database WHERE datname = '#{configuration.catalog_name}'").empty?
+        execute("DROP DATABASE #{configuration.catalog_name}")
+      end
     end
 
     def backup(database, configuration)
@@ -455,14 +456,5 @@ SQL
     def control_database_name
       'postgres'
     end
-
-    def select_database(database_name)
-      if database_name.nil?
-        ActiveRecord::Base.connection.execute "USE [msdb]"
-      else
-        ActiveRecord::Base.connection.execute "USE [#{database_name}]"
-      end
-    end
   end
-
 end
