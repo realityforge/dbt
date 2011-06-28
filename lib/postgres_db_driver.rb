@@ -4,7 +4,7 @@ class DbTasks
 
   class PostgresDbDriver < ActiveRecordDbDriver
     def create_schema(schema_name)
-      if ActiveRecord::Base.connection.select_all("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA \"#{schema_name}\"")
       end
     end
@@ -14,14 +14,12 @@ class DbTasks
     end
 
     def create_database(database, configuration)
-      execute(<<SQL)
-CREATE DATABASE #{configuration.catalog_name}
-SQL
+      execute("CREATE DATABASE \"#{configuration.catalog_name}\"")
     end
 
     def drop(database, configuration)
-      unless ActiveRecord::Base.connection.select_all("SELECT * FROM pg_catalog.pg_database WHERE datname = '#{configuration.catalog_name}'").empty?
-        execute("DROP DATABASE #{configuration.catalog_name}")
+      unless select_rows("SELECT * FROM pg_catalog.pg_database WHERE datname = '#{configuration.catalog_name}'").empty?
+        execute("DROP DATABASE \"#{configuration.catalog_name}\"")
       end
     end
 
@@ -45,7 +43,7 @@ SQL
     protected
 
     def current_database
-      ActiveRecord::Base.connection.select_value("SELECT DB_NAME()")
+      select_value("SELECT current_database()")
     end
 
     def control_database_name
