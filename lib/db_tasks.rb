@@ -1116,4 +1116,6 @@ SQL
   end
 end
 
+require 'ar_db_driver.rb'
 require 'mssql_db_driver.rb'
+require 'postgres_db_driver.rb'
