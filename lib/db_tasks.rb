@@ -520,6 +520,7 @@ SQL
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
       banner('Creating database', database.key)
+      create_database(database)
       init_database(database.key) do
         perform_create_action(database, :up)
         perform_create_action(database, :finalize)
@@ -557,6 +558,7 @@ SQL
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
           banner("Creating Database By Import", database.key)
+          create_database(database) unless partial_import_completed?
           init_database(database.key) do
             perform_create_action(database, :up) unless partial_import_completed?
             perform_import_action(imp, false, nil)
@@ -570,9 +572,7 @@ SQL
       desc "Perform backup of #{database.key} database"
       task "#{database.task_prefix}:backup" => ["#{database.task_prefix}:load_config"] do
         banner("Backing up Database", database.key)
-        init_database(database.key) do
-          backup(database)
-        end
+        backup(database)
       end
     end
 
@@ -580,9 +580,7 @@ SQL
       desc "Perform restore of #{database.key} database"
       task "#{database.task_prefix}:restore" => ["#{database.task_prefix}:load_config"] do
         banner("Restoring Database", database.key)
-        init_database(database.key) do
-          restore(database)
-        end
+        restore(database)
       end
     end
   end
@@ -636,21 +634,24 @@ SQL
   end
 
   def self.backup(database)
-    init_control_database(database.key)
-    db.backup(database, configuration_for_key(config_key(database.key)))
+    init_control_database(database.key) do
+      db.backup(database, configuration_for_key(config_key(database.key)))
+    end
   end
 
   def self.restore(database)
-    init_control_database(database.key)
-    db.restore(database, configuration_for_key(config_key(database.key)))
+    init_control_database(database.key) do
+      db.restore(database, configuration_for_key(config_key(database.key)))
+    end
   end
 
   def self.create_database(database)
-    init_control_database(database.key)
     configuration = configuration_for_key(config_key(database.key))
     return if configuration.no_create?
-    db.drop(database, configuration)
-    db.create_database(database, configuration)
+    init_control_database(database.key) do
+      db.drop(database, configuration)
+      db.create_database(database, configuration)
+    end
   end
 
   def self.drop(database)
@@ -714,7 +715,6 @@ SQL
 
   def self.perform_create_action(database, mode)
     database.modules.each_with_index do |module_name, idx|
-      create_database(database) if (idx == 0 && mode == :up)
       schema_name = database.schema_name_for_module(module_name)
       create_module(database, module_name, schema_name, mode)
     end

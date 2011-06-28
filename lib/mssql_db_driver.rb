@@ -69,6 +69,7 @@ class DbTasks
 
     def open(config, open_control_database, log_filename)
       require 'active_record'
+      raise "Can not open database connection. Connection already open." if open?
       ActiveRecord::Base.colorize_logging = false
       connection_config = config.configuration.dup
       connection_config['database'] = self.control_database_name if open_control_database
@@ -79,10 +80,14 @@ class DbTasks
     end
 
     def close
-      ActiveRecord::Base.connection.disconnect! if ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?
+      ActiveRecord::Base.connection.disconnect! if open?
     end
 
     protected
+
+    def open?
+      ActiveRecord::Base.connection && ActiveRecord::Base.connection.active? rescue false
+    end
 
     def quote_column_name(column_name)
       ActiveRecord::Base.connection.quote_column_name(column_name)
