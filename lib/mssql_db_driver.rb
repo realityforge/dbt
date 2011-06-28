@@ -41,7 +41,6 @@ class DbTasks
     end
   end
 
-
   class MssqlDbDriver < DbTasks::DbDriver
     def execute(sql, execute_in_control_database = false)
       current_database = nil
