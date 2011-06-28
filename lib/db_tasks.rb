@@ -38,6 +38,12 @@ class DbTasks
         @default_collation || 'SQL_Latin1_General_CP1_CS_AS'
       end
 
+      attr_writer :driver
+
+      def driver
+        @driver || 'Mssql'
+      end
+
       attr_writer :default_database
 
       def default_database
@@ -961,7 +967,7 @@ SQL
     return existing if existing
     c = self.configuration_data[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    configuration = MssqlDbConfig.new(c)
+    configuration = "DbTasks::#{DbTasks::Config.driver}DbConfig".constantize.new(c)
     @@configurations[config_key.to_s] = configuration
   end
 
@@ -1036,7 +1042,7 @@ SQL
   end
 
   def self.db
-    MssqlDbDriver.new
+    @db ||= "DbTasks::#{DbTasks::Config.driver}DbDriver".constantize.new
   end
 
   class DbConfig
