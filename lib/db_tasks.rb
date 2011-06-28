@@ -647,7 +647,10 @@ SQL
 
   def self.create_database(database)
     init_control_database(database.key)
-    db.create_database(database, configuration_for_key(config_key(database.key)))
+    configuration = configuration_for_key(config_key(database.key))
+    return if configuration.no_create?
+    db.drop(database, configuration)
+    db.create_database(database, configuration)
   end
 
   def self.drop(database)
@@ -1042,6 +1045,10 @@ SQL
     end
 
     def catalog_name
+      raise NotImplementedError
+    end
+
+    def no_create?
       raise NotImplementedError
     end
   end
