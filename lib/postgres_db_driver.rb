@@ -16,6 +16,9 @@ class DbTasks
 
     def create_database(database, configuration)
       execute("CREATE DATABASE #{quote_table_name(configuration.catalog_name)}")
+      unless database.version.nil?
+        execute("COMMENT ON DATABASE #{quote_table_name(configuration.catalog_name)} IS 'Database Schema Version #{database.version}'")
+      end
     end
 
     def drop(database, configuration)
