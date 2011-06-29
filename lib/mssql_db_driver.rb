@@ -108,7 +108,6 @@ ORDER BY t.Ordinal, t.Name
     def create_database(database, configuration)
       database_version = database.version
 
-
       if database_version.nil?
         db_filename = configuration.catalog_name
       else
