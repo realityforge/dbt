@@ -22,9 +22,7 @@ class DbTasks
     end
 
     def drop(database, configuration)
-      unless select_rows("SELECT * FROM pg_catalog.pg_database WHERE datname = '#{configuration.catalog_name}'").empty?
-        execute("DROP DATABASE #{quote_table_name(configuration.catalog_name)}")
-      end
+      execute("DROP DATABASE IF EXISTS #{quote_table_name(configuration.catalog_name)}")
     end
 
     def backup(database, configuration)
