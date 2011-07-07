@@ -934,7 +934,7 @@ SQL
   def self.load_fixture(table_name, filename)
     yaml = YAML::load(IO.read(filename))
     # Skip empty files
-    next unless yaml
+    return unless yaml
     # NFI
     yaml_value =
       if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
