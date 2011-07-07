@@ -621,7 +621,6 @@ SQL
           (schema_2_module[schema_name] ||= []) << module_name
         end
         module_group.modules.reverse.each do |schema_name|
-          drop_module_group(database, schema_name, schema_2_module[schema_name])
           tables = schema_2_module[schema_name].each { |module_name| database.table_ordering(module_name) }.flatten
           drop_schema(schema_name, tables)
         end
