@@ -510,7 +510,7 @@ SQL
 
   def self.define_tasks_for_database(database)
     task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:all:load_config"]
-                         
+
     # Database dropping
 
     desc "Drop the #{database.key} database."
@@ -746,12 +746,12 @@ SQL
         raise "A specified index entry does not exist on the disk #{e}" unless exists
       end
 
-      index += index_entries     
+      index += index_entries
 
       if File.exists?(dir)
         files += Dir["#{dir}/*.sql"]
       end
-      
+
     end
 
     file_map = {}
@@ -904,7 +904,7 @@ SQL
     fixtures = {}
     database.table_ordering(module_name).each do |table_name|
       dirs.each do |dir|
-        filename = "#{dir}/#{table_name}.yml"
+        filename = table_name_to_fixture_filename(dir, table_name)
         fixtures[table_name] = filename if File.exists?(filename)
       end
     end
@@ -918,9 +918,17 @@ SQL
     database.table_ordering(module_name).each do |table_name|
       filename = fixtures[table_name]
       next unless filename
-      info("Loading fixture: #{table_name}")
+      info("Loading fixture: #{clean_table_name(table_name)}")
       load_fixture(table_name, filename)
     end
+  end
+
+  def self.table_name_to_fixture_filename(dir, table_name)
+    "#{dir}/#{clean_table_name(table_name)}.yml"
+  end
+
+  def self.clean_table_name(table_name)
+    table_name.tr('[]"''', '')
   end
 
   def self.load_fixture(table_name, filename)
@@ -1021,11 +1029,11 @@ SQL
   end
 
   def self.fixture_for_creation(database, module_name, table)
-    first_file_from(dirs_for_module(database, module_name, "fixtures/#{table}.yml"))
+    first_file_from(dirs_for_module(database, module_name, table_name_to_fixture_filename("fixtures", table)))
   end
 
   def self.fixture_for_import(database, module_name, table, import_dir)
-    first_file_from(dirs_for_module(database, module_name, "#{import_dir}/#{table}.yml"))
+    first_file_from(dirs_for_module(database, module_name, table_name_to_fixture_filename(import_dir, table)))
   end
 
   def self.sql_for_import(database, module_name, table, import_dir)
