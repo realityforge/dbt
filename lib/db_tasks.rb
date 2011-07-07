@@ -622,7 +622,7 @@ SQL
         end
         module_group.modules.reverse.each do |schema_name|
           tables = schema_2_module[schema_name].collect { |module_name| database.table_ordering(module_name) }.flatten
-          drop_schema(schema_name, tables)
+          db.drop_schema(schema_name, tables)
         end
       end
     end
