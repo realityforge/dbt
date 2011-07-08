@@ -42,7 +42,7 @@ class DbTasks
 
     def select_rows(sql)
       #TODO: Currently does not return times correctly. This needs to be fixed for fixture dumping to work
-      ActiveRecord::Base.connection.select_rows(sql, nil)
+      ActiveRecord::Base.connection.select_all(sql, nil)
     end
 
     def column_names_for_table(table)
