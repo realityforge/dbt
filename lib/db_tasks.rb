@@ -1037,7 +1037,7 @@ SQL
   end
 
   def self.sql_for_import(database, module_name, table, import_dir)
-    first_file_from(dirs_for_module(database, module_name, "#{import_dir}/#{table}.sql"))
+    first_file_from(dirs_for_module(database, module_name, "#{import_dir}/#{clean_table_name(table)}.sql"))
   end
 
   def self.banner(message, database_key)
