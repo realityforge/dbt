@@ -253,7 +253,7 @@ SQL
       identity_insert_sql = get_identity_insert_sql(table, false)
       execute(identity_insert_sql) if identity_insert_sql
       if imp.reindex?
-        DbTasks.info("Reindexing #{table}")
+        DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
         execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
       end
     end
@@ -271,7 +271,7 @@ SQL
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
 
           imp.database.table_ordering(module_name).each do |table|
-            DbTasks.info("Reindexing #{table}")
+            DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
             execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
           end
         end

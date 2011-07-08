@@ -865,7 +865,7 @@ SQL
     sql_file = sql_for_import(database, module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
-    info("Importing #{table} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
+    info("Importing #{DbTasks.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
       load_fixture(table, fixture_file)
     elsif is_sql
