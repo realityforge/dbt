@@ -466,9 +466,9 @@ SQL
 
   def self.dump_tables_to_fixtures(tables, fixture_dir)
     tables.each do |table_name|
-      File.open("#{fixture_dir}/#{table_name}.yml", 'wb') do |file|
+      File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
         puts("Dumping #{table_name}\n")
-        const_name = :"DUMP_SQL_FOR_#{table_name.gsub('.', '_')}"
+        const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
         if Object.const_defined?(const_name)
           sql = Object.const_get(const_name)
         else
