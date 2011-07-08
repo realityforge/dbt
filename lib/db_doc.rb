@@ -78,7 +78,7 @@ class DbTasks
     # found in the file
     def self.parse_sql_doc(text, parsed_models)
       regexp = /(\/\*\*.*?\*\/)(\s*create\s+(procedure|function|type|view)\s+)([a-zA-Z_\.]+)/mi
-      match = regexp.match(text)      
+      match = regexp.match(text)
 
       return if !match
 
@@ -163,7 +163,7 @@ SQL
     MAX_EXTENDED_PROPERTY_SIZE = 7000
 
     def self.trim_doc(doc)
-      return (doc.length < MAX_EXTENDED_PROPERTY_SIZE) ? doc :  doc[0,MAX_EXTENDED_PROPERTY_SIZE - 3] + "..." 
+      return (doc.length < MAX_EXTENDED_PROPERTY_SIZE) ? doc :  doc[0,MAX_EXTENDED_PROPERTY_SIZE - 3] + "..."
     end
 
     # do not include *_Documentation.sql files in the src files
