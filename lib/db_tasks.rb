@@ -509,7 +509,7 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
-    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:all:load_config"]
+    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:global:load_config"]
 
     # Database dropping
 
@@ -812,7 +812,7 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task "#{DbTasks::Config.task_prefix}:all:load_config" do
+      task "#{DbTasks::Config.task_prefix}:global:load_config" do
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
