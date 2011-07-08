@@ -974,7 +974,7 @@ SQL
     return existing if existing
     c = self.configuration_data[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    configuration = "DbTasks::#{DbTasks::Config.driver}DbConfig".constantize.new(c)
+    configuration = DbTasks.const_get("#{DbTasks::Config.driver}DbConfig").new(c)
     @@configurations[config_key.to_s] = configuration
   end
 
@@ -1049,7 +1049,7 @@ SQL
   end
 
   def self.db
-    @db ||= "DbTasks::#{DbTasks::Config.driver}DbDriver".constantize.new
+    @db ||= DbTasks.const_get("#{DbTasks::Config.driver}DbDriver").new
   end
 
   class DbConfig
