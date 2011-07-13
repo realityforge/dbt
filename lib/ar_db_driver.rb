@@ -37,7 +37,7 @@ class DbTasks
     def insert_row(table_name, row)
       column_names = row.keys.collect { |column_name| quote_column_name(column_name) }
       value_list = row.values.collect { |value| quote_value(value) }
-      execute("INSERT INTO #{quote_table_name(table_name)} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
+      execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
 
     def select_rows(sql)
