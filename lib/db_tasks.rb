@@ -598,10 +598,9 @@ SQL
       banner("Upping module group '#{module_group.key}'", database.key)
       init_database(database.key) do
         database.modules.each do |module_name|
-          schema_name = database.schema_name_for_module(module_name)
-          next unless module_group.modules.include?(schema_name)
-          create_module(database, module_name, schema_name, :up)
-          create_module(database, module_name, schema_name, :finalize)
+          next unless module_group.modules.include?(module_name)
+          create_module(database, module_name, :up)
+          create_module(database, module_name, :finalize)
         end
       end
     end
@@ -699,7 +698,8 @@ SQL
     end
   end
 
-  def self.create_module(database, module_name, schema_name, mode)
+  def self.create_module(database, module_name, mode)
+    schema_name = database.schema_name_for_module(module_name)
     db.create_schema(schema_name)
     process_module(database, module_name, mode)
   end
@@ -720,8 +720,7 @@ SQL
 
   def self.perform_create_action(database, mode)
     database.modules.each_with_index do |module_name, idx|
-      schema_name = database.schema_name_for_module(module_name)
-      create_module(database, module_name, schema_name, mode)
+      create_module(database, module_name, mode)
     end
   end
 
