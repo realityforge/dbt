@@ -610,26 +610,17 @@ SQL
       banner("Downing module group '#{module_group.key}'", database.key)
       init_database(database.key) do
         database.modules.reverse.each do |module_name|
-          schema_name = database.schema_name_for_module(module_name)
-          next unless module_group.modules.include?(schema_name)
+          next unless module_group.modules.include?(module_name)
           process_module(database, module_name, :down)
-        end
-        schema_2_module = {}
-        database.modules.each do |module_name|
+          tables = database.table_ordering(module_name)
           schema_name = database.schema_name_for_module(module_name)
-          (schema_2_module[schema_name] ||= []) << module_name
-        end
-        module_group.modules.reverse.each do |schema_name|
-          tables = schema_2_module[schema_name].collect { |module_name| database.table_ordering(module_name) }.flatten
           db.drop_schema(schema_name, tables)
         end
       end
     end
 
     database.imports.values.each do |imp|
-      import_modules = imp.modules.select do |module_name|
-        module_group.modules.include?(database.schema_name_for_module(module_name))
-      end
+      import_modules = imp.modules.select { |module_name| module_group.modules.include?(module_name) }
       if module_group.import_enabled? && !import_modules.empty?
         description = "contents of the #{module_group.key} module group"
         define_import_task("#{database.task_prefix}:#{module_group.key}", imp, description, module_group)
