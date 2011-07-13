@@ -677,7 +677,7 @@ SQL
     end
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
-        info("Deleting #{table}")
+        info("Deleting #{clean_table_name(table)}")
         run_sql_batch("DELETE FROM #{table}")
       end
     end
