@@ -650,8 +650,9 @@ SQL
   end
 
   def self.drop(database)
-    init_control_database(database.key)
-    db.drop(database, configuration_for_key(config_key(database.key)))
+    init_control_database(database.key) do
+      db.drop(database, configuration_for_key(config_key(database.key)))
+    end
   end
 
   def self.import(imp, module_name, should_perform_delete)
