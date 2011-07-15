@@ -841,8 +841,7 @@ SQL
     columns = db.column_names_for_table(table)
     sql += columns.join(', ')
     sql += ")\n  SELECT "
-    # TODO: Make it possible for user to configure transforms that occur in standard import (i.e. filter columns or change values)
-    sql += columns.collect { |c| c == '[BatchID]' ? "0" : c }.join(', ')
+    sql += columns.join(', ')
     sql += " FROM @@SOURCE@@.#{table}\n"
     sql
   end
