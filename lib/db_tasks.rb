@@ -225,6 +225,14 @@ SQL
     def filters
       data.base.filters + @filters
     end
+
+    def validate
+      self.modules.each do |module_key|
+        if !database.modules.include?(module_key)
+          raise "Module #{module_key} in import #{self.key} does not exist in database module list #{self.database.modules.inspect}"
+        end
+      end
+    end
   end
 
   class ModuleGroupDefinition
@@ -239,12 +247,24 @@ SQL
     attr_accessor :database
     attr_accessor :key
 
-    attr_accessor :modules
+    attr_writer :modules
+
+    def modules
+      raise "Missing modules configuration for module_group #{key}" unless @modules
+      @modules
+    end
 
     def import_enabled?
       @import_enabled.nil? ? false : @import_enabled
     end
 
+    def validate
+      self.modules.each do |module_key|
+        if !database.modules.include?(module_key)
+          raise "Module #{module_key} in module group #{self.key} does not exist in database module list #{self.database.modules.inspect}"
+        end
+      end
+    end
   end
 
   class DatabaseDefinition
@@ -280,6 +300,11 @@ SQL
           end
         end
       end
+    end
+
+    def validate
+      @imports.values.each {|d| d.validate}
+      @module_groups.values.each {|d| d.validate}
     end
 
     # symbolic name of database
@@ -509,7 +534,9 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
-    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:global:load_config"]
+    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:global:load_config"] do
+      database.validate
+    end
 
     # Database dropping
 
