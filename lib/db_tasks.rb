@@ -895,8 +895,11 @@ SQL
   def self.setup_connection(config_key, open_control_database, &block)
     db.open(configuration_for_key(config_key), open_control_database, DbTasks::Config.log_filename)
     if block_given?
-      yield
-      db.close
+      begin
+        yield
+      ensure
+        db.close
+      end
     end
   end
 
