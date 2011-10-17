@@ -124,9 +124,9 @@ class DbTasks
       self.filters << block
     end
 
-    def add_database_name_filter(pattern, database_key)
+    def add_database_name_filter(pattern, database_key, optional = false)
       add_filter do |sql|
-        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key), false)
+        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key), optional)
       end
     end
 
