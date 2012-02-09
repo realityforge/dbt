@@ -200,6 +200,7 @@ SQL
   DECLARE @LogLogicalName VARCHAR(400)
   DECLARE @DataDir VARCHAR(400)
   DECLARE @LogDir VARCHAR(400)
+  DECLARE @DataRoot VARCHAR(400)
 
   SELECT
   @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
@@ -220,15 +221,26 @@ SQL
   IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
 
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
+    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\Setup',
+    @value_name='SQLDataRoot',
+    @value=@DataRoot OUTPUT
+
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
     @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='DefaultData',
     @value=@DataDir OUTPUT
-  IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData registry key', 16, 1) WITH SETERROR
+
+  IF @DataDir IS NULL AND @DataRoot IS NOT NULL
+    SET @DataDir = @DataRoot + '\\Data'
+  IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData or SQLDataRoot registry key', 16, 1) WITH SETERROR
+
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
     @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='DefaultLog',
     @value=@LogDir OUTPUT
-  IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog registry key', 16, 1) WITH SETERROR
+  IF @LogDir IS NULL AND @DataRoot IS NOT NULL
+    SET @LogDir = @DataRoot + '\\Data'
+  IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog or SQLDataRoot registry key', 16, 1) WITH SETERROR
 
   DECLARE @sql VARCHAR(4000)
   SET @sql = 'RESTORE DATABASE [' + @TargetDatabase + '] FROM DISK = N''' + @BackupFile + ''' WITH  FILE = 1,
