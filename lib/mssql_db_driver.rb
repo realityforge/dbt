@@ -189,7 +189,10 @@ SQL
     end
 
     def restore(database, configuration)
-      sql = <<SQL
+      execute(<<SQL)
+  IF EXISTS (SELECT * FROM sys.databases WHERE name = '#{configuration.catalog_name}')
+    ALTER DATABASE #{configuration.catalog_name} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+
   DECLARE @TargetDatabase VARCHAR(400)
   DECLARE @SourceDatabase VARCHAR(400)
   SET @TargetDatabase = '#{configuration.catalog_name}'
@@ -252,8 +255,6 @@ SQL
   '
   EXEC(@sql)
 SQL
-      execute("ALTER DATABASE #{configuration.catalog_name} SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
-      execute(sql)
     end
 
     def pre_table_import(imp, module_name, table)
