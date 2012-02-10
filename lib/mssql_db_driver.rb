@@ -17,6 +17,10 @@ class DbTasks
       config_value("restore_from", false)
     end
 
+    def backup_location
+      config_value("backup_location", true)
+    end
+
     def instance_registry_key
       config_value("instance_registry_key", false)
     end
@@ -172,18 +176,24 @@ SQL
     end
 
     def backup(database, configuration)
-      sql = <<SQL
+      sql = "DECLARE @BackupName VARCHAR(500)"
+      if configuration.backup_location
+        sql << "SET @BackupName = '#{configuration.backup_location}'"
+      else
+        sql << <<SQL
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
     @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
     @value_name='BackupDirectory',
     @value=@BackupDir OUTPUT
   IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
-  DECLARE @BackupName VARCHAR(500)
   SET @BackupName = @BackupDir + '\\#{configuration.catalog_name}.bak'
+SQL
+      end
 
-BACKUP DATABASE #{quote_table_name(configuration.catalog_name)} TO DISK = @BackupName
-WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
+      sql << <<SQL
+  BACKUP DATABASE #{quote_table_name(configuration.catalog_name)} TO DISK = @BackupName
+  WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
 SQL
       execute(sql)
     end
@@ -205,21 +215,7 @@ SQL
   DECLARE @LogDir VARCHAR(400)
   DECLARE @DataRoot VARCHAR(400)
 
-  SELECT
-  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
-  FROM
-    msdb.dbo.backupset BS
-  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
-  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
-  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
-  WHERE
-    BS.backup_set_id =
-    (
-      SELECT TOP 1 backup_set_id
-      FROM msdb.dbo.backupset
-      WHERE database_name = @SourceDatabase
-      ORDER BY backup_start_date DESC
-    )
+#{get_backup_file_list_locations(configuration)}
 
   IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
 
@@ -340,6 +336,61 @@ SQL
         execute("USE [msdb]")
       else
         execute("USE [#{database_name}]")
+      end
+    end
+
+    def get_backup_file_list_locations(configuration)
+      if configuration.backup_location
+        <<SQL
+  SET @BackupFile = '#{configuration.backup_location}\\#{configuration.restore_from}.bak';
+
+  DECLARE @FileList TABLE
+      (
+      LogicalName NVARCHAR(128) NOT NULL,
+      PhysicalName NVARCHAR(260) NOT NULL,
+      Type CHAR(1) NOT NULL,
+      FileGroupName NVARCHAR(120) NULL,
+      Size NUMERIC(20, 0) NOT NULL,
+      MaxSize NUMERIC(20, 0) NOT NULL,
+      FileID BIGINT NULL,
+      CreateLSN NUMERIC(25,0) NULL,
+      DropLSN NUMERIC(25,0) NULL,
+      UniqueID UNIQUEIDENTIFIER NULL,
+      ReadOnlyLSN NUMERIC(25,0) NULL ,
+      ReadWriteLSN NUMERIC(25,0) NULL,
+      BackupSizeInBytes BIGINT NULL,
+      SourceBlockSize INT NULL,
+      FileGroupID INT NULL,
+      LogGroupGUID UNIQUEIDENTIFIER NULL,
+      DifferentialBaseLSN NUMERIC(25,0)NULL,
+      DifferentialBaseGUID UNIQUEIDENTIFIER NULL,
+      IsReadOnly BIT NULL,
+      IsPresent BIT NULL,
+      TDEThumbprint VARBINARY(32) NULL
+   );
+
+   INSERT INTO @FileList EXEC('RESTORE FILELISTONLY FROM DISK = ''' + @BackupFile + '''')
+   SELECT TOP 1 @DataLogicalName = LogicalName FROM @FileList WHERE Type = 'D' ORDER BY DifferentialBaseLSN
+   SELECT TOP 1 @LogLogicalName = LogicalName FROM @FileList WHERE Type = 'L' ORDER BY DifferentialBaseLSN
+SQL
+      else
+        <<SQL
+  SELECT
+  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
+  FROM
+    msdb.dbo.backupset BS
+  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
+  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
+  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
+  WHERE
+    BS.backup_set_id =
+    (
+      SELECT TOP 1 backup_set_id
+      FROM msdb.dbo.backupset
+      WHERE database_name = @SourceDatabase
+      ORDER BY backup_start_date DESC
+    )
+SQL
       end
     end
   end
