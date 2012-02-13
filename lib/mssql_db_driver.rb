@@ -178,7 +178,7 @@ SQL
     def backup(database, configuration)
       sql = "DECLARE @BackupName VARCHAR(500)"
       if configuration.backup_location
-        sql << "SET @BackupName = '#{configuration.backup_location}'"
+        sql << "SET @BackupName = '#{configuration.backup_location}\\#{configuration.catalog_name}.bak'"
       else
         sql << <<SQL
   DECLARE @BackupDir VARCHAR(400)
