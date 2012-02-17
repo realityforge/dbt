@@ -178,11 +178,11 @@ SQL
     def initialize(database, key, options)
       @database = database
       @key = key
-      @modules = options[:modules] if options[:modules]
-      @dir = options[:dir] if options[:dir]
-      @reindex = options[:reindex] if options[:reindex]
-      @pre_import_dirs = options[:pre_import_dirs] if options[:pre_import_dirs]
-      @post_import_dirs = options[:post_import_dirs] if options[:post_import_dirs]
+      @modules = options[:modules]
+      @dir = options[:dir]
+      @reindex = options[:reindex]
+      @pre_import_dirs = options[:pre_import_dirs]
+      @post_import_dirs = options[:post_import_dirs]
     end
 
     attr_accessor :database
