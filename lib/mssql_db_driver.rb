@@ -268,22 +268,27 @@ SQL
     end
 
     def post_data_module_import(imp, module_name)
+      sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
+      if imp.shrink?
+        # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
+        # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
+        # we reindex otherwise the indexes will be highly fragmented.
+        DbTasks.info("Shrinking database")
+        execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
+        execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
+      end
+
+      if imp.reindex?
+        imp.database.table_ordering(module_name).each do |table|
+          DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
+          execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
+        end
+      end
+    end
+
+    def post_database_import(imp)
       if imp.reindex?
         sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
-
-        if imp.shrink?
-          # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
-          # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
-          # we reindex otherwise the indexes will be highly fragmented.
-          DbTasks.info("Shrinking database")
-          execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
-          execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-
-          imp.database.table_ordering(module_name).each do |table|
-            DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
-            execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
-          end
-        end
 
         DbTasks.info("Updating statistics")
         execute("EXEC dbo.sp_updatestats")

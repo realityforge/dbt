@@ -822,6 +822,7 @@ SQL
         run_sql_files(imp.database, dir_display_name(dir), files, true)
       end
     end
+    db.post_database_import(imp)
   end
 
   def self.dir_display_name(dir)

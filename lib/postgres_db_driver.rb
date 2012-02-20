@@ -42,6 +42,9 @@ class DbTasks
     def post_data_module_import(imp, module_name)
     end
 
+    def post_database_import(imp)
+    end
+
     protected
 
     def current_database
