@@ -390,14 +390,14 @@ SQL
 
     # Should the a backup task be defined for database?
     def backup?
-      @backup || false
+      @backup.nil? ? false : @backup
     end
 
     attr_writer :restore
 
     # Should the a restore task be defined for database?
     def restore?
-      @restore || false
+      @restore.nil? ? false : @restore
     end
 
     # Map of module => schema overrides
