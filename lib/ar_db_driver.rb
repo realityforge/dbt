@@ -1,5 +1,5 @@
 class DbTasks
-  class ActiveRecordDbConfig < DbTasks::DbConfig
+  class JdbcDbConfig < DbTasks::DbConfig
     def initialize(configuration)
       @configuration = configuration
     end
@@ -14,6 +14,18 @@ class DbTasks
       config_value("database", false)
     end
 
+    def jdbc_driver
+      raise NotImplementedError
+    end
+
+    def jdbc_url
+      raise NotImplementedError
+    end
+
+    def jdbc_info
+      raise NotImplementedError
+    end
+
     protected
 
     def config_value(config_param_name, allow_nil)
@@ -23,14 +35,18 @@ class DbTasks
     end
   end
 
-  class ActiveRecordDbDriver < DbTasks::DbDriver
+  class JdbcDbDriver < DbTasks::DbDriver
+
     def execute(sql, execute_in_control_database = false)
+      raise "Can not execute statement when database connection is not open." unless open?
       current_database = nil
       if execute_in_control_database
         current_database = self.current_database
         select_database(nil)
       end
-      ActiveRecord::Base.connection.execute(sql, nil)
+      statement = @connection.createStatement()
+      statement.executeUpdate(sql)
+      statement.close
       select_database(current_database) if execute_in_control_database
     end
 
@@ -41,8 +57,7 @@ class DbTasks
     end
 
     def select_rows(sql)
-      #TODO: Currently does not return times correctly. This needs to be fixed for fixture dumping to work
-      ActiveRecord::Base.connection.select_all(sql, nil)
+      select_data(sql)
     end
 
     def column_names_for_table(table)
@@ -50,45 +65,67 @@ class DbTasks
     end
 
     def open(config, open_control_database, log_filename)
-      require 'active_record'
       raise "Can not open database connection. Connection already open." if open?
-      ActiveRecord::Base.colorize_logging = false
-      connection_config = config.configuration.dup
-      connection_config['database'] = self.control_database_name if open_control_database
-      ActiveRecord::Base.establish_connection(connection_config)
-      FileUtils.mkdir_p File.dirname(log_filename)
-      ActiveRecord::Base.logger = Logger.new(File.open(log_filename, 'a'))
-      ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : false
+      java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
+      @connection = java.sql.DriverManager.getConnection(config.jdbc_url, config.jdbc_info)
+      select_database(nil) if open_control_database
     end
 
     def close
-      ActiveRecord::Base.connection.disconnect! if open?
+      if open?
+        @connection.close() rescue Exception
+        @connection = nil
+      end
     end
 
     protected
 
-    def select_value(sql)
-      ActiveRecord::Base.connection.select_value(sql)
+    def select_one(sql)
+      result = select_data(sql)
+      result.first if result
     end
 
+    # Returns an array of the values of the first column in a select:
+    #   select_values("SELECT id FROM companies LIMIT 3") => [1,2,3]
     def select_values(sql)
-      ActiveRecord::Base.connection.select_values(sql)
+      select_data(sql).map { |v| v[0] }
+    end
+
+    # Returns a single value from a record
+    def select_value(sql)
+      if result = select_one(sql)
+        result.values.first
+      end
+    end
+
+    def select_data(sql)
+      statement = @connection.createStatement()
+      statement.executeQuery(sql)
+      column_names = []
+
+      rs = statement.executeQuery(sql)
+      meta_data = rs.getMetaData()
+      (1..meta_data.columnCount).each do |index|
+        column_names << meta_data.getColumnName(index)
+      end
+
+      results = []
+
+      while rs.next()
+        result = DbTasks::OrderedHash.new
+
+        column_names.each_with_index do |name, index|
+          result[name] = rs.getObject(index + 1)
+        end
+        results << result
+      end
+      rs.close
+      statement.close
+      results
     end
 
     def open?
-      ActiveRecord::Base.connection && ActiveRecord::Base.connection.active? rescue false
-    end
-
-    def quote_column_name(column_name)
-      ActiveRecord::Base.connection.quote_column_name(column_name)
-    end
-
-    def quote_table_name(column_name)
-      ActiveRecord::Base.connection.quote_table_name(column_name)
-    end
-
-    def quote_value(value)
-      ActiveRecord::Base.connection.quote(value)
+      !@connection.nil?
     end
   end
 end

@@ -1,5 +1,42 @@
 class DbTasks
-  class MssqlDbConfig < ActiveRecordDbConfig
+  class MssqlDbConfig < JdbcDbConfig
+    def jdbc_driver
+      "net.sourceforge.jtds.jdbc.Driver"
+    end
+
+    def jdbc_url
+      url = "jdbc:jtds:sqlserver://#{host}/#{catalog_name}"
+      url += ";instance=#{instance}" if instance
+      url += ";appname=#{appname}" if appname
+      url
+    end
+
+    def jdbc_info
+      info = java.util.Properties.new
+      info.put('user', username) if username
+      info.put('password', password) if password
+      info
+    end
+
+    def host
+      config_value("host", false)
+    end
+
+    def instance
+      config_value("instance", true)
+    end
+
+    def appname
+      config_value("appname", true)
+    end
+
+    def username
+      config_value("username", true)
+    end
+
+    def password
+      config_value("password", true)
+    end
 
     def force_drop?
       true == config_value("force_drop", true)
@@ -26,7 +63,7 @@ class DbTasks
     end
   end
 
-  class MssqlDbDriver < ActiveRecordDbDriver
+  class MssqlDbDriver < JdbcDbDriver
     def create_schema(schema_name)
       if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA [#{schema_name}]")
