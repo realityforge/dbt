@@ -13,6 +13,7 @@
 # in the future as it is confusing
 
 require 'db_doc'
+require 'orderedhash'
 
 class DbTasks
 
