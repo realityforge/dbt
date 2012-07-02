@@ -12,9 +12,6 @@
 # module_key with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
-require 'db_doc'
-require 'orderedhash'
-
 class DbTasks
 
   class Config
@@ -1143,6 +1140,3 @@ SQL
   end
 end
 
-require 'ar_db_driver.rb'
-require 'mssql_db_driver.rb'
-require 'postgres_db_driver.rb'

@@ -1,4 +1,3 @@
-require 'rexml/document'
 
 class DbTasks
   class DbDoc
