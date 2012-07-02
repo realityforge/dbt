@@ -338,6 +338,27 @@ SQL
       'msdb'
     end
 
+    def quote_column_name(name)
+      "[#{name}]"
+    end
+
+    def quote_table_name(name)
+      "[#{name}]"
+    end
+
+    def quote_value(value)
+      case value
+        when String then
+          value.to_s.gsub(/\'/, "''")
+        when TrueClass then
+          '1'
+        when FalseClass then
+          '0'
+        else
+          value
+      end
+    end
+
     def select_database(database_name)
       if database_name.nil?
         execute("USE [msdb]")
