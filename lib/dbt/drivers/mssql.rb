@@ -295,14 +295,22 @@ SQL
 SQL
     end
 
-    def pre_table_import(imp, module_name, table)
+    def pre_fixture_import(table)
       identity_insert_sql = get_identity_insert_sql(table, true)
       execute(identity_insert_sql) if identity_insert_sql
     end
 
-    def post_table_import(imp, module_name, table)
+    def post_fixture_import(table)
       identity_insert_sql = get_identity_insert_sql(table, false)
       execute(identity_insert_sql) if identity_insert_sql
+    end
+
+    def pre_table_import(imp, table)
+      pre_fixture_import(table)
+    end
+
+    def post_table_import(imp, table)
+      post_fixture_import(table)
       if imp.reindex?
         Dbt.info("Reindexing #{Dbt.clean_table_name(table)}")
         execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")

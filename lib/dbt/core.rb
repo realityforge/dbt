@@ -696,9 +696,9 @@ SQL
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
       if !partial_import_completed?
-        db.pre_table_import(imp, module_name, table)
+        db.pre_table_import(imp, table)
         perform_import(imp.database, module_name, table, imp.dir)
-        db.post_table_import(imp, module_name, table)
+        db.post_table_import(imp, table)
       end
     end
 
@@ -953,14 +953,14 @@ SQL
       else
         [yaml]
       end
-
+    db.pre_fixture_import(table_name)
     yaml_value.each do |fixture|
       raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
       fixture.each do |name, data|
         raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
-
         db.insert_row(table_name, data)
       end
+      db.post_fixture_import(table_name)
     end
   end
 
@@ -1126,11 +1126,19 @@ SQL
       raise NotImplementedError
     end
 
-    def pre_table_import(imp, module_name, table)
+    def pre_table_import(imp, table)
       raise NotImplementedError
     end
 
-    def post_table_import(imp, module_name, table)
+    def post_table_import(imp, table)
+      raise NotImplementedError
+    end
+
+    def pre_fixture_import(table)
+      raise NotImplementedError
+    end
+
+    def post_fixture_import(table)
       raise NotImplementedError
     end
 

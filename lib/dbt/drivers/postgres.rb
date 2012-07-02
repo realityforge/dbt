@@ -33,10 +33,10 @@ class Dbt
       raise NotImplementedError
     end
 
-    def pre_table_import(imp, module_name, table)
+    def pre_table_import(imp, table)
     end
 
-    def post_table_import(imp, module_name, table)
+    def post_table_import(imp, table)
     end
 
     def post_data_module_import(imp, module_name)
