@@ -387,7 +387,7 @@ SQL
     def quote_value(value)
       case value
         when String then
-          value.to_s.gsub(/\'/, "''")
+          "'#{value.to_s.gsub(/\'/, "''")}'"
         when TrueClass then
           '1'
         when FalseClass then
