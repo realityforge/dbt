@@ -4,7 +4,7 @@ class Dbt
 
   class PostgresDbDriver < JdbcDbDriver
     def create_schema(schema_name)
-      if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      if query("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA #{quote_table_name(schema_name)}")
       end
     end

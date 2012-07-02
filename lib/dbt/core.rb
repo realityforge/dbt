@@ -492,7 +492,7 @@ SQL
 
         records = YAML::Omap.new
         i = 0
-        db.select_rows(sql).each do |record|
+        db.query(sql).each do |record|
           records["r#{i += 1}"] = record
         end
 
@@ -958,7 +958,7 @@ SQL
       raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
       fixture.each do |name, data|
         raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
-        db.insert_row(table_name, data)
+        db.insert(table_name, data)
       end
       db.post_fixture_import(table_name)
     end
@@ -1078,7 +1078,7 @@ SQL
   end
 
   class DbDriver
-    def insert_row(table_name, row)
+    def insert(table_name, row)
       raise NotImplementedError
     end
 
@@ -1086,7 +1086,7 @@ SQL
       raise NotImplementedError
     end
 
-    def select_rows(sql)
+    def query(sql)
       raise NotImplementedError
     end
 

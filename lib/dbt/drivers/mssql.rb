@@ -70,7 +70,7 @@ class Dbt
 
   class MssqlDbDriver < JdbcDbDriver
     def create_schema(schema_name)
-      if select_rows("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
+      if query("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
         execute("CREATE SCHEMA [#{schema_name}]")
       end
     end
@@ -377,7 +377,7 @@ JOIN sys.schemas S ON O.schema_id = S.schema_id AND S.name = '#{schema_name}' AN
 WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
-      select_values(sql)
+      query(sql).map { |v| v.values[0] }
     end
 
     def current_database
