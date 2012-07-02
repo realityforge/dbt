@@ -349,6 +349,16 @@ SQL
       end
     end
 
+    def column_names_for_table(table)
+      sql = <<SQL
+SELECT C.name as column_name
+FROM sys.syscolumns C
+WHERE C.id = OBJECT_ID('#{table}')
+ORDER BY C.colid
+SQL
+      query(sql).map { |r| quote_column_name(r.values[0]) }
+    end
+
     protected
 
     def has_identity_column(table)
@@ -378,16 +388,6 @@ WHERE type_desc = '#{object_type}'
 ORDER BY create_date DESC
 SQL
       query(sql).map { |v| v.values[0] }
-    end
-
-    def column_names_for_table(table)
-      sql <<SQL
-SELECT C.name as column_name
-FROM sys.syscolumns C
-WHERE C.id = OBJECT_ID('#{table}')
-ORDER BY C.colid
-SQL
-      query(sql).map { |r| quote_column_name(r.values[0]) }
     end
 
     def current_database
