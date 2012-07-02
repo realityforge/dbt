@@ -371,10 +371,6 @@ SQL
       select_value("SELECT DB_NAME()")
     end
 
-    def control_database_name
-      'msdb'
-    end
-
     def quote_column_name(name)
       "[#{name}]"
     end

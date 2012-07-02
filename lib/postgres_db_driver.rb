@@ -50,9 +50,5 @@ class DbTasks
     def current_database
       select_value("SELECT current_database()")
     end
-
-    def control_database_name
-      'postgres'
-    end
   end
 end
