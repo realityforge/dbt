@@ -45,9 +45,15 @@ class Dbt
         select_database(nil)
       end
       statement = @connection.createStatement()
-      statement.executeUpdate(sql)
-      statement.close
-      select_database(current_database) if execute_in_control_database
+      success = false
+      begin
+        statement.executeUpdate(sql)
+        success = true
+      ensure
+        puts "Failed SQL: #{sql}" unless success
+        statement.close
+        select_database(current_database) if execute_in_control_database
+      end
     end
 
     def insert_row(table_name, row)
