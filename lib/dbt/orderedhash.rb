@@ -8,7 +8,7 @@
 # THANKS
 #    Andrew Johnson for his suggestions and fixes of Hash[],
 #    merge, to_a, inspect and shift
-class DbTasks
+class Dbt
   class OrderedHash < ::Hash
     attr_accessor :order
 

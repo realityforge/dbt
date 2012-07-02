@@ -1,5 +1,5 @@
 
-class DbTasks
+class Dbt
   class DbDoc
     # Define file tasks that will transform sql documentation from the
     # source directory to the target directory. The method will return

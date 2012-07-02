@@ -12,7 +12,7 @@
 # module_key with the same name. This was due to legacy reasons and should be avoided
 # in the future as it is confusing
 
-class DbTasks
+class Dbt
 
   class Config
 
@@ -116,7 +116,7 @@ class DbTasks
 
     def add_database_name_filter(pattern, database_key, optional = false)
       add_filter do |sql|
-        DbTasks.filter_database_name(sql, pattern, DbTasks.config_key(database_key), optional)
+        Dbt.filter_database_name(sql, pattern, Dbt.config_key(database_key), optional)
       end
     end
 
@@ -203,13 +203,13 @@ SQL
     attr_writer :pre_import_dirs
 
     def pre_import_dirs
-      @pre_import_dirs || DbTasks::Config.default_pre_import_dirs
+      @pre_import_dirs || Dbt::Config.default_pre_import_dirs
     end
 
     attr_writer :post_import_dirs
 
     def post_import_dirs
-      @post_import_dirs || DbTasks::Config.default_post_import_dirs
+      @post_import_dirs || Dbt::Config.default_post_import_dirs
     end
 
     def filters
@@ -262,7 +262,7 @@ SQL
 
     def initialize(key, options)
       @key = key
-      @collation = DbTasks::Config.default_collation
+      @collation = Dbt::Config.default_collation
       @modules = options[:modules] if options[:modules]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
@@ -309,7 +309,7 @@ SQL
     attr_writer :modules
 
     def task_prefix
-      "#{DbTasks::Config.task_prefix}#{DbTasks.default_database?(self.key) ? '' : ":#{self.key}"}"
+      "#{Dbt::Config.task_prefix}#{Dbt.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 
     # List of modules to process for database
@@ -327,7 +327,7 @@ SQL
     attr_writer :search_dirs
 
     def search_dirs
-      @search_dirs || DbTasks::Config.default_search_dirs
+      @search_dirs || Dbt::Config.default_search_dirs
     end
 
     def dirs_for_database(subdir)
@@ -338,14 +338,14 @@ SQL
 
     # Return the list of dirs to process when "upping" module
     def up_dirs
-      @up_dirs || DbTasks::Config.default_up_dirs
+      @up_dirs || Dbt::Config.default_up_dirs
     end
 
     attr_writer :down_dirs
 
     # Return the list of dirs to process when "downing" module
     def down_dirs
-      @down_dirs || DbTasks::Config.default_down_dirs
+      @down_dirs || Dbt::Config.default_down_dirs
     end
 
     attr_writer :finalize_dirs
@@ -354,7 +354,7 @@ SQL
     # i.e. Getting database ready for use. Often this is the place to add expensive triggers, constraints and indexes
     # after the import
     def finalize_dirs
-      @finalize_dirs || DbTasks::Config.default_finalize_dirs
+      @finalize_dirs || Dbt::Config.default_finalize_dirs
     end
 
     attr_writer :datasets
@@ -437,7 +437,7 @@ SQL
 
       (up_dirs + down_dirs).each do |relative_dir_name|
         dirs_for_database(relative_dir_name).each do |dir|
-          task "#{task_prefix}:db_doc" => DbTasks::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
+          task "#{task_prefix}:db_doc" => Dbt::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
         end
       end
     end
@@ -524,7 +524,7 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
-    task "#{database.task_prefix}:load_config" => ["#{DbTasks::Config.task_prefix}:global:load_config"] do
+    task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"] do
       database.validate
     end
 
@@ -538,7 +538,7 @@ SQL
 
     # Database creation
 
-    task "#{database.task_prefix}:pre_build" => ["#{DbTasks::Config.task_prefix}:all:pre_build"]
+    task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
@@ -691,7 +691,7 @@ SQL
     end
 
     tables.each do |table|
-      if ENV[IMPORT_RESUME_AT_ENV_KEY] == DbTasks.clean_table_name(table)
+      if ENV[IMPORT_RESUME_AT_ENV_KEY] == Dbt.clean_table_name(table)
         run_sql_batch("DELETE FROM #{table}")
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
@@ -740,7 +740,7 @@ SQL
 
     directories.each do |dir|
 
-      index_file = File.join(dir, DbTasks::Config.index_file_name)
+      index_file = File.join(dir, Dbt::Config.index_file_name)
       index_entries =
         File.exists?(index_file) ? File.new(index_file).readlines.collect { |filename| filename.strip } : []
       index_entries.each do |e|
@@ -821,29 +821,29 @@ SQL
 
   def self.define_basic_tasks
     if !@@defined_init_tasks
-      task "#{DbTasks::Config.task_prefix}:global:load_config" do
+      task "#{Dbt::Config.task_prefix}:global:load_config" do
         @@database_driver_hooks.each do |database_hook|
           database_hook.call
         end
-        self.configuration_data = YAML::load(ERB.new(IO.read(DbTasks::Config.config_filename)).result)
+        self.configuration_data = YAML::load(ERB.new(IO.read(Dbt::Config.config_filename)).result)
       end
 
-      task "#{DbTasks::Config.task_prefix}:all:pre_build"
+      task "#{Dbt::Config.task_prefix}:all:pre_build"
 
       @@defined_init_tasks = true
     end
   end
 
-  def self.config_key(database_key, env = DbTasks::Config.environment)
+  def self.config_key(database_key, env = Dbt::Config.environment)
     default_database?(database_key) ? env : "#{database_key}_#{env}"
   end
 
   def self.default_database?(database_key)
-    database_key.to_s == DbTasks::Config.default_database.to_s
+    database_key.to_s == Dbt::Config.default_database.to_s
   end
 
   def self.default_import?(import_key)
-    import_key.to_s == DbTasks::Config.default_import.to_s
+    import_key.to_s == Dbt::Config.default_import.to_s
   end
 
   def self.run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
@@ -873,7 +873,7 @@ SQL
     sql_file = sql_for_import(database, module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
-    info("Importing #{DbTasks.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
+    info("Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
       load_fixture(table, fixture_file)
     elsif is_sql
@@ -985,7 +985,7 @@ SQL
     return existing if existing
     c = self.configuration_data[config_key.to_s]
     raise "Missing config for #{config_key}" unless c
-    configuration = DbTasks.const_get("#{DbTasks::Config.driver}DbConfig").new(c)
+    configuration = Dbt.const_get("#{Dbt::Config.driver}DbConfig").new(c)
     @@configurations[config_key.to_s] = configuration
   end
 
@@ -1052,7 +1052,7 @@ SQL
   end
 
   def self.banner(message, database_key)
-    info("**** #{message}: (Database: #{database_key}, Environment: #{DbTasks::Config.environment}) ****")
+    info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}) ****")
   end
 
   def self.info(message)
@@ -1060,7 +1060,7 @@ SQL
   end
 
   def self.db
-    @db ||= DbTasks.const_get("#{DbTasks::Config.driver}DbDriver").new
+    @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
   end
 
   class DbConfig

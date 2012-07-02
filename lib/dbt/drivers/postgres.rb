@@ -1,4 +1,4 @@
-class DbTasks
+class Dbt
   class PostgresDbConfig < JdbcDbConfig
   end
 

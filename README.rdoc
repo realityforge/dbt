@@ -10,7 +10,7 @@ key used when defining the database.
 When a _module_ is loaded the plugin will attempt to load SQL scripts from a number of
 sub-directories of the _module_ dir. The SQL scripts in each directory are sorted
 alpha-numerically before being executed. The order in which directories are processed is
-configurable by DbTasks::Configure.sql_dirs setting but defaults to:
+configurable by Dbt::Configure.sql_dirs setting but defaults to:
 
 * .
 * types

@@ -1,5 +1,5 @@
-class DbTasks
-  class JdbcDbConfig < DbTasks::DbConfig
+class Dbt
+  class JdbcDbConfig < Dbt::DbConfig
     def initialize(configuration)
       @configuration = configuration
     end
@@ -35,7 +35,7 @@ class DbTasks
     end
   end
 
-  class JdbcDbDriver < DbTasks::DbDriver
+  class JdbcDbDriver < Dbt::DbDriver
 
     def execute(sql, execute_in_control_database = false)
       raise "Can not execute statement when database connection is not open." unless open?
@@ -112,7 +112,7 @@ class DbTasks
       results = []
 
       while rs.next()
-        result = DbTasks::OrderedHash.new
+        result = Dbt::OrderedHash.new
 
         column_names.each_with_index do |name, index|
           result[name] = rs.getObject(index + 1)

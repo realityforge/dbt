@@ -1,4 +1,4 @@
-class DbTasks
+class Dbt
   class MssqlDbConfig < JdbcDbConfig
     def jdbc_driver
       "net.sourceforge.jtds.jdbc.Driver"
@@ -304,7 +304,7 @@ SQL
       identity_insert_sql = get_identity_insert_sql(table, false)
       execute(identity_insert_sql) if identity_insert_sql
       if imp.reindex?
-        DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
+        Dbt.info("Reindexing #{Dbt.clean_table_name(table)}")
         execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
       end
     end
@@ -315,14 +315,14 @@ SQL
         # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
         # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
         # we reindex otherwise the indexes will be highly fragmented.
-        DbTasks.info("Shrinking database")
+        Dbt.info("Shrinking database")
         execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
         execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
       end
 
       if imp.reindex?
         imp.database.table_ordering(module_name).each do |table|
-          DbTasks.info("Reindexing #{DbTasks.clean_table_name(table)}")
+          Dbt.info("Reindexing #{Dbt.clean_table_name(table)}")
           execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
         end
       end
@@ -332,11 +332,11 @@ SQL
       if imp.reindex?
         sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
 
-        DbTasks.info("Updating statistics")
+        Dbt.info("Updating statistics")
         execute("EXEC dbo.sp_updatestats")
 
         # This updates the usage details for the database. i.e. how much space is take for each index/table
-        DbTasks.info("Updating usage statistics")
+        Dbt.info("Updating usage statistics")
         execute("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
       end
     end
