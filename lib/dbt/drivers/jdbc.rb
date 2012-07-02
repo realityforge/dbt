@@ -88,10 +88,6 @@ class Dbt
       results
     end
 
-    def column_names_for_table(table)
-      ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
-    end
-
     def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
