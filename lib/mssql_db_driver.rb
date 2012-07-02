@@ -302,10 +302,12 @@ SQL
     protected
 
     def has_identity_column(table)
-      ActiveRecord::Base.connection.columns(table).each do |c|
-        return true if c.identity == true
-      end
-      false
+      sql = <<-SQL
+SELECT COUNT(*)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE COLUMNPROPERTY(OBJECT_ID('#{table}'), COLUMN_NAME, 'IsIdentity') = 1
+SQL
+      select_value(sql) != '0'
     end
 
     def get_identity_insert_sql(table, value)
