@@ -827,7 +827,7 @@ SQL
   end
 
   def self.dir_display_name(dir)
-    (dir == '.' ? 'Base' : dir.humanize)
+    (dir == '.' ? 'Base' : dir)
   end
 
   def self.define_basic_tasks
