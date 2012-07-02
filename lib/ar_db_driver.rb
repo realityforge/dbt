@@ -18,7 +18,7 @@ class DbTasks
       raise NotImplementedError
     end
 
-    def jdbc_url
+    def jdbc_url(use_control_catalog)
       raise NotImplementedError
     end
 
@@ -67,8 +67,8 @@ class DbTasks
     def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
-      @connection = java.sql.DriverManager.getConnection(config.jdbc_url, config.jdbc_info)
-      select_database(nil) if open_control_database
+      @connection = java.sql.DriverManager.getConnection(config.jdbc_url(use_control_database), config.jdbc_info)
+      select_database(nil) if use_control_database
     end
 
     def close

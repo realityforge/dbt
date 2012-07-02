@@ -4,8 +4,9 @@ class DbTasks
       "net.sourceforge.jtds.jdbc.Driver"
     end
 
-    def jdbc_url
-      url = "jdbc:jtds:sqlserver://#{host}/#{catalog_name}"
+    def jdbc_url(use_control_catalog)
+      url = "jdbc:jtds:sqlserver://#{host}/"
+      url += use_control_catalog ? control_catalog_name : catalog_name
       url += ";instance=#{instance}" if instance
       url += ";appname=#{appname}" if appname
       url
@@ -16,6 +17,10 @@ class DbTasks
       info.put('user', username) if username
       info.put('password', password) if password
       info
+    end
+
+    def control_catalog_name
+      'msdb'
     end
 
     def host
