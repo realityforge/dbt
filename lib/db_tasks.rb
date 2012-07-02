@@ -65,14 +65,6 @@ class DbTasks
         @config_filename
       end
 
-      # log_filename is where the log file is created
-      attr_writer :log_filename
-
-      def log_filename
-        raise "log_filename not specified" unless @log_filename
-        @log_filename
-      end
-
       # search_dirs is an array of paths that are searched in order for artifacts for each module
       attr_writer :default_search_dirs
 
@@ -895,7 +887,7 @@ SQL
   end
 
   def self.setup_connection(config_key, open_control_database, &block)
-    db.open(configuration_for_key(config_key), open_control_database, DbTasks::Config.log_filename)
+    db.open(configuration_for_key(config_key), open_control_database)
     if block_given?
       begin
         yield
@@ -1113,7 +1105,7 @@ SQL
       raise NotImplementedError
     end
 
-    def open(config, open_control_database, log_filename)
+    def open(config, open_control_database)
       raise NotImplementedError
     end
 

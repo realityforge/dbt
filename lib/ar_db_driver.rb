@@ -64,7 +64,7 @@ class DbTasks
       ActiveRecord::Base.connection.columns(table).collect { |c| quote_column_name(c.name) }
     end
 
-    def open(config, open_control_database, log_filename)
+    def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
       @connection = java.sql.DriverManager.getConnection(config.jdbc_url, config.jdbc_info)
