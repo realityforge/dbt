@@ -92,7 +92,6 @@ class Dbt
       raise "Can not open database connection. Connection already open." if open?
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
       @connection = java.sql.DriverManager.getConnection(config.jdbc_url(use_control_database), config.jdbc_info)
-      select_database(nil) if use_control_database
     end
 
     def close
