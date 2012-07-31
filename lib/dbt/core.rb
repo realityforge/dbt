@@ -523,6 +523,10 @@ SQL
     database
   end
 
+  def self.configuration_for_database(database)
+    configuration_for_key(config_key(database.key))
+  end
+
   def self.define_tasks_for_database(database)
     task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"] do
       database.validate
