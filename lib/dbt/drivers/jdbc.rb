@@ -79,7 +79,11 @@ class Dbt
         result = Dbt::OrderedHash.new
 
         column_names.each_with_index do |name, index|
-          result[name] = rs.getObject(index + 1)
+          value = rs.getObject(index + 1)
+          if value.java_kind_of?(java.sql.Clob)
+            value = value.getSubString(1, value.length)
+          end
+          result[name] = value
         end
         results << result
       end
