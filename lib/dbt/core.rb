@@ -965,7 +965,7 @@ SQL
   end
 
   def self.load_fixture(table_name, filename)
-    yaml = YAML::load(IO.read(filename))
+    yaml = YAML::load(ERB.new(IO.read(filename)).result)
     # Skip empty files
     return unless yaml
     # NFI
