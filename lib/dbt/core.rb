@@ -123,6 +123,12 @@ class Dbt
       def fixture_dir_name
         @fixture_dir_name || 'fixtures'
       end
+
+      attr_writer :repository_config_file
+
+      def repository_config_file
+        @repository_config_file || 'repository.yml'
+      end
     end
   end
 
@@ -331,7 +337,7 @@ SQL
 
     # List of modules to process for database
      def modules
-       @modules = @modules.call if @modules.is_a?(Proc)
+       @modules = @modules.call if !@modules.nil? && @modules.is_a?(Proc)
        @modules
      end
 
@@ -593,6 +599,7 @@ SQL
     # Database creation
 
     task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"] do
+      load_database_config(database)
       database.validate
     end
 
@@ -809,6 +816,19 @@ SQL
       perform_create_action(database, :up) unless partial_import_completed?
       perform_import_action(imp, false, nil)
       perform_create_action(database, :finalize)
+    end
+  end
+
+  def self.load_database_config(database)
+    unless database.modules
+      require 'yaml'
+      database.dirs_for_database('.').each do |dir|
+        repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
+        if File.exist?(repository_config_file)
+          database.modules = (File.open(repository_config_file, 'r') { |f| YAML::load f })['modules']
+        end
+      end
+      raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
     end
   end
 
