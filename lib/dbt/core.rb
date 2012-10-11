@@ -463,7 +463,7 @@ SQL
       task "#{task_prefix}:pre_build" => generate_task_name
 
       desc "Verify constraints on database."
-      task "#{task_prefix}:verify_constraints" => ['dbt:global:load_config', "#{task_prefix}:load_config"] do
+      task "#{task_prefix}:verify_constraints" => ["#{task_prefix}:load_config"] do
         Dbt.banner("Verifying database", key)
         Dbt.init_database(key) do
           failed_constraints = []
