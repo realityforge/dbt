@@ -799,9 +799,11 @@ SQL
     database = imp.database
     create_database(database) unless partial_import_completed?
     init_database(database.key) do
+      perform_pre_create_hooks(database) unless partial_import_completed?
       perform_create_action(database, :up) unless partial_import_completed?
       perform_import_action(imp, false, nil)
       perform_create_action(database, :finalize)
+      perform_post_create_hooks(database)
     end
   end
 
@@ -833,14 +835,22 @@ SQL
   def self.create(database)
     create_database(database)
     init_database(database.key) do
-      database.pre_create_dirs.each do |dir|
-        process_dir_set(database, dir, false, dir_display_name(dir))
-      end
+      perform_pre_create_hooks(database)
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
-      database.post_create_dirs.each do |dir|
-        process_dir_set(database, dir, false, dir_display_name(dir))
-      end
+      perform_post_create_hooks(database)
+    end
+  end
+
+  def self.perform_post_create_hooks(database)
+    database.post_create_dirs.each do |dir|
+      process_dir_set(database, dir, false, dir_display_name(dir))
+    end
+  end
+
+  def self.perform_pre_create_hooks(database)
+    database.pre_create_dirs.each do |dir|
+      process_dir_set(database, dir, false, dir_display_name(dir))
     end
   end
 
