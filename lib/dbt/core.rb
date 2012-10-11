@@ -1068,7 +1068,7 @@ SQL
   def self.process_module(database, module_name, mode)
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
-      process_dir_set(database,dir,false,'%-10s' % "#{module_name}:")
+      process_dir_set(database,"#{module_name}/#{dir}",false,'%-10s' % "#{module_name}:")
     end
     load_fixtures(database, module_name) if mode == :up
   end
