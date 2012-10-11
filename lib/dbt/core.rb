@@ -667,6 +667,30 @@ SQL
     end
   end
 
+  def self.define_import_task(prefix, imp, description, module_group = nil)
+    is_default_import = default_import?(imp.key)
+    desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
+
+    task_name = is_default_import ? :import : :"import:#{imp.key}"
+    desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
+    task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:load_config"] do
+      banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
+      database_import(imp, module_group)
+    end
+  end
+
+  def self.define_basic_tasks
+    if !@@defined_init_tasks
+      task "#{Dbt::Config.task_prefix}:global:load_config" do
+        global_init
+      end
+
+      task "#{Dbt::Config.task_prefix}:all:pre_build"
+
+      @@defined_init_tasks = true
+    end
+  end
+
   def self.backup(database)
     init_control_database(database.key) do
       db.backup(database, configuration_for_key(config_key(database.key)))
@@ -789,18 +813,6 @@ SQL
     process_module(database, module_name, mode)
   end
 
-  def self.define_import_task(prefix, imp, description, module_group = nil)
-    is_default_import = default_import?(imp.key)
-    desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
-
-    task_name = is_default_import ? :import : :"import:#{imp.key}"
-    desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
-    task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:load_config"] do
-      banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
-      database_import(imp, module_group)
-    end
-  end
-
   def self.perform_create_action(database, mode)
     database.modules.each_with_index do |module_name, idx|
       create_module(database, module_name, mode)
@@ -896,18 +908,6 @@ SQL
 
   def self.dir_display_name(dir)
     (dir == '.' ? 'Base' : dir)
-  end
-
-  def self.define_basic_tasks
-    if !@@defined_init_tasks
-      task "#{Dbt::Config.task_prefix}:global:load_config" do
-        global_init
-      end
-
-      task "#{Dbt::Config.task_prefix}:all:pre_build"
-
-      @@defined_init_tasks = true
-    end
   end
 
   def self.global_init
