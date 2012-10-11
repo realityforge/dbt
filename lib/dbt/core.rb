@@ -419,6 +419,13 @@ SQL
       @restore.nil? ? false : @restore
     end
 
+    attr_accessor :package_dir
+
+    # Should the a package task be defined for database?
+    def package?
+      !!@package_dir
+    end
+
     # Map of module => schema overrides
     # i.e. What database schema is created for a specific module
     def schema_overrides
@@ -646,6 +653,14 @@ SQL
         restore(database)
       end
     end
+
+    if database.package?
+      desc "Packaging scripts of #{database.key} database"
+      task "#{database.task_prefix}:package" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+        banner("Packaging Database Scripts", database.key)
+        package_database(database)
+      end
+    end
   end
 
   def self.define_module_group_tasks(module_group)
@@ -692,6 +707,47 @@ SQL
       task "#{Dbt::Config.task_prefix}:all:pre_build"
 
       @@defined_init_tasks = true
+    end
+  end
+
+  def self.package_database(database)
+    rm_rf database.package_dir
+    mkdir_p database.package_dir
+
+    import_dirs = database.imports.values.collect { |i| i.dir }
+    dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs
+    database.modules.each do |module_name|
+      dirs.each do |relative_dir_name|
+        relative_module_dir = "#{module_name}/#{relative_dir_name}"
+        database.dirs_for_database(relative_module_dir).each do |dir|
+          target_dir = "#{database.package_dir}/#{module_name}/#{relative_dir_name}"
+          if File.exist?(dir)
+            mkdir_p target_dir
+            if Dbt::Config.fixture_dir_name == relative_dir_name
+              cp_r Dir.glob("#{dir}/*.yml"), target_dir
+            else
+              if import_dirs.include?(relative_dir_name)
+                cp_r Dir.glob("#{dir}/*.yml"), target_dir
+              end
+              cp_r Dir.glob("#{dir}/*.sql"), target_dir
+              cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
+            end
+          end
+        end
+      end
+    end
+    create_hooks = [database.pre_create_dirs, database.post_create_dirs]
+    import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }.compact
+    database_wide_dirs = create_hooks + import_hooks
+    database_wide_dirs.each do |relative_dir_name|
+      target_dir = "#{database.package_dir}/#{relative_dir_name}"
+      database.dirs_for_database(relative_dir_name).each do |dir|
+        if File.exist?(dir)
+          mkdir_p target_dir
+          cp_r Dir.glob("#{dir}/*.sql"), target_dir
+          cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
+        end
+      end
     end
   end
 
