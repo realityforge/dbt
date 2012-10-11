@@ -432,36 +432,33 @@ SQL
       !!@package_dir
     end
 
+    attr_writer :schema_overrides
+
     # Map of module => schema overrides
     # i.e. What database schema is created for a specific module
     def schema_overrides
       @schema_overrides || {}
     end
 
+    attr_writer :table_map
+
+    def table_map
+      @table_map || {}
+    end
+
     def schema_name_for_module(module_name)
       schema_overrides[module_name] || module_name
     end
 
-    def define_table_order_resolver(&block)
-      @table_order_resolver = block
-    end
-
     def table_ordering(module_name)
-      raise "No table resolver so unable to determine table ordering for module #{module_name}" unless @table_order_resolver
-      @table_order_resolver.call(module_name)
+      tables = table_map[module_name]
+      raise "No tables defined for module #{module_name}" unless tables
+      tables
     end
 
     # Enable domgen support. Assume the database is associated with a single repository
     # definition, a single task to generate sql etc.
     def enable_domgen(repository_key, load_task_name, generate_task_name)
-      define_table_order_resolver do |module_key|
-        require 'domgen'
-        data_module = Domgen.repository_by_name(repository_key).data_module_by_name(module_key.to_s)
-        data_module.entities.select { |entity| !entity.abstract? }.collect do |entity|
-          entity.sql.qualified_table_name
-        end
-      end
-
       task "#{task_prefix}:load_config" => load_task_name
       task "#{task_prefix}:pre_build" => generate_task_name
 
@@ -826,6 +823,17 @@ SQL
         if File.exist?(repository_config_file)
           repository_config = File.open(repository_config_file, 'r') { |f| YAML::load f }
           database.modules = repository_config['modules'].collect {|m| m[0]}
+          schema_overrides = {}
+          table_map = {}
+          repository_config['modules'].each do |module_config|
+            name = module_config[0]
+            schema = module_config[1]['schema']
+            tables = module_config[1]['tables']
+            table_map[name] = tables
+            schema_overrides[name] = schema if name != schema
+          end
+          database.schema_overrides = schema_overrides
+          database.table_map = table_map
         end
       end
       raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
