@@ -165,10 +165,8 @@ ORDER BY t.Ordinal, t.Name
       db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
       log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
 
-      collation_def = database.collation ? "COLLATE #{database.collation}" : ""
-
       quoted_catalog_name = quote_table_name(configuration.catalog_name)
-      execute("CREATE DATABASE #{quoted_catalog_name} #{db_def} #{log_def} #{collation_def}")
+      execute("CREATE DATABASE #{quoted_catalog_name} #{db_def} #{log_def}")
       select_database(configuration.catalog_name)
       unless database_version.nil?
         execute("EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database_version}'")

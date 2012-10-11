@@ -29,13 +29,6 @@ class Dbt
         @task_prefix || 'dbt'
       end
 
-      # TODO: Move to specific DbConfig
-      attr_writer :default_collation
-
-      def default_collation
-        @default_collation || 'SQL_Latin1_General_CP1_CS_AS'
-      end
-
       attr_writer :driver
 
       def driver
@@ -285,11 +278,9 @@ SQL
 
     def initialize(key, options)
       @key = key
-      @collation = Dbt::Config.default_collation
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
       @datasets = options[:datasets] if options[:datasets]
-      @collation = options[:collation] if options[:collation]
       raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
       raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
 
@@ -343,9 +334,6 @@ SQL
 
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
-
-    # The collation name for database. Nil means take the default_collation, if that is nil then take db default
-    attr_accessor :collation
 
     attr_writer :pre_create_dirs
 
