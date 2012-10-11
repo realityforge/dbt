@@ -504,8 +504,6 @@ SQL
   end
 
   def self.add_database(database_key, options = {})
-    self.define_basic_tasks
-
     raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
 
     database = DatabaseDefinition.new(database_key, options)
@@ -569,6 +567,7 @@ SQL
   end
 
   def self.define_tasks_for_database(database)
+    self.define_basic_tasks
     task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"] do
       database.validate
     end
