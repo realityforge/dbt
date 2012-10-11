@@ -824,7 +824,8 @@ SQL
       database.dirs_for_database('.').each do |dir|
         repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
         if File.exist?(repository_config_file)
-          database.modules = (File.open(repository_config_file, 'r') { |f| YAML::load f })['modules']
+          repository_config = File.open(repository_config_file, 'r') { |f| YAML::load f }
+          database.modules = repository_config['modules'].collect {|m| m[0]}
         end
       end
       raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
