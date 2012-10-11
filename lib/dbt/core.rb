@@ -623,12 +623,7 @@ SQL
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
           banner("Creating Database By Import", database.key)
-          create_database(database) unless partial_import_completed?
-          init_database(database.key) do
-            perform_create_action(database, :up) unless partial_import_completed?
-            perform_import_action(imp, false, nil)
-            perform_create_action(database, :finalize)
-          end
+          create_by_import(imp)
         end
       end
     end
@@ -705,6 +700,16 @@ SQL
     init_control_database(database.key) do
       db.drop(database, configuration)
       db.create_database(database, configuration)
+    end
+  end
+
+  def self.create_by_import(imp)
+    database = imp.database
+    create_database(database) unless partial_import_completed?
+    init_database(database.key) do
+      perform_create_action(database, :up) unless partial_import_completed?
+      perform_import_action(imp, false, nil)
+      perform_create_action(database, :finalize)
     end
   end
 
