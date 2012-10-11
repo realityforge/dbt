@@ -703,6 +703,12 @@ SQL
     end
   end
 
+  def self.database_import(imp, module_group)
+    init_database(imp.database.key) do
+      perform_import_action(imp, true, module_group)
+    end
+  end
+
   def self.create_by_import(imp)
     database = imp.database
     create_database(database) unless partial_import_completed?
@@ -782,9 +788,7 @@ SQL
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:load_config"] do
       banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
-      init_database(imp.database.key) do
-        perform_import_action(imp, true, module_group)
-      end
+      database_import(imp, module_group)
     end
   end
 
