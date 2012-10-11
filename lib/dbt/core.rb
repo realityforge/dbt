@@ -286,12 +286,12 @@ SQL
     def initialize(key, options)
       @key = key
       @collation = Dbt::Config.default_collation
-      @modules = options[:modules] if options[:modules]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
       @datasets = options[:datasets] if options[:datasets]
       @collation = options[:collation] if options[:collation]
-      @schema_overrides = options[:schema_overrides] if options[:schema_overrides]
+      raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
+      raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
 
       @imports = {}
       imports_config = options[:imports]
