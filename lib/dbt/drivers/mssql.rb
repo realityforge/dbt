@@ -169,28 +169,6 @@ ORDER BY t.Ordinal, t.Name
 
       quoted_catalog_name = quote_table_name(configuration.catalog_name)
       execute("CREATE DATABASE #{quoted_catalog_name} #{db_def} #{log_def} #{collation_def}")
-      execute(<<SQL)
-ALTER DATABASE #{quoted_catalog_name} SET CURSOR_DEFAULT LOCAL
-ALTER DATABASE #{quoted_catalog_name} SET CURSOR_CLOSE_ON_COMMIT ON
-
-ALTER DATABASE #{quoted_catalog_name} SET AUTO_CREATE_STATISTICS ON
-ALTER DATABASE #{quoted_catalog_name} SET AUTO_UPDATE_STATISTICS ON
-ALTER DATABASE #{quoted_catalog_name} SET AUTO_UPDATE_STATISTICS_ASYNC ON
-
-ALTER DATABASE #{quoted_catalog_name} SET ANSI_NULL_DEFAULT ON
-ALTER DATABASE #{quoted_catalog_name} SET ANSI_NULLS ON
-ALTER DATABASE #{quoted_catalog_name} SET ANSI_PADDING ON
-ALTER DATABASE #{quoted_catalog_name} SET ANSI_WARNINGS ON
-ALTER DATABASE #{quoted_catalog_name} SET ARITHABORT ON
-ALTER DATABASE #{quoted_catalog_name} SET CONCAT_NULL_YIELDS_NULL ON
-ALTER DATABASE #{quoted_catalog_name} SET QUOTED_IDENTIFIER ON
--- NUMERIC_ROUNDABORT OFF is required for filtered indexes. The optimizer will also
--- not consider indexed views if the setting is not set.
-ALTER DATABASE #{quoted_catalog_name} SET NUMERIC_ROUNDABORT OFF
-ALTER DATABASE #{quoted_catalog_name} SET RECURSIVE_TRIGGERS ON
-
-ALTER DATABASE #{quoted_catalog_name} SET RECOVERY SIMPLE
-SQL
       select_database(configuration.catalog_name)
       unless database_version.nil?
         execute("EXEC sys.sp_addextendedproperty @name = N'DatabaseSchemaVersion', @value = N'#{database_version}'")
