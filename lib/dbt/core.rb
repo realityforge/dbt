@@ -751,6 +751,10 @@ SQL
         end
       end
     end
+    database.dirs_for_database('.').each do |dir|
+      repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
+      cp repository_file, database.package_dir if File.exist?(repository_file)
+    end
   end
 
   def self.backup(database)
