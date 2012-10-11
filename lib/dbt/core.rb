@@ -834,12 +834,12 @@ SQL
     create_database(database)
     init_database(database.key) do
       database.pre_create_dirs.each do |dir|
-        process_dir_set(database, dir, false)
+        process_dir_set(database, dir, false, dir_display_name(dir))
       end
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
       database.post_create_dirs.each do |dir|
-        process_dir_set(database, dir, false)
+        process_dir_set(database, dir, false, dir_display_name(dir))
       end
     end
   end
@@ -958,7 +958,7 @@ SQL
   def self.perform_import_action(imp, should_perform_delete, module_group)
     if module_group.nil?
       imp.pre_import_dirs.each do |dir|
-        process_dir_set(imp.database, dir, true)
+        process_dir_set(imp.database, dir, true, dir_display_name(dir))
       end unless partial_import_completed?
     end
     imp.modules.each do |module_key|
@@ -971,21 +971,19 @@ SQL
     end
     if module_group.nil?
       imp.post_import_dirs.each do |dir|
-        process_dir_set(imp.database, dir, true)
+        process_dir_set(imp.database, dir, true, dir_display_name(dir))
       end
     end
     db.post_database_import(imp)
   end
 
-  def self.process_dir_set(database, dir, is_import, label_prefix = nil)
+  def self.process_dir_set(database, dir, is_import, label)
     files = collect_files(database.dirs_for_database(dir))
-    dir_label = dir_display_name(dir)
-    label = label_prefix.nil? ? dir_label : "#{label_prefix} #{dir_label}"
     run_sql_files(database, label, files, is_import)
   end
 
   def self.dir_display_name(dir)
-    (dir == '.' ? 'Base' : dir)
+    (dir == '.' ? '' : "#{dir}/")
   end
 
   def self.global_init
@@ -1058,7 +1056,7 @@ SQL
   def self.process_module(database, module_name, mode)
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
-      process_dir_set(database,"#{module_name}/#{dir}",false,'%-10s' % "#{module_name}:")
+      process_dir_set(database,"#{module_name}/#{dir}",false,"#{'%-15s' % module_name}: #{dir_display_name(dir)}")
     end
     load_fixtures(database, module_name) if mode == :up
   end
@@ -1089,7 +1087,7 @@ SQL
     database.table_ordering(module_name).each do |table_name|
       filename = fixtures[table_name]
       next unless filename
-      info("Loading fixture: #{clean_table_name(table_name)}")
+      info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
       load_fixture(table_name, filename)
     end
   end
@@ -1177,7 +1175,7 @@ SQL
   end
 
   def self.run_sql_file(database, label, filename, is_import)
-    info("#{label}: #{File.basename(filename)}")
+    info("#{label}#{File.basename(filename)}")
     sql = IO.readlines(filename).join
     if is_import
       run_import_sql(database, nil, sql, filename)
