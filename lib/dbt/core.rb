@@ -605,7 +605,7 @@ SQL
     # Data set loading etc
     database.datasets.each do |dataset_name|
       desc "Loads #{dataset_name} data"
-      task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:load_config"] do
+      task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
         banner("Loading Dataset #{dataset_name}", database.key)
         init_database(database.key) do
           database.modules.each do |module_name|
