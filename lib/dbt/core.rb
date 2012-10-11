@@ -590,13 +590,15 @@ SQL
 
     # Database creation
 
-    task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"] do
+    task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
+
+    task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       load_database_config(database)
       database.validate
     end
 
     desc "Create the #{database.key} database."
-    task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
+    task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
       banner('Creating database', database.key)
       create(database)
     end
@@ -604,7 +606,7 @@ SQL
     # Data set loading etc
     database.datasets.each do |dataset_name|
       desc "Loads #{dataset_name} data"
-      task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+      task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
         banner("Loading Dataset #{dataset_name}", database.key)
         init_database(database.key) do
           database.modules.each do |module_name|
@@ -630,7 +632,7 @@ SQL
         key = ""
         key = ":" + imp.key.to_s unless default_import?(imp.key)
         desc "Create the #{database.key} database by import."
-        task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+        task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:prepare"] do
           banner("Creating Database By Import", database.key)
           create_by_import(imp)
         end
@@ -655,7 +657,7 @@ SQL
 
     if database.package?
       desc "Packaging scripts of #{database.key} database"
-      task "#{database.task_prefix}:package" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+      task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare"] do
         banner("Packaging Database Scripts", database.key)
         package_database(database)
       end
@@ -665,13 +667,13 @@ SQL
   def self.define_module_group_tasks(module_group)
     database = module_group.database
     desc "Up the #{module_group.key} module group in the #{database.key} database."
-    task "#{database.task_prefix}:#{module_group.key}:up" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+    task "#{database.task_prefix}:#{module_group.key}:up" => ["#{database.task_prefix}:prepare"] do
       banner("Upping module group '#{module_group.key}'", database.key)
       up_module_group(module_group)
     end
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
-    task "#{database.task_prefix}:#{module_group.key}:down" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+    task "#{database.task_prefix}:#{module_group.key}:down" => ["#{database.task_prefix}:prepare"] do
       banner("Downing module group '#{module_group.key}'", database.key)
       down_module_group(module_group)
     end
