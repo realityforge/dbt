@@ -902,16 +902,20 @@ SQL
   def self.define_basic_tasks
     if !@@defined_init_tasks
       task "#{Dbt::Config.task_prefix}:global:load_config" do
-        @@database_driver_hooks.each do |database_hook|
-          database_hook.call
-        end
-        self.configuration_data = YAML::load(ERB.new(IO.read(Dbt::Config.config_filename)).result)
+        global_init
       end
 
       task "#{Dbt::Config.task_prefix}:all:pre_build"
 
       @@defined_init_tasks = true
     end
+  end
+
+  def self.global_init
+    @@database_driver_hooks.each do |database_hook|
+      database_hook.call
+    end
+    self.configuration_data = YAML::load(ERB.new(IO.read(Dbt::Config.config_filename)).result)
   end
 
   def self.config_key(database_key, env = Dbt::Config.environment)
