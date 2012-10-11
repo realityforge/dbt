@@ -580,9 +580,7 @@ SQL
 
   def self.define_tasks_for_database(database)
     self.define_basic_tasks
-    task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"] do
-      database.validate
-    end
+    task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"]
 
     # Database dropping
 
@@ -594,7 +592,9 @@ SQL
 
     # Database creation
 
-    task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
+    task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"] do
+      database.validate
+    end
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
