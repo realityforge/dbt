@@ -234,7 +234,7 @@ SQL
 
     def validate
       self.modules.each do |module_key|
-        if !database.modules.include?(module_key)
+        if !database.modules.include?(module_key.to_s)
           raise "Module #{module_key} in import #{self.key} does not exist in database module list #{self.database.modules.inspect}"
         end
       end
@@ -266,7 +266,7 @@ SQL
 
     def validate
       self.modules.each do |module_key|
-        if !database.modules.include?(module_key)
+        if !database.modules.include?(module_key.to_s)
           raise "Module #{module_key} in module group #{self.key} does not exist in database module list #{self.database.modules.inspect}"
         end
       end
