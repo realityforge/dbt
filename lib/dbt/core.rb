@@ -118,6 +118,11 @@ class Dbt
         @index_file_name || 'index.txt'
       end
 
+      attr_writer :fixture_dir_name
+
+      def fixture_dir_name
+        @fixture_dir_name || 'fixtures'
+      end
     end
   end
 
@@ -985,7 +990,7 @@ SQL
   end
 
   def self.load_fixtures(database, module_name)
-    load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, 'fixtures'))
+    load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, Dbt::Config.fixture_dir_name))
   end
 
   def self.load_dataset(database, module_name, dataset_name)
