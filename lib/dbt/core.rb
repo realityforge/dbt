@@ -462,11 +462,6 @@ SQL
         end
       end
 
-      self.modules = Proc.new do
-        require 'domgen'
-        Domgen.repository_by_name(repository_key).data_modules.collect{|data_module| data_module.name}
-      end
-
       task "#{task_prefix}:load_config" => load_task_name
       task "#{task_prefix}:pre_build" => generate_task_name
 
