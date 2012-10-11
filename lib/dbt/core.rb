@@ -589,17 +589,7 @@ SQL
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:pre_build", "#{database.task_prefix}:load_config"] do
       banner('Creating database', database.key)
-      create_database(database)
-      init_database(database.key) do
-        database.pre_create_dirs.each do |dir|
-          process_dir_set(database, dir, false)
-        end
-        perform_create_action(database, :up)
-        perform_create_action(database, :finalize)
-        database.post_create_dirs.each do |dir|
-          process_dir_set(database, dir, false)
-        end
-      end
+      create(database)
     end
 
     # Data set loading etc
@@ -715,6 +705,20 @@ SQL
     init_control_database(database.key) do
       db.drop(database, configuration)
       db.create_database(database, configuration)
+    end
+  end
+
+  def self.create(database)
+    create_database(database)
+    init_database(database.key) do
+      database.pre_create_dirs.each do |dir|
+        process_dir_set(database, dir, false)
+      end
+      perform_create_action(database, :up)
+      perform_create_action(database, :finalize)
+      database.post_create_dirs.each do |dir|
+        process_dir_set(database, dir, false)
+      end
     end
   end
 
