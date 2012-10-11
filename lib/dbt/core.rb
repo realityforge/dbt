@@ -650,27 +650,13 @@ SQL
     desc "Up the #{module_group.key} module group in the #{database.key} database."
     task "#{database.task_prefix}:#{module_group.key}:up" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       banner("Upping module group '#{module_group.key}'", database.key)
-      init_database(database.key) do
-        database.modules.each do |module_name|
-          next unless module_group.modules.include?(module_name)
-          create_module(database, module_name, :up)
-          create_module(database, module_name, :finalize)
-        end
-      end
+      up_module_group(module_group)
     end
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
     task "#{database.task_prefix}:#{module_group.key}:down" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       banner("Downing module group '#{module_group.key}'", database.key)
-      init_database(database.key) do
-        database.modules.reverse.each do |module_name|
-          next unless module_group.modules.include?(module_name)
-          process_module(database, module_name, :down)
-          tables = database.table_ordering(module_name)
-          schema_name = database.schema_name_for_module(module_name)
-          db.drop_schema(schema_name, tables)
-        end
-      end
+      down_module_group(module_group)
     end
 
     database.imports.values.each do |imp|
@@ -706,6 +692,30 @@ SQL
   def self.database_import(imp, module_group)
     init_database(imp.database.key) do
       perform_import_action(imp, true, module_group)
+    end
+  end
+
+  def self.up_module_group(module_group)
+    database = module_group.database
+    init_database(database.key) do
+      database.modules.each do |module_name|
+        next unless module_group.modules.include?(module_name)
+        create_module(database, module_name, :up)
+        create_module(database, module_name, :finalize)
+      end
+    end
+  end
+
+  def self.down_module_group(module_group)
+    database = module_group.database
+    init_database(database.key) do
+      database.modules.reverse.each do |module_name|
+        next unless module_group.modules.include?(module_name)
+        process_module(database, module_name, :down)
+        tables = database.table_ordering(module_name)
+        schema_name = database.schema_name_for_module(module_name)
+        db.drop_schema(schema_name, tables)
+      end
     end
   end
 
