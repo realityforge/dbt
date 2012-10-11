@@ -548,7 +548,6 @@ SQL
     init_database(database.key) do
       load_fixtures(database, module_name)
     end
-
   end
 
   private
