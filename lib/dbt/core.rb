@@ -816,8 +816,7 @@ SQL
   def self.perform_import_action(imp, should_perform_delete, module_group)
     if module_group.nil?
       imp.pre_import_dirs.each do |dir|
-        files = collect_files(imp.database.dirs_for_database(dir))
-        run_sql_files(imp.database, dir_display_name(dir), files, true)
+        process_dir_set(imp.database, dir, true)
       end unless partial_import_completed?
     end
     imp.modules.each do |module_key|
@@ -830,11 +829,17 @@ SQL
     end
     if module_group.nil?
       imp.post_import_dirs.each do |dir|
-        files = collect_files(imp.database.dirs_for_database(dir))
-        run_sql_files(imp.database, dir_display_name(dir), files, true)
+        process_dir_set(imp.database, dir, true)
       end
     end
     db.post_database_import(imp)
+  end
+
+  def self.process_dir_set(database, dir, is_import, label_prefix = nil)
+    files = collect_files(database.dirs_for_database(dir))
+    dir_label = dir_display_name(dir)
+    label = label_prefix.nil? ? dir_label : "#{label_prefix} #{dir_label}"
+    run_sql_files(database, label, files, is_import)
   end
 
   def self.dir_display_name(dir)
@@ -919,8 +924,7 @@ SQL
   def self.process_module(database, module_name, mode)
     dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
     dirs.each do |dir|
-      files = collect_files(dirs_for_module(database, module_name, dir))
-      run_sql_files(database, "#{'%-10s' % "#{module_name}:" } #{dir_display_name(dir)}", files, false)
+      process_dir_set(database,dir,false,'%-10s' % "#{module_name}:")
     end
     load_fixtures(database, module_name) if mode == :up
   end
