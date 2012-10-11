@@ -94,6 +94,18 @@ class Dbt
         @default_post_import_dirs || ['import-hooks/post']
       end
 
+      attr_writer :default_pre_create_dirs
+
+      def default_pre_create_dirs
+        @default_pre_create_dirs || ['db-hooks/pre']
+      end
+
+      attr_writer :default_post_create_dirs
+
+      def default_post_create_dirs
+        @default_post_create_dirs || ['db-hooks/post']
+      end
+
       attr_writer :default_down_dirs
 
       def default_down_dirs
@@ -323,6 +335,18 @@ SQL
 
     # The collation name for database. Nil means take the default_collation, if that is nil then take db default
     attr_accessor :collation
+
+    attr_writer :pre_create_dirs
+
+    def pre_create_dirs
+      @pre_create_dirs || Dbt::Config.default_pre_create_dirs
+    end
+
+    attr_writer :post_create_dirs
+
+    def post_create_dirs
+      @post_create_dirs || Dbt::Config.default_post_create_dirs
+    end
 
     attr_writer :search_dirs
 
@@ -567,8 +591,14 @@ SQL
       banner('Creating database', database.key)
       create_database(database)
       init_database(database.key) do
+        database.pre_create_dirs.each do |dir|
+          process_dir_set(database, dir, false)
+        end
         perform_create_action(database, :up)
         perform_create_action(database, :finalize)
+        database.post_create_dirs.each do |dir|
+          process_dir_set(database, dir, false)
+        end
       end
     end
 
