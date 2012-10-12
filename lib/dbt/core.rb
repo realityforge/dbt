@@ -844,13 +844,13 @@ SQL
 
   def self.perform_post_create_hooks(database)
     database.post_create_dirs.each do |dir|
-      process_dir_set(database, dir, false, dir_display_name(dir))
+      process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
     end
   end
 
   def self.perform_pre_create_hooks(database)
     database.pre_create_dirs.each do |dir|
-      process_dir_set(database, dir, false, dir_display_name(dir))
+      process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
     end
   end
 
@@ -981,7 +981,7 @@ SQL
     end
     if module_group.nil?
       imp.post_import_dirs.each do |dir|
-        process_dir_set(imp.database, dir, true, dir_display_name(dir))
+        process_dir_set(imp.database, dir, true, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
       end
     end
     db.post_database_import(imp)
@@ -1042,7 +1042,7 @@ SQL
     sql_file = sql_for_import(database, module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
-    info("Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
+    info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
       load_fixture(table, fixture_file)
     elsif is_sql
