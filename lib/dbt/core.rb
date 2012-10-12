@@ -439,7 +439,7 @@ SQL
     end
 
     def table_ordering(module_name)
-      tables = table_map[module_name]
+      tables = table_map[module_name.to_s]
       raise "No tables defined for module #{module_name}" unless tables
       tables
     end
