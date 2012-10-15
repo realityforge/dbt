@@ -700,8 +700,12 @@ SQL
   end
 
   def self.package_database(database)
-    rm_rf database.package_dir
-    mkdir_p database.package_dir
+    package_database_data(database, "#{database.package_dir}/data")
+  end
+
+  def self.package_database_data(database, package_dir)
+    rm_rf package_dir
+    mkdir_p package_dir
 
     import_dirs = database.imports.values.collect { |i| i.dir }
     dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs
@@ -709,7 +713,7 @@ SQL
       dirs.each do |relative_dir_name|
         relative_module_dir = "#{module_name}/#{relative_dir_name}"
         database.dirs_for_database(relative_module_dir).each do |dir|
-          target_dir = "#{database.package_dir}/#{module_name}/#{relative_dir_name}"
+          target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
           if File.exist?(dir)
             mkdir_p target_dir
             if Dbt::Config.fixture_dir_name == relative_dir_name
@@ -729,7 +733,7 @@ SQL
     import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }.compact
     database_wide_dirs = create_hooks + import_hooks
     database_wide_dirs.each do |relative_dir_name|
-      target_dir = "#{database.package_dir}/#{relative_dir_name}"
+      target_dir = "#{package_dir}/#{relative_dir_name}"
       database.dirs_for_database(relative_dir_name).each do |dir|
         if File.exist?(dir)
           mkdir_p target_dir
@@ -740,7 +744,7 @@ SQL
     end
     database.dirs_for_database('.').each do |dir|
       repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
-      cp repository_file, database.package_dir if File.exist?(repository_file)
+      cp repository_file, package_dir if File.exist?(repository_file)
     end
   end
 
