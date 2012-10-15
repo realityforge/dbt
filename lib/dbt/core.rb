@@ -700,11 +700,11 @@ SQL
   end
 
   def self.package_database(database)
+    rm_rf database.package_dir
     package_database_data(database, "#{database.package_dir}/data")
   end
 
   def self.package_database_data(database, package_dir)
-    rm_rf package_dir
     mkdir_p package_dir
 
     import_dirs = database.imports.values.collect { |i| i.dir }
