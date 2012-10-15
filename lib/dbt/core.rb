@@ -707,6 +707,34 @@ SQL
     end
   end
 
+  def self.execute_command(database, command)
+    if "create" == command
+      Dbt.create(database)
+    elsif "drop" == command
+      Dbt.drop(database)
+    elsif "restore" == command
+      Dbt.restore(database)
+    elsif "backup" == command
+      Dbt.backup(database)
+    elsif /^import/ =~ command
+      import_key = command[7,command.length]
+      p import_key
+      import_key = Dbt::Config.default_import.to_s if import_key == ''
+      database.imports.values.each do |imp|
+        database_import(imp, nil) if imp.key.to_s == import_key
+      end
+    elsif /^create_by_import/ =~ command
+      import_key = command[17,command.length]
+      p import_key
+      import_key = Dbt::Config.default_import.to_s if import_key == ''
+      database.imports.values.each do |imp|
+        database_import(imp, nil) if imp.key.to_s == import_key
+      end
+    else
+      raise "Unknown command '#{command}'"
+    end
+  end
+
   def self.package_database(database)
     rm_rf database.package_dir
     package_database_code(database, "#{database.package_dir}/code")
@@ -715,22 +743,76 @@ SQL
 
   def self.package_database_code(database, package_dir)
     mkdir_p package_dir
+    valid_commands = ["create","drop"]
+    valid_commands << "restore" if database.restore?
+    valid_commands << "backup" if database.backup?
+    if database.enable_separate_import_task?
+      database.imports.values.each do |imp|
+        valid_commands << "import" if default_import?(imp.key)
+      end
+    end
+    if database.enable_import_task_as_part_of_create?
+      database.imports.values.each do |imp|
+        valid_commands << "create_by_import" if default_import?(imp.key)
+      end
+    end
     File.open("#{package_dir}/db.rb","w") do |f|
-      f << "require 'dbt'\n"
-      f << "raise 'Must specify environment variable DB_ENV' unless ENV['DB_ENV']\n"
-      f << "raise 'Must specify environment variable CONFIG_FILENAME' unless ENV['CONFIG_FILENAME']\n"
-      f << "Dbt::Config.environment = ENV['DB_ENV']\n"
-      f << "Dbt::Config.driver = '#{Dbt::Config.driver}'\n"
-      f << "Dbt::Config.config_filename = File.expand_path(ENV['CONFIG_FILENAME'])\n"
       f << <<TXT
-Dbt.add_database(:#{database.key}) do |database|
+require 'dbt'
+require 'optparse'
+
+Dbt::Config.driver = '#{Dbt::Config.driver}'
+Dbt::Config.environment = 'production'
+Dbt::Config.config_filename = 'config/database.yml'
+VALID_COMMANDS=#{valid_commands.inspect}
+
+opt_parser = OptionParser.new do |opt|
+  opt.banner = "Usage: dbtcli [OPTIONS] [COMMANDS]"
+  opt.separator  ""
+  opt.separator  "Commands: #{valid_commands.join(', ')}"
+  opt.separator  ""
+  opt.separator  "Options"
+
+  opt.on("-e","--environment ENV","the database environment to use. Defaults to 'production'.") do |environment|
+    Dbt::Config.environment = environment
+  end
+
+  opt.on("-c","--config-file CONFIG","the configuration file to use. Defaults to 'config/database.yml'.") do |config_filename|
+    Dbt::Config.config_filename = config_filename
+  end
+
+  opt.on("-h","--help","help") do
+    puts opt_parser
+    exit 53
+  end
+end
+
+opt_parser.parse!
+
+
+ARGV.each do |command|
+  unless VALID_COMMANDS.include?(command)
+    puts "Unknown command: \#{command}"
+    exit 42
+  end
+end
+
+database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
-  database.search_dirs = ["../data"]
+  database.search_dirs = [File.expand_path(File.dirname(__FILE__) + "/../data")]
   database.add_import_assert_filters
-  database.backup = #{database.backup?}
-  database.restore = #{database.restore?}
-  database.enable_import_task_as_part_of_create = #{database.enable_import_task_as_part_of_create?}
-  database.enable_separate_import_task = #{database.enable_separate_import_task?}
+  database.enable_rake_integration = false
+end
+
+puts "Environment: \#{Dbt::Config.environment}"
+puts "Config File: \#{Dbt::Config.config_filename}"
+puts "Commands: \#{ARGV.join(' ')}"
+
+Dbt.global_init
+Dbt.load_database_config(database)
+
+ARGV.each do |command|
+  Dbt.execute_command(database, command)
 end
 TXT
     end
