@@ -1296,7 +1296,7 @@ TXT
     table_name.tr('[]"''', '')
   end
 
-  def self.load_fixture(table_name, filename)
+  def self.load_fixture(table_name, content)
     yaml = YAML::load(ERB.new(content).result)
     # Skip empty files
     return unless yaml
