@@ -1224,7 +1224,7 @@ TXT
     if fixture_file
       load_fixture(table, load_data(database, fixture_file))
     elsif sql_file
-      run_import_sql(database, table, load_data(database, sql_file).join, sql_file, true)
+      run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
     else
       perform_standard_import(database, table)
     end
