@@ -817,6 +817,13 @@ end
 TXT
     end
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
+    # TODO: Deassociate the driver settings from connection settings
+    driver_config = configuration_for_key(config_key(database.key))
+    driver_config.jdbc_driver_dependencies.each do |spec|
+      dependency = ::Buildr.artifact(spec)
+      dependency.invoke
+      Buildr.unzip(package_dir => dependency.to_s).extract
+    end
   end
 
   def self.package_database_data(database, package_dir)
