@@ -354,6 +354,14 @@ SQL
       @post_create_dirs || Dbt::Config.default_post_create_dirs
     end
 
+    # If there is a resource path then we are loading from within the jar
+    # so we should not attempt to scan search directories
+    def load_from_classloader?
+      !!@resource_prefix
+    end
+
+    attr_accessor :resource_prefix
+
     attr_writer :search_dirs
 
     def search_dirs
@@ -820,7 +828,7 @@ end
 
 database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
-  database.search_dirs = [File.expand_path(File.dirname(__FILE__) + "/../data")]
+  database.resource_prefix = "data"
   database.add_import_assert_filters
   database.enable_rake_integration = false
 end
