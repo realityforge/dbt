@@ -94,6 +94,7 @@ class Dbt
 
     def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
+      require 'java'
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
       @connection = java.sql.DriverManager.getConnection(config.jdbc_url(use_control_database), config.jdbc_info)
     end
