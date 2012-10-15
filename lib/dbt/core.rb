@@ -1217,6 +1217,9 @@ TXT
     sql_file = sql_for_import(database, module_name, table, import_dir)
     is_sql = !fixture_file && sql_file
 
+    if fixture_file && sql_file
+      raise "Unexpectantly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
+    end
     info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
     if fixture_file
       load_fixture(table, fixture_file)
