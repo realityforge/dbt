@@ -1030,7 +1030,7 @@ TXT
     # Iterate over module in dependency order doing import as appropriate
     # Note: that tables with initial fixtures are skipped
     tables = ordered_tables.reject do |table|
-      fixture_for_creation(imp.database, module_name, table)
+      try_find_file_in_module(imp.database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
     end
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
@@ -1213,17 +1213,17 @@ TXT
   end
 
   def self.perform_import(database, module_name, table, import_dir)
-    fixture_file = fixture_for_import(database, module_name, table, import_dir)
-    sql_file = sql_for_import(database, module_name, table, import_dir)
-    is_sql = !fixture_file && sql_file
+    fixture_file = try_find_file_in_module(database, module_name, import_dir, table, 'yml')
+    sql_file = try_find_file_in_module(database, module_name, import_dir, table, 'sql')
 
     if fixture_file && sql_file
       raise "Unexpectantly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
     end
-    info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : is_sql ? 'S' : "D"})")
+
+    info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
     if fixture_file
       load_fixture(table, fixture_file)
-    elsif is_sql
+    elsif sql_file
       run_import_sql(database, table, IO.readlines(sql_file).join, sql_file, true)
     else
       perform_standard_import(database, table)
@@ -1407,23 +1407,11 @@ TXT
     content
   end
 
-  def self.fixture_for_creation(database, module_name, table)
-    try_load_file_in_module(database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
-  end
-
-  def self.fixture_for_import(database, module_name, table, import_dir)
-    try_load_file_in_module(database, module_name, import_dir, table, 'yml')
-  end
-
-  def self.sql_for_import(database, module_name, table, import_dir)
-    try_load_file_in_module(database, module_name, import_dir, table, 'sql')
-  end
-
   def self.module_filename(module_name, subdir, table, extension)
     "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
   end
 
-  def self.try_load_file_in_module(database, module_name, subdir, table, extension)
+  def self.try_find_file_in_module(database, module_name, subdir, table, extension)
     filename = module_filename(module_name, subdir, table, extension)
     database.search_dirs.map do |d|
       file = "#{d}/#{filename}"
