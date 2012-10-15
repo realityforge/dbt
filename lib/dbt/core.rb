@@ -958,26 +958,20 @@ TXT
 
   def self.load_database_config(database)
     unless database.modules
-      require 'yaml'
-      database.dirs_for_database('.').each do |dir|
-        repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
-        if File.exist?(repository_config_file)
-          repository_config = File.open(repository_config_file, 'r') { |f| YAML::load f }
-          database.modules = repository_config['modules'].collect {|m| m[0]}
-          schema_overrides = {}
-          table_map = {}
-          repository_config['modules'].each do |module_config|
-            name = module_config[0]
-            schema = module_config[1]['schema']
-            tables = module_config[1]['tables']
-            table_map[name] = tables
-            schema_overrides[name] = schema if name != schema
+      if database.load_from_classloader?
+        content = load_resource(database, Dbt::Config.repository_config_file)
+        parse_repository_config(database, content)
+      else
+        database.dirs_for_database('.').each do |dir|
+          repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
+          if File.exist?(repository_config_file)
+            File.open(repository_config_file, 'r') do |f|
+              parse_repository_config(database, f)
+            end
           end
-          database.schema_overrides = schema_overrides
-          database.table_map = table_map
         end
+        raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
       end
-      raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
     end
     database.validate
   end
@@ -1074,6 +1068,12 @@ TXT
     end
   end
 
+  def self.collect_resources(database, dir)
+    index_name = "#{dir}/#{Dbt::Config.index_file_name}"
+    return [] unless resource_present?(database, index_name)
+    load_resource(database, index_name).split("\n").collect{|l|l.strip}
+  end
+
   def self.collect_files(directories)
 
     index = []
@@ -1155,7 +1155,12 @@ TXT
   end
 
   def self.process_dir_set(database, dir, is_import, label)
-    files = collect_files(database.dirs_for_database(dir))
+    files =
+      if database.load_from_classloader?
+        collect_resources(database, dir)
+      else
+        collect_files(database.dirs_for_database(dir))
+      end
     run_sql_files(database, label, files, is_import)
   end
 
@@ -1356,7 +1361,12 @@ TXT
 
   def self.run_sql_file(database, label, filename, is_import)
     info("#{label}#{File.basename(filename)}")
-    sql = IO.readlines(filename).join
+    sql =
+      if database.load_from_classloader?
+        load_resource(database, filename)
+      else
+        IO.readlines(filename).join
+      end
     if is_import
       run_import_sql(database, nil, sql, filename)
     else
