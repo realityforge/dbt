@@ -715,12 +715,12 @@ SQL
       f << "Dbt::Config.driver = '#{Dbt::Config.driver}'\n"
       f << "Dbt::Config.config_filename = File.expand_path(ENV['CONFIG_FILENAME'])\n"
       f << <<TXT
-Dbt.add_database(:#{database.key},
-                 :backup => #{database.backup?},
-                 :restore => #{database.restore?}) do |database|
+Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.search_dirs = ["../data"]
   database.add_import_assert_filters
+  database.backup = #{database.backup?}
+  database.restore = #{database.restore?}
   database.enable_import_task_as_part_of_create = #{database.enable_import_task_as_part_of_create?}
   database.enable_separate_import_task = #{database.enable_separate_import_task?}
 end
