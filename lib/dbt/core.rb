@@ -1247,19 +1247,27 @@ TXT
   end
 
   def self.load_fixtures(database, module_name)
-    load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, Dbt::Config.fixture_dir_name))
+    load_fixtures_from_dirs(database, module_name, Dbt::Config.fixture_dir_name)
   end
 
   def self.load_dataset(database, module_name, dataset_name)
-    load_fixtures_from_dirs(database, module_name, dirs_for_module(database, module_name, "datasets/#{dataset_name}"))
+    load_fixtures_from_dirs(database, module_name, "datasets/#{dataset_name}")
   end
 
-  def self.load_fixtures_from_dirs(database, module_name, dirs)
+  def self.load_fixtures_from_dirs(database, module_name, subdir)
     fixtures = {}
     database.table_ordering(module_name).each do |table_name|
-      dirs.each do |dir|
-        filename = table_name_to_fixture_filename(dir, table_name)
-        fixtures[table_name] = filename if File.exists?(filename)
+      if database.load_from_classloader?
+        filename = module_filename(module_name, subdir, table_name, 'yml')
+        if resource_present?(database,filename)
+          fixtures[table_name] = filename
+        end
+      else
+        dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+        dirs.each do |dir|
+          filename = table_name_to_fixture_filename(dir, table_name)
+          fixtures[table_name] = filename if File.exists?(filename)
+        end
       end
     end
 
@@ -1273,7 +1281,13 @@ TXT
       filename = fixtures[table_name]
       next unless filename
       info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
-      load_fixture(table_name, filename)
+      content =
+        if database.load_from_classloader?
+          load_resource(database, filename)
+        else
+          IO.read(filename)
+        end
+      load_fixture(table_name, content)
     end
   end
 
@@ -1286,7 +1300,7 @@ TXT
   end
 
   def self.load_fixture(table_name, filename)
-    yaml = YAML::load(ERB.new(IO.read(filename)).result)
+    yaml = YAML::load(ERB.new(content).result)
     # Skip empty files
     return unless yaml
     # NFI
@@ -1402,8 +1416,12 @@ TXT
     try_load_file_in_module(database, module_name, import_dir, table, 'sql')
   end
 
+  def self.module_filename(module_name, subdir, table, extension)
+    "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
+  end
+
   def self.try_load_file_in_module(database, module_name, subdir, table, extension)
-    filename = "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
+    filename = module_filename(module_name, subdir, table, extension)
     database.search_dirs.map do |d|
       file = "#{d}/#{filename}"
       return file if File.exist?(file)
