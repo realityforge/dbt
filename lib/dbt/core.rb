@@ -322,7 +322,14 @@ SQL
 
     attr_writer :modules
 
+    attr_writer :enable_rake_integration
+
+    def enable_rake_integration?
+      @enable_rake_integration.nil? ? true : @enable_rake_integration
+    end
+
     def task_prefix
+      raise "task_prefix invoked" unless enable_rake_integration?
       "#{Dbt::Config.task_prefix}#{Dbt.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 
@@ -509,7 +516,7 @@ SQL
 
     yield database if block_given?
 
-    define_tasks_for_database(database)
+    define_tasks_for_database(database) if database.enable_rake_integration?
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
