@@ -818,8 +818,7 @@ TXT
     end
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
     # TODO: Deassociate the driver settings from connection settings
-    driver_config = configuration_for_key(config_key(database.key))
-    driver_config.jdbc_driver_dependencies.each do |spec|
+    configuration_for_database(database).jdbc_driver_dependencies.each do |spec|
       dependency = ::Buildr.artifact(spec)
       dependency.invoke
       Buildr.unzip(package_dir => dependency.to_s).extract
@@ -872,18 +871,18 @@ TXT
 
   def self.backup(database)
     init_control_database(database.key) do
-      db.backup(database, configuration_for_key(config_key(database.key)))
+      db.backup(database, configuration_for_database(database))
     end
   end
 
   def self.restore(database)
     init_control_database(database.key) do
-      db.restore(database, configuration_for_key(config_key(database.key)))
+      db.restore(database, configuration_for_database(database))
     end
   end
 
   def self.create_database(database)
-    configuration = configuration_for_key(config_key(database.key))
+    configuration = configuration_for_database(database)
     return if configuration.no_create?
     init_control_database(database.key) do
       db.drop(database, configuration)
@@ -983,7 +982,7 @@ TXT
 
   def self.drop(database)
     init_control_database(database.key) do
-      db.drop(database, configuration_for_key(config_key(database.key)))
+      db.drop(database, configuration_for_database(database))
     end
   end
 
