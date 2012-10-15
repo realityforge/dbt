@@ -982,6 +982,23 @@ TXT
     database.validate
   end
 
+  def self.parse_repository_config(database, content)
+    require 'yaml'
+    repository_config = YAML::load(content)
+    database.modules = repository_config['modules'].collect { |m| m[0] }
+    schema_overrides = {}
+    table_map = {}
+    repository_config['modules'].each do |module_config|
+      name = module_config[0]
+      schema = module_config[1]['schema']
+      tables = module_config[1]['tables']
+      table_map[name] = tables
+      schema_overrides[name] = schema if name != schema
+    end
+    database.schema_overrides = schema_overrides
+    database.table_map = table_map
+  end
+
   def self.create(database)
     create_database(database)
     init_database(database.key) do
