@@ -701,7 +701,31 @@ SQL
 
   def self.package_database(database)
     rm_rf database.package_dir
+    package_database_code(database, "#{database.package_dir}/code")
     package_database_data(database, "#{database.package_dir}/data")
+  end
+
+  def self.package_database_code(database, package_dir)
+    mkdir_p package_dir
+    File.open("#{package_dir}/db.rb","w") do |f|
+      f << "require 'dbt'\n"
+      f << "raise 'Must specify environment variable DB_ENV' unless ENV['DB_ENV']\n"
+      f << "raise 'Must specify environment variable CONFIG_FILENAME' unless ENV['CONFIG_FILENAME']\n"
+      f << "Dbt::Config.environment = ENV['DB_ENV']\n"
+      f << "Dbt::Config.driver = '#{Dbt::Config.driver}'\n"
+      f << "Dbt::Config.config_filename = File.expand_path(ENV['CONFIG_FILENAME'])\n"
+      f << <<TXT
+Dbt.add_database(:#{database.key},
+                 :backup => #{database.backup?},
+                 :restore => #{database.restore?}) do |database|
+  database.version = #{database.version.inspect}
+  database.search_dirs = ["../data"]
+  database.add_import_assert_filters
+  database.enable_import_task_as_part_of_create = #{database.enable_import_task_as_part_of_create?}
+  database.enable_separate_import_task = #{database.enable_separate_import_task?}
+end
+TXT
+    end
   end
 
   def self.package_database_data(database, package_dir)
