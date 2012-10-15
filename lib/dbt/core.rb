@@ -1222,9 +1222,9 @@ TXT
 
     info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
     if fixture_file
-      load_fixture(table, fixture_file)
+      load_fixture(table, load_data(database, fixture_file))
     elsif sql_file
-      run_import_sql(database, table, IO.readlines(sql_file).join, sql_file, true)
+      run_import_sql(database, table, load_data(database, sql_file).join, sql_file, true)
     else
       perform_standard_import(database, table)
     end
@@ -1284,13 +1284,7 @@ TXT
       filename = fixtures[table_name]
       next unless filename
       info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
-      content =
-        if database.load_from_classloader?
-          load_resource(database, filename)
-        else
-          IO.read(filename)
-        end
-      load_fixture(table_name, content)
+      load_fixture(table_name, load_data(database, filename))
     end
   end
 
@@ -1376,14 +1370,17 @@ TXT
     end
   end
 
+  def self.load_data(database, filename)
+    if database.load_from_classloader?
+      load_resource(database, filename)
+    else
+      IO.readlines(filename).join
+    end
+  end
+
   def self.run_sql_file(database, label, filename, is_import)
     info("#{label}#{File.basename(filename)}")
-    sql =
-      if database.load_from_classloader?
-        load_resource(database, filename)
-      else
-        IO.readlines(filename).join
-      end
+    sql = load_data(database, filename)
     if is_import
       run_import_sql(database, nil, sql, filename)
     else
