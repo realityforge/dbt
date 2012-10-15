@@ -1361,15 +1361,24 @@ TXT
   end
 
   def self.fixture_for_creation(database, module_name, table)
-    first_file_from(dirs_for_module(database, module_name, table_name_to_fixture_filename("fixtures", table)))
+    try_load_file_in_module(database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
   end
 
   def self.fixture_for_import(database, module_name, table, import_dir)
-    first_file_from(dirs_for_module(database, module_name, table_name_to_fixture_filename(import_dir, table)))
+    try_load_file_in_module(database, module_name, import_dir, table, 'yml')
   end
 
   def self.sql_for_import(database, module_name, table, import_dir)
-    first_file_from(dirs_for_module(database, module_name, "#{import_dir}/#{clean_table_name(table)}.sql"))
+    try_load_file_in_module(database, module_name, import_dir, table, 'sql')
+  end
+
+  def self.try_load_file_in_module(database, module_name, subdir, table, extension)
+    filename = "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
+    database.search_dirs.map do |d|
+      file = "#{d}/#{filename}"
+      return file if File.exist?(file)
+    end
+    return nil
   end
 
   def self.banner(message, database_key)
