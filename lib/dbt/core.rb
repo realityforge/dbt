@@ -546,6 +546,7 @@ SQL
     end
     jar.include "#{package_dir}/code", :as => '.'
     jar.include "#{package_dir}/data"
+    jar.with :manifest => buildr_project.manifest.merge('Main-Class'=>'org.realityforge.dbt.dbtcli')
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
@@ -775,7 +776,8 @@ SQL
         valid_commands << "create_by_import" if default_import?(imp.key)
       end
     end
-    File.open("#{package_dir}/dbtcli.rb","w") do |f|
+    mkdir_p "#{package_dir}/org/realityforge/dbt"
+    File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb","w") do |f|
       f << <<TXT
 require 'dbt'
 require 'optparse'
@@ -835,6 +837,7 @@ ARGV.each do |command|
 end
 TXT
     end
+    sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir,Dir.pwd)} #{::Buildr::Util.relative_path(package_dir,Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 
