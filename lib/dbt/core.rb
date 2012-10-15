@@ -1364,17 +1364,20 @@ TXT
     end
   end
 
-  def self.dirs_for_module(database, module_name, subdir = nil)
-    database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+  def self.resource_present?(database, resource_path)
+    require 'java'
+    !!java.lang.ClassLoader.getCallerClassLoader().getResource("#{database.resource_prefix}/#{resource_path}")
   end
 
-  def self.first_file_from(files)
-    files.each do |file|
-      if File.exist?(file)
-        return file
-      end
+  def self.load_resource(database, resource_path)
+    require 'java'
+    stream = java.lang.ClassLoader.getCallerClassLoader().getResourceAsStream("#{database.resource_prefix}/#{resource_path}")
+    raise "Missing resource #{resource_path}" unless stream
+    content = ""
+    while stream.available() > 0
+      content << stream.read()
     end
-    nil
+    content
   end
 
   def self.fixture_for_creation(database, module_name, table)
