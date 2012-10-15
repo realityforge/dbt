@@ -591,7 +591,6 @@ SQL
 
     task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
       load_database_config(database)
-      database.validate
     end
 
     desc "Create the #{database.key} database."
@@ -868,6 +867,7 @@ TXT
       end
       raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
     end
+    database.validate
   end
 
   def self.create(database)
