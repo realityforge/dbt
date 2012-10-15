@@ -517,6 +517,8 @@ SQL
     yield database if block_given?
 
     define_tasks_for_database(database) if database.enable_rake_integration?
+
+    database
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
