@@ -420,13 +420,6 @@ SQL
       @restore.nil? ? false : @restore
     end
 
-    attr_accessor :package_dir
-
-    # Should the a package task be defined for database?
-    def package?
-      !!@package_dir
-    end
-
     attr_writer :schema_overrides
 
     # Map of module => schema overrides
@@ -519,6 +512,40 @@ SQL
     define_tasks_for_database(database) if database.enable_rake_integration?
 
     database
+  end
+
+  def self.define_database_package(database_key, buildr_project, options = {})
+    database = database_for_key(database_key)
+    package_dir = buildr_project._(:target, 'dbt')
+
+    desc "Packaging scripts of #{database.key} database"
+    task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare"] do
+      banner("Packaging Database Scripts", database.key)
+      package_database(database, package_dir)
+    end
+    buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
+    buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
+    jar = buildr_project.package(:jar) do |jar|
+    end
+    dependencies =
+      ["org.jruby:jruby-complete:jar:#{JRUBY_VERSION}"] +
+        Dbt.const_get("#{Dbt::Config.driver}DbConfig").jdbc_driver_dependencies
+
+    #TODO: Buildr is too slow merging jars so lets try an ugly hack
+    if false
+      dependencies.each do |spec|
+        jar.merge(Buildr.artifact(spec))
+      end
+    else
+      dependencies.each do |spec|
+        dependency = Buildr.artifact(spec)
+        jar.enhance [dependency] do
+          Buildr.unzip("#{package_dir}/code" => dependency.to_s).extract
+        end
+      end
+    end
+    jar.include "#{package_dir}/code", :as => '.'
+    jar.include "#{package_dir}/data"
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
@@ -650,14 +677,6 @@ SQL
         restore(database)
       end
     end
-
-    if database.package?
-      desc "Packaging scripts of #{database.key} database"
-      task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare"] do
-        banner("Packaging Database Scripts", database.key)
-        package_database(database)
-      end
-    end
   end
 
   def self.define_module_group_tasks(module_group)
@@ -735,10 +754,10 @@ SQL
     end
   end
 
-  def self.package_database(database)
-    rm_rf database.package_dir
-    package_database_code(database, "#{database.package_dir}/code")
-    package_database_data(database, "#{database.package_dir}/data")
+  def self.package_database(database, package_dir)
+    rm_rf package_dir
+    package_database_code(database, "#{package_dir}/code")
+    package_database_data(database, "#{package_dir}/data")
   end
 
   def self.package_database_code(database, package_dir)
@@ -756,7 +775,7 @@ SQL
         valid_commands << "create_by_import" if default_import?(imp.key)
       end
     end
-    File.open("#{package_dir}/db.rb","w") do |f|
+    File.open("#{package_dir}/dbtcli.rb","w") do |f|
       f << <<TXT
 require 'dbt'
 require 'optparse'
@@ -817,12 +836,6 @@ end
 TXT
     end
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
-    # TODO: Deassociate the driver settings from connection settings
-    configuration_for_database(database).jdbc_driver_dependencies.each do |spec|
-      dependency = ::Buildr.artifact(spec)
-      dependency.invoke
-      Buildr.unzip(package_dir => dependency.to_s).extract
-    end
   end
 
   def self.package_database_data(database, package_dir)
