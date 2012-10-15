@@ -18,6 +18,11 @@ class Dbt
       raise NotImplementedError
     end
 
+    # Maven specs for the dependencies
+    def jdbc_driver_dependencies
+      raise NotImplementedError
+    end
+
     def jdbc_url(use_control_catalog)
       raise NotImplementedError
     end
@@ -94,6 +99,16 @@ class Dbt
 
     def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
+      config.jdbc_driver_dependencies.each do |spec|
+        begin
+          dependency = ::Buildr.artifact(spec)
+          dependency.invoke
+          require dependency.to_s
+        rescue NameError
+          # Ignore as buildr not present
+        end
+      end
+
       require 'java'
       java.lang.Class.forName(config.jdbc_driver, true, java.lang.Thread.currentThread.getContextClassLoader) if config.jdbc_driver
       @connection = java.sql.DriverManager.getConnection(config.jdbc_url(use_control_database), config.jdbc_info)
