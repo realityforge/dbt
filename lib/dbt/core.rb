@@ -1038,6 +1038,9 @@ TXT
     @@database_driver_hooks.each do |database_hook|
       database_hook.call
     end
+
+    require 'yaml'
+    require 'erb'
     self.configuration_data = YAML::load(ERB.new(IO.read(Dbt::Config.config_filename)).result)
   end
 
