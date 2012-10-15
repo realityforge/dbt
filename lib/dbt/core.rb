@@ -490,11 +490,11 @@ SQL
   @@configuration_data = {}
 
   def self.init_database(database_key, &block)
-    setup_connection(config_key(database_key), false, &block)
+    setup_connection(database_key, false, &block)
   end
 
   def self.init_control_database(database_key, &block)
-    setup_connection(config_key(database_key), true, &block)
+    setup_connection(database_key, true, &block)
   end
 
   def self.add_database_driver_hook(&block)
@@ -1197,8 +1197,8 @@ TXT
     end
   end
 
-  def self.setup_connection(config_key, open_control_database, &block)
-    db.open(configuration_for_key(config_key), open_control_database)
+  def self.setup_connection(database_key, open_control_database, &block)
+    db.open(configuration_for_key(config_key(database_key)), open_control_database)
     if block_given?
       begin
         yield
