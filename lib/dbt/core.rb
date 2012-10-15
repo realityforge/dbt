@@ -726,6 +726,7 @@ Dbt.add_database(:#{database.key}) do |database|
 end
 TXT
     end
+    cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 
   def self.package_database_data(database, package_dir)
