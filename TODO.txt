@@ -1,0 +1,2 @@
+* Generate index.txt as part of packaging up every directory
+* Only copy yml files in fixture directory if they are in table list
