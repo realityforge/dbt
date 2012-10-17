@@ -862,13 +862,19 @@ TXT
           if File.exist?(dir)
             mkdir_p target_dir
             if Dbt::Config.fixture_dir_name == relative_dir_name
-              cp_r Dir.glob("#{dir}/*.yml"), target_dir
+              database.table_ordering(module_name).each do |table_name|
+                cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir
+              end
             else
               if import_dirs.include?(relative_dir_name)
-                cp_r Dir.glob("#{dir}/*.yml"), target_dir
+                database.table_ordering(module_name).each do |table_name|
+                  cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir
+                  cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir
+                end
+              else
+                cp_r Dir.glob("#{dir}/*.sql"), target_dir
+                cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
               end
-              cp_r Dir.glob("#{dir}/*.sql"), target_dir
-              cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
             end
           end
         end
