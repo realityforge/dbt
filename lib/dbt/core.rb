@@ -864,11 +864,11 @@ TXT
       dirs.each do |relative_dir_name|
         relative_module_dir = "#{module_name}/#{relative_dir_name}"
         target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
-        dirs = database.dirs_for_database(relative_module_dir)
-        files = collect_files(dirs)
+        actual_dirs = database.dirs_for_database(relative_module_dir)
+        files = collect_files(actual_dirs)
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
-        dirs.each do |dir|
+        actual_dirs.each do |dir|
           if File.exist?(dir)
             if Dbt::Config.fixture_dir_name == relative_dir_name
               database.table_ordering(module_name).each do |table_name|
@@ -893,7 +893,8 @@ TXT
     database_wide_dirs = create_hooks + import_hooks
     database_wide_dirs.each do |relative_dir_name|
       target_dir = "#{package_dir}/#{relative_dir_name}"
-      files = collect_files(dirs)
+      actual_dirs = database.dirs_for_database(relative_dir_name)
+      files = collect_files(actual_dirs)
       cp_files_to_dir(files, target_dir)
       generate_index(target_dir, files)
     end
