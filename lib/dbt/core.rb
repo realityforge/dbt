@@ -849,6 +849,12 @@ TXT
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 
+  def self.cp_files_to_dir(files, target_dir)
+    return if files.empty?
+    mkdir_p target_dir
+    cp_r files, target_dir
+  end
+
   def self.package_database_data(database, package_dir)
     mkdir_p package_dir
 
@@ -857,22 +863,24 @@ TXT
     database.modules.each do |module_name|
       dirs.each do |relative_dir_name|
         relative_module_dir = "#{module_name}/#{relative_dir_name}"
-        database.dirs_for_database(relative_module_dir).each do |dir|
-          target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
+        target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
+        dirs = database.dirs_for_database(relative_module_dir)
+        files = collect_files(dirs)
+        cp_files_to_dir(files,target_dir)
+        dirs.each do |dir|
           if File.exist?(dir)
-            mkdir_p target_dir
             if Dbt::Config.fixture_dir_name == relative_dir_name
               database.table_ordering(module_name).each do |table_name|
-                cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir
+                cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
               end
             else
               if import_dirs.include?(relative_dir_name)
                 database.table_ordering(module_name).each do |table_name|
-                  cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir
-                  cp_r Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir
+                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
+                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir)
                 end
               else
-                cp_r Dir.glob("#{dir}/*.sql"), target_dir
+                cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
                 cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
               end
             end
@@ -887,8 +895,7 @@ TXT
       target_dir = "#{package_dir}/#{relative_dir_name}"
       database.dirs_for_database(relative_dir_name).each do |dir|
         if File.exist?(dir)
-          mkdir_p target_dir
-          cp_r Dir.glob("#{dir}/*.sql"), target_dir
+          cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
           cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
         end
       end
