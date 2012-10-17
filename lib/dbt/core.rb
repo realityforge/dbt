@@ -866,7 +866,8 @@ TXT
         target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
         dirs = database.dirs_for_database(relative_module_dir)
         files = collect_files(dirs)
-        cp_files_to_dir(files,target_dir)
+        cp_files_to_dir(files, target_dir)
+        generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
         dirs.each do |dir|
           if File.exist?(dir)
             if Dbt::Config.fixture_dir_name == relative_dir_name
@@ -881,7 +882,6 @@ TXT
                 end
               else
                 cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
-                cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
               end
             end
           end
@@ -893,16 +893,21 @@ TXT
     database_wide_dirs = create_hooks + import_hooks
     database_wide_dirs.each do |relative_dir_name|
       target_dir = "#{package_dir}/#{relative_dir_name}"
-      database.dirs_for_database(relative_dir_name).each do |dir|
-        if File.exist?(dir)
-          cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
-          cp_r Dir.glob("#{dir}/#{Dbt::Config.index_file_name}"), target_dir
-        end
-      end
+      files = collect_files(dirs)
+      cp_files_to_dir(files, target_dir)
+      generate_index(target_dir, files)
     end
     database.dirs_for_database('.').each do |dir|
       repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
       cp repository_file, package_dir if File.exist?(repository_file)
+    end
+  end
+
+  def self.generate_index(target_dir, files)
+    unless files.empty?
+      File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |f|
+        f.write files.collect { |f| File.basename(f) }.join('\n')
+      end
     end
   end
 
