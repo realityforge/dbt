@@ -984,8 +984,12 @@ TXT
         database.dirs_for_database('.').each do |dir|
           repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
           if File.exist?(repository_config_file)
-            File.open(repository_config_file, 'r') do |f|
-              parse_repository_config(database, f)
+            if database.modules
+              raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
+            else
+              File.open(repository_config_file, 'r') do |f|
+                parse_repository_config(database, f)
+              end
             end
           end
         end
