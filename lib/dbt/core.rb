@@ -1282,6 +1282,10 @@ TXT
 
   def self.load_fixtures_from_dirs(database, module_name, subdir)
     fixtures = {}
+    unless database.load_from_classloader?
+      dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+      filesystem_files = dirs.collect{|d|Dir["#{d}/*.yml"]}.flatten.compact
+    end
     database.table_ordering(module_name).each do |table_name|
       if database.load_from_classloader?
         filename = module_filename(module_name, subdir, table_name, 'yml')
@@ -1289,12 +1293,19 @@ TXT
           fixtures[table_name] = filename
         end
       else
-        dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
         dirs.each do |dir|
           filename = table_name_to_fixture_filename(dir, table_name)
-          fixtures[table_name] = filename if File.exists?(filename)
+          filesystem_files.delete(filename)
+          if File.exists?(filename)
+            raise "Duplicate fixture for #{table_name} found in database search paths" if fixtures[table_name]
+            fixtures[table_name] = filename
+          end
         end
       end
+    end
+
+    if !database.load_from_classloader? && !filesystem_files.empty?
+      raise "Unknown fixtures found in database search paths. Files: #{filesystem_files.inspect}"
     end
 
     database.table_ordering(module_name).reverse.each do |table_name|
