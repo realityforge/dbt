@@ -1055,6 +1055,19 @@ TXT
     tables = ordered_tables.reject do |table|
       try_find_file_in_module(imp.database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
     end
+
+    unless imp.database.load_from_classloader?
+      dirs = imp.database.search_dirs.map { |d| "#{d}/#{module_name}/#{imp.dir}" }
+      filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] + Dir["#{d}/*.sql"] }.flatten.compact
+      tables.each do |table_name|
+        table_name = Dbt.clean_table_name(table_name)
+        sql_file = /#{table_name}.sql$/
+        yml_file = /#{table_name}.yml$/
+        filesystem_files = filesystem_files.delete_if{|f| f =~ sql_file || f =~ yml_file}
+      end
+      raise "Discovered additional files in import directory in database search path. Files: #{filesystem_files.inspect}" unless filesystem_files.empty?
+    end
+
     if should_perform_delete && !partial_import_completed?
       tables.reverse.each do |table|
         info("Deleting #{clean_table_name(table)}")
