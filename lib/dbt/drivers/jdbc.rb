@@ -1,19 +1,7 @@
+require 'dbt/abstract_db_config'
+
 class Dbt
-  class JdbcDbConfig < Dbt::DbConfig
-    def initialize(configuration)
-      @configuration = configuration
-    end
-
-    attr_reader :configuration
-
-    def no_create?
-      true == config_value("no_create", true)
-    end
-
-    def catalog_name
-      config_value("database", false)
-    end
-
+  class JdbcDbConfig < Dbt::AbstractDbConfig
     def jdbc_driver
       raise NotImplementedError
     end
@@ -24,14 +12,6 @@ class Dbt
 
     def jdbc_info
       raise NotImplementedError
-    end
-
-    protected
-
-    def config_value(config_param_name, allow_nil)
-      value = self.configuration[config_param_name]
-      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
-      value
     end
   end
 
