@@ -1,5 +1,3 @@
-require 'dbt/abstract_db_config'
-
 class Dbt
   class JdbcDbConfig < Dbt::AbstractDbConfig
     def jdbc_driver

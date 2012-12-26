@@ -1,6 +1,3 @@
-require 'dbt/drivers/dialect/postgres'
-require 'dbt/abstract_db_config'
-
 class Dbt
   class PgDbConfig < AbstractDbConfig
   end
