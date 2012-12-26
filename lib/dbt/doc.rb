@@ -1,4 +1,3 @@
-
 class Dbt
   class DbDoc
     # Define file tasks that will transform sql documentation from the

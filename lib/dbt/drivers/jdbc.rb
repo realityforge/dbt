@@ -16,7 +16,6 @@ class Dbt
   end
 
   class JdbcDbDriver < Dbt::DbDriver
-
     def execute(sql, execute_in_control_database = false)
       raise "Can not execute statement when database connection is not open." unless open?
       current_database = nil

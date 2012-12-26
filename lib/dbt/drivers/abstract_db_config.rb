@@ -22,6 +22,5 @@ class Dbt
       raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
       value
     end
-
   end
 end
