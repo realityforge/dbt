@@ -48,6 +48,12 @@ class Dbt
         raise NotImplementedError
       end
 
+      def pre_fixture_import(table)
+      end
+
+      def post_fixture_import(table)
+      end
+
       def pre_table_import(imp, table)
       end
 
