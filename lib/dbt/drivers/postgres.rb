@@ -14,6 +14,52 @@
 
 class Dbt
   class PostgresDbConfig < JdbcDbConfig
+    def self.jdbc_driver_dependencies
+      %w{postgresql:postgresql:jar:9.1-901.jdbc4}
+    end
+
+    def jdbc_driver
+      'org.postgresql.Driver'
+    end
+
+    def jdbc_url(use_control_catalog)
+      url = "jdbc:postgresql://#{host}:#{port}/"
+      url += use_control_catalog ? control_catalog_name : catalog_name
+      url
+    end
+
+    def jdbc_info
+      info = java.util.Properties.new
+      info.put('user', username) if username
+      info.put('password', password) if password
+      info.put('ssl', ssl)
+      info
+    end
+
+    def control_catalog_name
+      'postgres'
+    end
+
+    def host
+      config_value("host", false)
+    end
+
+    def port
+      config_value("port", true) || 5432
+    end
+
+    def ssl
+      ssl = config_value("ssl", true)
+      ssl.nil? ? false : true
+    end
+
+    def username
+      config_value("username", true)
+    end
+
+    def password
+      config_value("password", true)
+    end
   end
 
   class PostgresDbDriver < JdbcDbDriver
