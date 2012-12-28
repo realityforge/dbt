@@ -15,7 +15,7 @@
 class Dbt
   class MssqlDbConfig < JdbcDbConfig
     def self.jdbc_driver_dependencies
-      ['net.sourceforge.jtds:jtds:jar:1.2.4']
+      %w(net.sourceforge.jtds:jtds:jar:1.2.4)
     end
 
     def jdbc_driver
