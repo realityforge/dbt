@@ -84,6 +84,24 @@ class Dbt
         "\"#{name}\""
       end
 
+      def quote_column_name(name)
+        "\"#{name}\""
+      end
+
+      def quote_value(value)
+        case value
+          when NilClass then
+            'NULL'
+          when String then
+            "'#{value.to_s.gsub(/\'/, "''")}'"
+          when TrueClass then
+            '1'
+          when FalseClass then
+            '0'
+          else
+            value
+        end
+      end
     end
   end
 end
