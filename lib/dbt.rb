@@ -18,7 +18,7 @@ require 'dbt/orderedhash'
 require 'dbt/doc'
 require 'dbt/core'
 
-require 'dbt/abstract_db_config'
+require 'dbt/drivers/abstract_db_config'
 require 'dbt/drivers/jdbc'
 require 'dbt/drivers/mssql'
 require 'dbt/drivers/dialect/postgres'
