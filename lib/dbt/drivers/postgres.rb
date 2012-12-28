@@ -32,7 +32,6 @@ class Dbt
       info = java.util.Properties.new
       info.put('user', username) if username
       info.put('password', password) if password
-      info.put('ssl', ssl)
       info
     end
 
@@ -46,11 +45,6 @@ class Dbt
 
     def port
       config_value("port", true) || 5432
-    end
-
-    def ssl
-      ssl = config_value("ssl", true)
-      ssl.nil? ? false : true
     end
 
     def username
