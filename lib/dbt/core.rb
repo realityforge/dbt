@@ -348,10 +348,10 @@ SQL
     end
 
     # List of modules to process for database
-     def modules
-       @modules = @modules.call if !@modules.nil? && @modules.is_a?(Proc)
-       @modules
-     end
+    def modules
+      @modules = @modules.call if !@modules.nil? && @modules.is_a?(Proc)
+      @modules
+    end
 
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
