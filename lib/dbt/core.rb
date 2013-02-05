@@ -1123,9 +1123,13 @@ TXT
   end
 
   def self.collect_resources(database, dir)
-    index_name = "#{dir}/#{Dbt::Config.index_file_name}"
+    index_name = cleanup_resource_name("#{dir}/#{Dbt::Config.index_file_name}")
     return [] unless resource_present?(database, index_name)
-    load_resource(database, index_name).split("\n").collect{|l|l.strip}
+    load_resource(database, index_name).split("\n").collect{|l|cleanup_resource_name("#{dir}/#{l.strip}")}
+  end
+
+  def self.cleanup_resource_name(value)
+    value.gsub(/\/\.\//,'/')
   end
 
   def self.collect_files(directories)
