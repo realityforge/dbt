@@ -925,7 +925,7 @@ TXT
   def self.generate_index(target_dir, files)
     unless files.empty?
       File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |f|
-        f.write files.collect { |f| File.basename(f) }.join('\n')
+        f.write files.collect { |f| File.basename(f) }.join("\n")
       end
     end
   end
