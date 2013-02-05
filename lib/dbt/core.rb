@@ -832,7 +832,6 @@ end
 
 opt_parser.parse!
 
-
 ARGV.each do |command|
   unless VALID_COMMANDS.include?(command)
     puts "Unknown command: \#{command}"
