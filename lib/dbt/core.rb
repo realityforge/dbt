@@ -540,7 +540,6 @@ SQL
     database = database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
 
-    desc "Packaging scripts of #{database.key} database"
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare"] do
       banner("Packaging Database Scripts", database.key)
       package_database(database, package_dir)
