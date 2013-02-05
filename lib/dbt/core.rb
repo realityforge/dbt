@@ -840,6 +840,11 @@ ARGV.each do |command|
   end
 end
 
+if ARGV.length == 0
+  puts "No command specified"
+  java.lang.System.exit(31)
+end
+
 database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.resource_prefix = "data"
