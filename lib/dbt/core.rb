@@ -803,6 +803,7 @@ SQL
       f << <<TXT
 require 'dbt'
 require 'optparse'
+require 'java'
 
 Dbt::Config.driver = '#{Dbt::Config.driver}'
 Dbt::Config.environment = 'production'
@@ -826,7 +827,7 @@ opt_parser = OptionParser.new do |opt|
 
   opt.on("-h","--help","help") do
     puts opt_parser
-    exit 53
+    java.lang.System.exit(53)
   end
 end
 
@@ -835,7 +836,7 @@ opt_parser.parse!
 ARGV.each do |command|
   unless VALID_COMMANDS.include?(command)
     puts "Unknown command: \#{command}"
-    exit 42
+    java.lang.System.exit(42)
   end
 end
 
