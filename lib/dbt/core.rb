@@ -944,9 +944,9 @@ TXT
       end
     end
     create_hooks = [database.pre_create_dirs, database.post_create_dirs]
-    import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }.compact
+    import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }
     database_wide_dirs = create_hooks + import_hooks
-    database_wide_dirs.each do |relative_dir_name|
+    database_wide_dirs.flatten.compact.each do |relative_dir_name|
       target_dir = "#{package_dir}/#{relative_dir_name}"
       actual_dirs = database.dirs_for_database(relative_dir_name)
       files = collect_files(actual_dirs)
