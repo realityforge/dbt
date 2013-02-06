@@ -139,22 +139,21 @@ class Dbt
     end
   end
 
+  DatabaseNameFilter = ::Struct.new('DatabaseNameFilter', :pattern, :database_key, :optional)
+  PropertyFilter = ::Struct.new('PropertyFilter', :pattern, :value)
+
   module FilterContainer
     def add_filter(&block)
       self.filters << block
     end
 
     def add_database_name_filter(pattern, database_key, optional = false)
-      add_filter do |sql|
-        Dbt.filter_database_name(sql, pattern, Dbt.config_key(database_key), optional)
-      end
+      self.filters << DatabaseNameFilter.new(pattern, database_key, optional)
     end
 
     # Filter the SQL files replacing specified pattern with specified value
     def add_property_filter(pattern, value)
-      add_filter do |sql|
-        sql.gsub(pattern, value)
-      end
+      self.filters << PropertyFilter.new(pattern, value)
     end
 
     # Makes the import scripts support statements such as
@@ -164,31 +163,58 @@ class Dbt
     #   ASSERT(@Id IS NULL)
     #
     def add_import_assert_filters
-      add_filter do |sql|
-        sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
+      @add_import_assert_filters = true
+    end
+
+    def add_import_assert_filters?
+      @add_import_assert_filters || false
+    end
+
+    def filters
+      @filters ||= []
+    end
+
+    def expanded_filters
+      filters = []
+      if add_import_assert_filters?
+        filters << Proc.new do |sql|
+          sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (SELECT COUNT(*) FROM @@SOURCE@@.@@TABLE@@)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
-        sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
+          sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
 IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (\\1)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
-        sql = sql.gsub(/ASSERT\((.+)\)/, <<SQL)
+          sql = sql.gsub(/ASSERT\((.+)\)/, <<SQL)
 IF NOT (\\1)
 BEGIN
   RAISERROR ('Failed to assert \\1', 16, 1) WITH SETERROR
 END
 SQL
-        sql
+          sql
+        end
       end
-    end
 
-    def filters
-      @filters ||= []
+      self.filters.each do |filter|
+        if filter.is_a?(PropertyFilter)
+          filters << Proc.new do |sql|
+            sql.gsub(filter.pattern, filter.value)
+          end
+        elsif filter.is_a?(DatabaseNameFilter)
+          filters << Proc.new do |sql|
+            Dbt.filter_database_name(sql, filter.pattern, Dbt.config_key(filter.database_key), filter.optional)
+          end
+        else
+          filters << filter
+        end
+      end
+
+      filters
     end
   end
 
@@ -848,6 +874,16 @@ TXT
         f << "  database.add_import_assert_filters\n"
       end
 
+      database.filters.each do |filter|
+        if filter.is_a?(PropertyFilter)
+          f << "  database.add_property_filter(#{filter.pattern.inspect}, #{filter.value.inspect})\n"
+        elsif filter.is_a?(DatabaseNameFilter)
+          f << "  database.add_database_name_filter(#{filter.pattern.inspect}, #{filter.database_key.inspect}, #{filter.optional.inspect})\n"
+        else
+          raise "Unsupported filter #{filter}"
+        end
+      end
+
       f << <<TXT
   database.enable_rake_integration = false
 end
@@ -1250,7 +1286,7 @@ TXT
   end
 
   def self.run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
-    sql = filter_sql(sql, database.filters)
+    sql = filter_sql(sql, database.expanded_filters)
     sql = sql.gsub(/@@TABLE@@/, table) if table
     sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
     sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
@@ -1423,7 +1459,7 @@ TXT
   end
 
   def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
-    sql = filter_sql(sql, database.filters)
+    sql = filter_sql(sql, database.expanded_filters)
     run_sql_batch(sql, script_file_name)
   end
 
