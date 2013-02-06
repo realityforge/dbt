@@ -242,10 +242,6 @@ SQL
       @post_import_dirs || Dbt::Config.default_post_import_dirs
     end
 
-    def filters
-      data.base.filters + @filters
-    end
-
     def validate
       self.modules.each do |module_key|
         if !database.modules.include?(module_key.to_s)
