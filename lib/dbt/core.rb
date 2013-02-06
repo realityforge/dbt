@@ -843,7 +843,12 @@ end
 database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.resource_prefix = "data"
-  database.add_import_assert_filters
+TXT
+      if database.add_import_assert_filters?
+        f << "  database.add_import_assert_filters\n"
+      end
+
+      f << <<TXT
   database.enable_rake_integration = false
 end
 
