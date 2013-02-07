@@ -170,12 +170,12 @@ class Dbt
       @add_import_assert_filters || false
     end
 
-    def add_environment_filter
-      @add_environment_filter = true
+    def add_database_environment_filter
+      @add_database_environment_filter = true
     end
 
-    def add_environment_filter?
-      @add_environment_filter || false
+    def add_database_environment_filter?
+      @add_database_environment_filter || false
     end
 
 
@@ -209,7 +209,7 @@ SQL
         end
       end
 
-      if add_environment_filter?
+      if add_database_environment_filter?
         filters << Proc.new do |sql|
             sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s)
           end
@@ -889,8 +889,8 @@ TXT
         f << "  database.add_import_assert_filters\n"
       end
 
-      if database.add_environment_filter?
-        f << "  database.add_environment_filter\n"
+      if database.add_database_environment_filter?
+        f << "  database.add_database_environment_filter\n"
       end
 
       database.filters.each do |filter|
