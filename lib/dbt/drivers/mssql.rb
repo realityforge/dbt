@@ -348,7 +348,7 @@ SQL
 SELECT COUNT(*)
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE COLUMNPROPERTY(OBJECT_ID('#{table}'), COLUMN_NAME, 'IsIdentity') = 1
-      SQL
+SQL
       select_value(sql).to_s != '0'
     end
 
