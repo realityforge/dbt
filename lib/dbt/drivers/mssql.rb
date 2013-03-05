@@ -41,24 +41,12 @@ class Dbt
       'msdb'
     end
 
-    def host
-      config_value("host", false)
-    end
-
     def instance
       config_value("instance", true)
     end
 
     def appname
       config_value("appname", true)
-    end
-
-    def username
-      config_value("username", true)
-    end
-
-    def password
-      config_value("password", true)
     end
 
     def force_drop?
@@ -360,7 +348,7 @@ SQL
 SELECT COUNT(*)
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE COLUMNPROPERTY(OBJECT_ID('#{table}'), COLUMN_NAME, 'IsIdentity') = 1
-SQL
+      SQL
       select_value(sql).to_s != '0'
     end
 
