@@ -29,6 +29,18 @@ class Dbt
       config_value("database", false)
     end
 
+    def host
+      config_value("host", false)
+    end
+
+    def username
+      config_value("username", true)
+    end
+
+    def password
+      config_value("password", true)
+    end
+
     protected
 
     def config_value(config_param_name, allow_nil)

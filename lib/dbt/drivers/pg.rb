@@ -14,6 +14,9 @@
 
 class Dbt
   class PgDbConfig < AbstractDbConfig
+    def port
+      config_value("port", true) || "5432"
+    end
   end
 
   class PgDbDriver < Dbt::DbDriver
@@ -23,13 +26,13 @@ class Dbt
       raise "Can not open database connection. Connection already open." if open?
       raise "Expected adapter = 'postgresql' but got '#{config.configuration["adapter"]}'." unless config.configuration["adapter"].eql?('postgresql')
 
-      database = use_control_database ? CONTROL_DATABASE : config.configuration["database"]
+      database = use_control_database ? CONTROL_DATABASE : config.catalog_name
 
-      @connection = PG.connect(:host => "localhost",
-                               :port => "5432",
+      @connection = PG.connect(:host => config.host,
+                               :port => config.port,
                                :dbname => database,
-                               :user => config.configuration["username"],
-                               :password => config.configuration["password"])
+                               :user => config.username,
+                               :password => config.password)
     end
 
     def execute(sql, execute_in_control_database = false)
