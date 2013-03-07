@@ -49,6 +49,12 @@ class Dbt
         @driver || 'Mssql'
       end
 
+      attr_writer :no_create
+
+      def no_create_default?
+        @no_create || false
+      end
+
       attr_writer :default_database
 
       def default_database
