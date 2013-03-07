@@ -51,7 +51,7 @@ class Dbt
 
       attr_writer :no_create
 
-      def no_create?
+      def no_create_default?
         @no_create || false
       end
 
@@ -1006,7 +1006,7 @@ TXT
 
   def self.create_database(database)
     configuration = configuration_for_database(database)
-    return if configuration.no_create? || Dbt::Config.no_create?
+    return if configuration.no_create?
     init_control_database(database.key) do
       db.drop(database, configuration)
       db.create_database(database, configuration)
