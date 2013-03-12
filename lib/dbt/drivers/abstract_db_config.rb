@@ -22,7 +22,9 @@ class Dbt
     attr_reader :configuration
 
     def no_create?
-      true == config_value("no_create",  Dbt::Config.no_create_default?)
+      no_create = config_value("no_create", true)
+      return Dbt::Config.no_create_default? if no_create.nil?
+      return true == no_create
     end
 
     def catalog_name
