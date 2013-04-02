@@ -137,6 +137,12 @@ class Dbt
         @fixture_dir_name || 'fixtures'
       end
 
+      attr_writer :datasets_dir_name
+
+      def datasets_dir_name
+        @datasets_dir_name || 'datasets'
+      end
+
       attr_writer :repository_config_file
 
       def repository_config_file
@@ -1376,7 +1382,7 @@ TXT
   end
 
   def self.load_dataset(database, module_name, dataset_name)
-    load_fixtures_from_dirs(database, module_name, "datasets/#{dataset_name}")
+    load_fixtures_from_dirs(database, module_name, "#{Dbt::Config.datasets_dir_name}/#{dataset_name}")
   end
 
   def self.load_fixtures_from_dirs(database, module_name, subdir)
