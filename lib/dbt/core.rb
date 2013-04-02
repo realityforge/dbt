@@ -802,14 +802,12 @@ SQL
       Dbt.backup(database)
     elsif /^import/ =~ command
       import_key = command[7,command.length]
-      p import_key
       import_key = Dbt::Config.default_import.to_s if import_key == ''
       database.imports.values.each do |imp|
         database_import(imp, nil) if imp.key.to_s == import_key
       end
     elsif /^create_by_import/ =~ command
       import_key = command[17,command.length]
-      p import_key
       import_key = Dbt::Config.default_import.to_s if import_key == ''
       database.imports.values.each do |imp|
         database_import(imp, nil) if imp.key.to_s == import_key
