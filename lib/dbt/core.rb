@@ -802,6 +802,9 @@ SQL
       Dbt.restore(database)
     elsif "backup" == command
       Dbt.backup(database)
+    elsif /^datasets:/ =~ command
+      dataset_name = command[9,command.length]
+      Dbt.load_datasets_for_modules(database, dataset_name)
     elsif /^import/ =~ command
       import_key = command[7,command.length]
       import_key = Dbt::Config.default_import.to_s if import_key == ''
@@ -840,6 +843,9 @@ SQL
         valid_commands << "create_by_import" if default_import?(imp.key)
       end
     end
+    database.datasets.each do |dataset|
+      valid_commands << "datasets:#{dataset}"
+    end
     mkdir_p "#{package_dir}/org/realityforge/dbt"
     File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb","w") do |f|
       f << <<TXT
@@ -876,7 +882,7 @@ end
 opt_parser.parse!
 
 ARGV.each do |command|
-  unless VALID_COMMANDS.include?(command)
+  unless VALID_COMMANDS.include?(command) || /^datasets:/ =~ command
     puts "Unknown command: \#{command}"
     java.lang.System.exit(42)
   end
@@ -890,6 +896,7 @@ end
 database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.resource_prefix = "data"
+  database.datasets = %w(#{database.datasets.join(' ')})
 TXT
       if database.add_import_assert_filters?
         f << "  database.add_import_assert_filters\n"
@@ -939,7 +946,8 @@ TXT
     mkdir_p package_dir
 
     import_dirs = database.imports.values.collect { |i| i.dir }
-    dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs
+    dataset_dirs = database.datasets.collect{ |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}"}
+    dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
     database.modules.each do |module_name|
       dirs.each do |relative_dir_name|
         relative_module_dir = "#{module_name}/#{relative_dir_name}"
@@ -950,7 +958,7 @@ TXT
         generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
         actual_dirs.each do |dir|
           if File.exist?(dir)
-            if Dbt::Config.fixture_dir_name == relative_dir_name
+            if Dbt::Config.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
               database.table_ordering(module_name).each do |table_name|
                 cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
               end
