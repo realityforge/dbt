@@ -696,11 +696,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
         banner("Loading Dataset #{dataset_name}", database.key)
-        init_database(database.key) do
-          database.modules.each do |module_name|
-            load_dataset(database, module_name, dataset_name)
-          end
-        end
+        load_datasets_for_modules( database, dataset_name )
       end
     end
 
@@ -1101,6 +1097,14 @@ TXT
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
       perform_post_create_hooks(database)
+    end
+  end
+
+  def self.load_datasets_for_modules( database, dataset_name )
+    init_database(database.key) do
+      database.modules.each do |module_name|
+        load_dataset(database, module_name, dataset_name)
+      end
     end
   end
 
