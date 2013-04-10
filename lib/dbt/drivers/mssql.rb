@@ -23,7 +23,7 @@ class Dbt
     end
 
     def jdbc_url(use_control_catalog)
-      url = "jdbc:jtds:sqlserver://#{host}/"
+      url = "jdbc:jtds:sqlserver://#{host}:#{port}/"
       url += use_control_catalog ? control_catalog_name : catalog_name
       url += ";instance=#{instance}" if instance
       url += ";appname=#{appname}" if appname
@@ -39,6 +39,10 @@ class Dbt
 
     def control_catalog_name
       'msdb'
+    end
+
+    def port
+      config_value("port", true) || 1433
     end
 
     def instance
