@@ -351,10 +351,7 @@ SQL
       imports_config = options[:imports]
       if imports_config
         imports_config.keys.each do |import_key|
-          import_config = imports_config[import_key]
-          if import_config
-            @imports[import_key] = ImportDefinition.new(self, import_key, import_config)
-          end
+          add_import(import_key, imports_config[import_key])
         end
       end
       @module_groups = {}
@@ -367,6 +364,10 @@ SQL
           end
         end
       end
+    end
+
+    def add_import(import_key, import_config)
+      @imports[import_key] = ImportDefinition.new(self, import_key, import_config)
     end
 
     def validate
