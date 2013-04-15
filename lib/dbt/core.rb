@@ -808,7 +808,7 @@ SQL
       Dbt.load_datasets_for_modules(database, dataset_name)
     elsif /^import/ =~ command
       import_key = command[7,command.length]
-      import_key = Dbt::Config.default_import.to_s if import_key == ''
+      import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
           database_import(imp, nil)
@@ -818,7 +818,7 @@ SQL
       raise "Unknown import '#{import_key}'"
     elsif /^create_by_import/ =~ command
       import_key = command[17,command.length]
-      import_key = Dbt::Config.default_import.to_s if import_key == ''
+      import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
           database_import(imp, nil)
