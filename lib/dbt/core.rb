@@ -812,6 +812,7 @@ SQL
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
           database_import(imp, nil)
+          return
         end
       end
       raise "Unknown import '#{import_key}'"
