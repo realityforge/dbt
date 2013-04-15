@@ -1563,11 +1563,8 @@ TXT
 
   def self.try_find_file_in_module(database, module_name, subdir, table, extension)
     filename = module_filename(module_name, subdir, table, extension)
-    database.search_dirs.map do |d|
-      file = "#{d}/#{filename}"
-      return file if File.exist?(file)
-    end
-    return nil
+    return nil unless resource_present?(database, filename)
+    load_resource(database, filename)
   end
 
   def self.banner(message, database_key)
