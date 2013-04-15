@@ -974,7 +974,7 @@ TXT
   def self.package_database_data(database, package_dir)
     mkdir_p package_dir
 
-    import_dirs = database.imports.values.collect { |i| i.dir }
+    import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
     dataset_dirs = database.datasets.collect{ |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}"}
     dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
     database.modules.each do |module_name|
