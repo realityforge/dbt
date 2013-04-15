@@ -810,14 +810,21 @@ SQL
       import_key = command[7,command.length]
       import_key = Dbt::Config.default_import.to_s if import_key == ''
       database.imports.values.each do |imp|
-        database_import(imp, nil) if imp.key.to_s == import_key
+        if imp.key.to_s == import_key
+          database_import(imp, nil)
+        end
       end
+      raise "Unknown import '#{import_key}'"
     elsif /^create_by_import/ =~ command
       import_key = command[17,command.length]
       import_key = Dbt::Config.default_import.to_s if import_key == ''
       database.imports.values.each do |imp|
-        database_import(imp, nil) if imp.key.to_s == import_key
+        if imp.key.to_s == import_key
+          database_import(imp, nil)
+          return
+        end
       end
+      raise "Unknown import '#{import_key}'"
     else
       raise "Unknown command '#{command}'"
     end
@@ -836,12 +843,16 @@ SQL
     valid_commands << "backup" if database.backup?
     if database.enable_separate_import_task?
       database.imports.values.each do |imp|
-        valid_commands << "import" if default_import?(imp.key)
+        command = "import"
+        command = "#{command}:#{imp.key}" unless default_import?(imp.key)
+        valid_commands << command
       end
     end
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
-        valid_commands << "create_by_import" if default_import?(imp.key)
+        command = "create_by_import"
+        command = "#{command}:#{imp.key}" unless default_import?(imp.key)
+        valid_commands << command
       end
     end
     database.datasets.each do |dataset|
@@ -920,6 +931,18 @@ TXT
         else
           raise "Unsupported filter #{filter}"
         end
+      end
+
+      database.imports.each_pair do |import_key, definition|
+        import_config = {
+          :modules => definition.modules,
+          :dir => definition.dir,
+          :reindex => definition.reindex?,
+          :shrink => definition.shrink?,
+          :pre_import_dirs => definition.pre_import_dirs,
+          :post_import_dirs => definition.post_import_dirs
+        }
+        f << "  database.add_import(:#{import_key}, #{import_config.inspect})\n"
       end
 
       f << <<TXT
