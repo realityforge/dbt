@@ -880,7 +880,12 @@ opt_parser = OptionParser.new do |opt|
   end
 end
 
-opt_parser.parse!
+begin
+  opt_parser.parse!
+rescue => e
+  puts "Error: \#{e.message}"
+  java.lang.System.exit(53)
+end
 
 ARGV.each do |command|
   unless VALID_COMMANDS.include?(command) || /^datasets:/ =~ command
