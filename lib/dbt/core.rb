@@ -821,7 +821,7 @@ SQL
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
-          database_import(imp, nil)
+          create_by_import(imp)
           return
         end
       end
