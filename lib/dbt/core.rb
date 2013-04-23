@@ -590,7 +590,7 @@ SQL
     database = database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
 
-    task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare"] do
+    task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
       banner("Packaging Database Scripts", database.key)
       package_database(database, package_dir)
     end
@@ -688,9 +688,11 @@ SQL
 
     task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
 
-    task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:pre_build"] do
+    task "#{database.task_prefix}:prepare_fs" => ["#{database.task_prefix}:pre_build"] do
       load_database_config(database)
     end
+
+    task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:prepare_fs"]
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
