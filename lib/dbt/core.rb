@@ -52,7 +52,7 @@ class Dbt
       attr_writer :no_create
 
       def no_create_default?
-        @no_create || false
+        @no_create.nil? ? false : @no_create
       end
 
       attr_writer :default_database
@@ -179,7 +179,7 @@ class Dbt
     end
 
     def add_import_assert_filters?
-      @add_import_assert_filters || false
+      @add_import_assert_filters.nil? ? false : @add_import_assert_filters
     end
 
     def add_database_environment_filter
@@ -187,7 +187,7 @@ class Dbt
     end
 
     def add_database_environment_filter?
-      @add_database_environment_filter || false
+      @add_database_environment_filter.nil? ? false : @add_database_environment_filter
     end
 
 
