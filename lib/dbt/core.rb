@@ -1208,7 +1208,7 @@ TXT
         run_sql_batch("DELETE FROM #{table}")
         ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
       end
-      if !partial_import_completed?
+      unless partial_import_completed?
         db.pre_table_import(imp, table)
         perform_import(imp.database, module_name, table, imp.dir)
         db.post_table_import(imp, table)
