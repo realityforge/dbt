@@ -143,6 +143,12 @@ class Dbt
         @datasets_dir_name || 'datasets'
       end
 
+      attr_writer :default_migrations_dir_name
+
+      def default_migrations_dir_name
+        @default_migrations_dir_name || 'migrations'
+      end
+
       attr_writer :repository_config_file
 
       def repository_config_file
@@ -341,6 +347,7 @@ SQL
 
     def initialize(key, options)
       @key = key
+      @migrations = options[:migrations] if options[:migrations]
       @backup = options[:backup] if options[:backup]
       @restore = options[:restore] if options[:restore]
       @datasets = options[:datasets] if options[:datasets]
@@ -386,6 +393,12 @@ SQL
 
     attr_writer :modules
 
+    attr_writer :migrations
+
+    def enable_migrations?
+      @migrations.nil? ? false : !!@migrations
+    end
+
     attr_writer :rake_integration
 
     def enable_rake_integration?
@@ -416,6 +429,12 @@ SQL
 
     def post_create_dirs
       @post_create_dirs || Dbt::Config.default_post_create_dirs
+    end
+
+    attr_writer :migrations_dir_name
+
+    def migrations_dir_name
+      @migrations_dir_name || Dbt::Config.default_migrations_dir_name
     end
 
     # If there is a resource path then we are loading from within the jar
@@ -709,6 +728,14 @@ SQL
       end
     end
 
+    if database.enable_migrations?
+      desc "Apply migrations to bring data to latest version"
+      task "#{database.task_prefix}:migrate" => ["#{database.task_prefix}:prepare"] do
+        banner("Migrating", database.key)
+        migrate(database)
+      end
+    end
+
     # Import tasks
     if database.enable_separate_import_task?
       database.imports.values.each do |imp|
@@ -801,6 +828,8 @@ SQL
       Dbt.create(database)
     elsif "drop" == command
       Dbt.drop(database)
+    elsif "migrate" == command
+      Dbt.migrate(database)
     elsif "restore" == command
       Dbt.restore(database)
     elsif "backup" == command
@@ -861,6 +890,9 @@ SQL
     database.datasets.each do |dataset|
       valid_commands << "datasets:#{dataset}"
     end
+
+    valid_commands << "migrate" if database.enable_migrations?
+
     mkdir_p "#{package_dir}/org/realityforge/dbt"
     File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb","w") do |f|
       f << <<TXT
@@ -950,6 +982,7 @@ TXT
 
       f << <<TXT
   database.rake_integration = false
+  database.migrations = #{database.enable_migrations?}
 end
 
 puts "Environment: \#{Dbt::Config.environment}"
@@ -1021,6 +1054,13 @@ TXT
     database.dirs_for_database('.').each do |dir|
       repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
       cp repository_file, package_dir if File.exist?(repository_file)
+    end
+    if database.enable_migrations?
+      target_dir = "#{package_dir}/#{database.migrations_dir_name}"
+      actual_dirs = database.dirs_for_database(database.migrations_dir_name)
+      files = collect_files(actual_dirs)
+      cp_files_to_dir(files, target_dir)
+      generate_index(target_dir, files)
     end
   end
 
@@ -1144,6 +1184,9 @@ TXT
       perform_create_action(database, :finalize)
       perform_post_create_hooks(database)
     end
+  end
+
+  def self.migrate(database)
   end
 
   def self.load_datasets_for_modules( database, dataset_name )
