@@ -1227,7 +1227,7 @@ TXT
   end
 
   def self.perform_create_action(database, mode)
-    database.modules.each_with_index do |module_name, idx|
+    database.modules.each do |module_name|
       create_module(database, module_name, mode)
     end
   end
