@@ -386,10 +386,10 @@ SQL
 
     attr_writer :modules
 
-    attr_writer :enable_rake_integration
+    attr_writer :rake_integration
 
     def enable_rake_integration?
-      @enable_rake_integration.nil? ? true : @enable_rake_integration
+      @rake_integration.nil? ? true : @rake_integration
     end
 
     def task_prefix
@@ -949,7 +949,7 @@ TXT
       end
 
       f << <<TXT
-  database.enable_rake_integration = false
+  database.rake_integration = false
 end
 
 puts "Environment: \#{Dbt::Config.environment}"
