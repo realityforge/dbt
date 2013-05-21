@@ -1279,7 +1279,7 @@ TXT
     end
     duplicates = file_map.reject { |basename, filenames| filenames.size == 1 }.values
 
-    if !duplicates.empty?
+    unless duplicates.empty?
       raise "Files with duplicate basename not allowed.\n\t#{duplicates.collect{|filenames| filenames.join("\n\t")}.join("\n\t")}"
     end
 
