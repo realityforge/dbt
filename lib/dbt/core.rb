@@ -399,6 +399,12 @@ SQL
       @migrations.nil? ? false : !!@migrations
     end
 
+    attr_writer :migrations_applied_at_create
+
+    def assume_migrations_applied_at_create?
+      @migrations_applied_at_create.nil? ? true : @migrations_applied_at_create
+    end
+
     attr_writer :rake_integration
 
     def enable_rake_integration?
@@ -1132,6 +1138,7 @@ TXT
       perform_import_action(imp, false, nil)
       perform_create_action(database, :finalize)
       perform_post_create_hooks(database)
+      perform_post_create_migrations_setup(database)
     end
   end
 
@@ -1183,10 +1190,41 @@ TXT
       perform_create_action(database, :up)
       perform_create_action(database, :finalize)
       perform_post_create_hooks(database)
+      perform_post_create_migrations_setup(database)
     end
   end
 
   def self.migrate(database)
+    init_database(database.key) do
+      perform_migration(database, :perform)
+    end
+  end
+
+  def self.perform_post_create_migrations_setup(database)
+    if database.enable_migrations?
+      db.setup_migrations
+      if database.assume_migrations_applied_at_create?
+        perform_migration(database, :record)
+      else
+        perform_migration(database)
+      end
+    end
+  end
+
+  def self.perform_migration(database, action)
+    files =
+      if database.load_from_classloader?
+        collect_resources(database, database.migrations_dir_name)
+      else
+        collect_files(database.dirs_for_database(database.migrations_dir_name))
+      end
+    files.each do |filename|
+      migration_name = File.basename(filename, '.sql')
+      if db.should_migrate?(database.key.to_s, migration_name)
+        run_sql_file(database, "Migration: ", filename, false) unless :record == action
+        db.mark_migration_as_run(database.key.to_s, migration_name)
+      end
+    end
   end
 
   def self.load_datasets_for_modules( database, dataset_name )
@@ -1716,6 +1754,18 @@ TXT
     end
 
     def restore(database, configuration)
+      raise NotImplementedError
+    end
+
+    def setup_migrations
+      raise NotImplementedError
+    end
+
+    def should_migrate?(namespace, migration_name)
+      raise NotImplementedError
+    end
+
+    def mark_migration_as_run(namespace, migration_name)
       raise NotImplementedError
     end
 
