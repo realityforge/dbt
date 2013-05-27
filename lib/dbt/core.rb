@@ -621,7 +621,7 @@ SQL
     end
     buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
     buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
-    jar = buildr_project.package(:jar) do |jar|
+    jar = buildr_project.package(:jar) do |j|
     end
     dependencies =
       ["org.jruby:jruby-complete:jar:#{JRUBY_VERSION}"] +
@@ -1072,8 +1072,8 @@ TXT
 
   def self.generate_index(target_dir, files)
     unless files.empty?
-      File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |f|
-        f.write files.collect { |f| File.basename(f) }.join("\n")
+      File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |index_file|
+        index_file.write files.collect { |f| File.basename(f) }.join("\n")
       end
     end
   end
