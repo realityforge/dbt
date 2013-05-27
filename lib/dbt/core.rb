@@ -812,7 +812,7 @@ SQL
     task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:prepare"] do
-      banner("Importing Database#{is_default_import ? '' :" (#{imp.key})"}", imp.database.key)
+      banner("Importing Database#{is_default_import ? '' : " (#{imp.key})"}", imp.database.key)
       database_import(imp, module_group)
     end
   end
