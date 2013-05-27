@@ -6,6 +6,7 @@ PATH
 GEM
   remote: http://rubygems.org/
   specs:
+    minitest (5.0.2)
     rake (10.0.4)
 
 PLATFORMS
@@ -14,4 +15,5 @@ PLATFORMS
 
 DEPENDENCIES
   dbt!
+  minitest (>= 5.0.2)
   rake
