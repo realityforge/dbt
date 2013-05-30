@@ -9,7 +9,7 @@ require 'minitest/autorun'
 require 'dbt'
 require 'tmpdir'
 
-class Dbt::TestCase < MiniTest::Unit::TestCase
+class Dbt::TestCase < Minitest::Test
   def setup
   end
 
