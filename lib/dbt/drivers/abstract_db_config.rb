@@ -23,7 +23,7 @@ class Dbt
 
     def no_create?
       no_create = config_value("no_create", true)
-      return Dbt::Config.no_create_default? if no_create.nil?
+      return Dbt::Config.default_no_create? if no_create.nil?
       return true == no_create
     end
 
