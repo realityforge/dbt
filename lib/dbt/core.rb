@@ -30,6 +30,24 @@ class Dbt
 
   class Config
 
+    @datasets_dir_name = nil
+    @repository_config_file = nil
+    @default_up_dirs = nil
+    @default_down_dirs = nil
+    @default_finalize_dirs = nil
+    @default_pre_create_dirs = nil
+    @default_post_create_dirs = nil
+    @default_pre_import_dirs = nil
+    @default_post_import_dirs = nil
+    @index_file_name = nil
+    @default_import = nil
+    @fixture_dir_name = nil
+    @environment = nil
+    @driver = nil
+    @default_migrations_dir_name = nil
+    @default_database = nil
+    @task_prefix = nil
+
     class << self
       attr_writer :environment
 
@@ -347,12 +365,20 @@ SQL
 
     def initialize(key, options)
       @key = key
-      @migrations = options[:migrations] if options[:migrations]
-      @backup = options[:backup] if options[:backup]
-      @restore = options[:restore] if options[:restore]
-      @datasets = options[:datasets] if options[:datasets]
+      @migrations = options[:migrations]
+      @backup = options[:backup]
+      @restore = options[:restore]
+      @datasets = options[:datasets]
       raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
       raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
+      @resource_prefix = nil
+      @up_dirs = nil
+      @down_dirs = nil
+      @finalize_dirs = nil
+      @pre_create_dirs = nil
+      @post_create_dirs = nil
+      @search_dirs = nil
+      @migrations_dir_name = nil
 
       @imports = {}
       imports_config = options[:imports]
