@@ -399,20 +399,14 @@ SQL
       self.options = options
 
       @imports = {}
-      if imports_config
-        imports_config.keys.each do |import_key|
-          add_import(import_key, imports_config[import_key])
-        end
-      end
+      imports_config.keys.each do |import_key|
+        add_import(import_key, imports_config[import_key])
+      end if imports_config
       @module_groups = {}
-      if module_groups_config
-        module_groups_config.keys.each do |module_group_key|
-          module_group_config = module_groups_config[module_group_key]
-          if module_group_config
-            @module_groups[module_group_key] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
-          end
-        end
-      end
+      module_groups_config.keys.each do |module_group_key|
+        @module_groups[module_group_key] =
+          ModuleGroupDefinition.new(self, module_group_key, module_groups_config[module_group_key])
+      end if module_groups_config
     end
 
     def options=(options)
