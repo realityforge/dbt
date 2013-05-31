@@ -363,7 +363,7 @@ SQL
   class DatabaseDefinition
     include FilterContainer
 
-    def initialize(key, options)
+    def initialize(key, options, &block)
       @key = key
       options = options.dup
       imports_config = options.delete(:imports)
@@ -401,6 +401,8 @@ SQL
       module_groups_config.keys.each do |module_group_key|
         add_module_group(module_group_key, module_groups_config[module_group_key])
       end if module_groups_config
+
+      yield self if block_given?
     end
 
     def options=(options)
@@ -643,13 +645,11 @@ SQL
     @@database_driver_hooks << block
   end
 
-  def self.add_database(database_key, options = {})
+  def self.add_database(database_key, options = {}, &block)
     raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
 
-    database = DatabaseDefinition.new(database_key, options)
+    database = DatabaseDefinition.new(database_key, options, &block)
     @@databases[database_key] = database
-
-    yield database if block_given?
 
     define_tasks_for_database(database) if database.enable_rake_integration?
 
