@@ -371,6 +371,7 @@ SQL
 
       @migrations = nil
       @backup = nil
+      @modules = nil
       @restore = nil
       @datasets = nil
       @resource_prefix = nil
