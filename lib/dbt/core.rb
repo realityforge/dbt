@@ -404,8 +404,7 @@ SQL
       end if imports_config
       @module_groups = {}
       module_groups_config.keys.each do |module_group_key|
-        @module_groups[module_group_key] =
-          ModuleGroupDefinition.new(self, module_group_key, module_groups_config[module_group_key])
+        add_module_group(module_group_key, module_groups_config[module_group_key])
       end if module_groups_config
     end
 
@@ -422,6 +421,10 @@ SQL
 
     def add_import(import_key, import_config)
       @imports[import_key] = ImportDefinition.new(self, import_key, import_config)
+    end
+
+    def add_module_group(module_group_key, module_group_config)
+      @module_groups[module_group_key] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
     end
 
     def validate
