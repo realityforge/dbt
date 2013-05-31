@@ -380,6 +380,10 @@ SQL
       @search_dirs = nil
       @migrations_dir_name = nil
       @migrations_applied_at_create = nil
+      @rake_integration = nil
+      @separate_import_task = nil
+      @import_task_as_part_of_create = nil
+      @schema_overrides = nil
 
       @imports = {}
       imports_config = options[:imports]
