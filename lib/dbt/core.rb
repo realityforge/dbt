@@ -379,6 +379,7 @@ SQL
       @post_create_dirs = nil
       @search_dirs = nil
       @migrations_dir_name = nil
+      @migrations_applied_at_create = nil
 
       @imports = {}
       imports_config = options[:imports]
@@ -428,7 +429,7 @@ SQL
     attr_writer :migrations_applied_at_create
 
     def assume_migrations_applied_at_create?
-      @migrations_applied_at_create.nil? ? true : @migrations_applied_at_create
+      @migrations_applied_at_create.nil? ? enable_migrations? : @migrations_applied_at_create
     end
 
     attr_writer :rake_integration
