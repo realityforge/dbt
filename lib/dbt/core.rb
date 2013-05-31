@@ -363,12 +363,6 @@ SQL
   class DatabaseDefinition
     include FilterContainer
 
-    def initialize(options = {})
-      self.options = options
-      yield self if block_given?
-    end
-
-
     def initialize(key, options)
       @key = key
       options = options.dup
