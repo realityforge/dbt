@@ -363,17 +363,22 @@ SQL
   class DatabaseDefinition
     include FilterContainer
 
+    def initialize(options = {})
+      self.options = options
+      yield self if block_given?
+    end
+
+
     def initialize(key, options)
       @key = key
       options = options.dup
       imports_config = options.delete(:imports)
       module_groups_config = options.delete(:module_groups)
-      @migrations = options[:migrations]
-      @backup = options[:backup]
-      @restore = options[:restore]
-      @datasets = options[:datasets]
-      raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
-      raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
+
+      @migrations = nil
+      @backup = nil
+      @restore = nil
+      @datasets = nil
       @resource_prefix = nil
       @up_dirs = nil
       @down_dirs = nil
@@ -387,6 +392,11 @@ SQL
       @separate_import_task = nil
       @import_task_as_part_of_create = nil
       @schema_overrides = nil
+
+      raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
+      raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
+
+      self.options = options
 
       @imports = {}
       if imports_config
@@ -402,6 +412,17 @@ SQL
             @module_groups[module_group_key] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
           end
         end
+      end
+    end
+
+    def options=(options)
+      options.each_pair do |k, v|
+        keys = k.to_s.split('.')
+        target = self
+        keys[0, keys.length - 1].each do |target_accessor_key|
+          target = target.send target_accessor_key.to_sym
+        end
+        target.send "#{keys.last}=", v
       end
     end
 
