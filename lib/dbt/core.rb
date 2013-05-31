@@ -422,8 +422,6 @@ SQL
     # List of module_groups configs
     attr_reader :module_groups
 
-    attr_writer :modules
-
     attr_writer :migrations
 
     def enable_migrations?
@@ -446,6 +444,8 @@ SQL
       raise "task_prefix invoked" unless enable_rake_integration?
       "#{Dbt::Config.task_prefix}#{Dbt.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
+
+    attr_writer :modules
 
     # List of modules to process for database
     def modules
