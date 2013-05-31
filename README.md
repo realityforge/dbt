@@ -1,6 +1,8 @@
 dbt
 ===
 
+[![Build Status](https://secure.travis-ci.org/realityforge/dbt.png?branch=master)](http://travis-ci.org/realityforge/dbt)
+
 The dbt plugin is designed to simplify the creation, migration and deletion of databases. Each database contains a number of _modules_ that are loaded and migrated in a specific order. Each _module_ is stored in a directory with the same name as the _module_ key used when defining the database.
 
 Database Creation
