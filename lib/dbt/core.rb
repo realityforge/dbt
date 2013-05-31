@@ -518,16 +518,16 @@ SQL
       @datasets || []
     end
 
-    attr_writer :enable_separate_import_task
+    attr_writer :separate_import_task
 
     def enable_separate_import_task?
-      @enable_separate_import_task.nil? ? false : @enable_separate_import_task
+      @separate_import_task.nil? ? false : @separate_import_task
     end
 
-    attr_writer :enable_import_task_as_part_of_create
+    attr_writer :import_task_as_part_of_create
 
     def enable_import_task_as_part_of_create?
-      @enable_import_task_as_part_of_create.nil? ? false : @enable_import_task_as_part_of_create
+      @import_task_as_part_of_create.nil? ? false : @import_task_as_part_of_create
     end
 
     attr_writer :backup
