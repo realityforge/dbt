@@ -365,6 +365,9 @@ SQL
 
     def initialize(key, options)
       @key = key
+      options = options.dup
+      imports_config = options.delete(:imports)
+      module_groups_config = options.delete(:module_groups)
       @migrations = options[:migrations]
       @backup = options[:backup]
       @restore = options[:restore]
@@ -386,14 +389,12 @@ SQL
       @schema_overrides = nil
 
       @imports = {}
-      imports_config = options[:imports]
       if imports_config
         imports_config.keys.each do |import_key|
           add_import(import_key, imports_config[import_key])
         end
       end
       @module_groups = {}
-      module_groups_config = options[:module_groups]
       if module_groups_config
         module_groups_config.keys.each do |module_group_key|
           module_group_config = module_groups_config[module_group_key]
