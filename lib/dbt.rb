@@ -20,6 +20,7 @@ require 'dbt/core'
 
 require 'dbt/drivers/abstract_db_config'
 require 'dbt/drivers/jdbc'
+require 'dbt/drivers/dialect/sql_server'
 require 'dbt/drivers/mssql'
 require 'dbt/drivers/dialect/postgres'
 require 'dbt/drivers/postgres'
