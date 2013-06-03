@@ -28,11 +28,13 @@ class Dbt
 
       database = use_control_database ? CONTROL_DATABASE : config.catalog_name
 
-      @connection = PG.connect(:host => config.host,
-                               :port => config.port,
-                               :dbname => database,
-                               :user => config.username,
-                               :password => config.password)
+      require 'pg'
+
+      @connection = ::PG.connect(:host => config.host,
+                                 :port => config.port,
+                                 :dbname => database,
+                                 :user => config.username,
+                                 :password => config.password)
     end
 
     def execute(sql, execute_in_control_database = false)
