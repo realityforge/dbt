@@ -625,9 +625,41 @@ SQL
     end
   end
 
+  class Repository
+
+    def initialize
+      @databases = {}
+    end
+
+    def database_keys
+      @databases.keys
+    end
+
+    def database_for_key(database_key)
+      database = @databases[database_key]
+      raise "Missing database for key #{database_key}" unless database
+      database
+    end
+
+    def add_database(database_key, options = {}, &block)
+      raise "Database with key #{database_key} already defined." if @databases.has_key?(database_key)
+
+      database = DatabaseDefinition.new(database_key, options, &block)
+      @databases[database_key] = database
+
+      database
+    end
+
+    def remove_database(database_key)
+      raise "Database with key #{database_key} not defined." unless @databases.has_key?(database_key)
+      @databases.delete(database_key)
+    end
+
+  end
+
   @@defined_init_tasks = false
   @@database_driver_hooks = []
-  @@databases = {}
+  @@repository = Repository.new
   @@configurations = {}
   @@configuration_data = {}
 
@@ -644,14 +676,11 @@ SQL
   end
 
   def self.database_keys
-    @@databases.keys
+    @@repository.database_keys
   end
 
   def self.add_database(database_key, options = {}, &block)
-    raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
-
-    database = DatabaseDefinition.new(database_key, options, &block)
-    @@databases[database_key] = database
+    database = @@repository.add_database(database_key, options, &block)
 
     define_tasks_for_database(database) if database.enable_rake_integration?
 
@@ -659,8 +688,7 @@ SQL
   end
 
   def self.remove_database(database_key)
-    raise "Database with key #{database_key} not defined." unless @@databases.has_key?(database_key)
-    @@databases.delete(database_key)
+    @@repository.remove_database(database_key)
   end
 
   def self.define_database_package(database_key, buildr_project, options = {})
@@ -740,9 +768,7 @@ SQL
   end
 
   def self.database_for_key(database_key)
-    database = @@databases[database_key]
-    raise "Missing database for key #{database_key}" unless database
-    database
+    @@repository.database_for_key(database_key)
   end
 
   def self.configuration_for_database(database)
