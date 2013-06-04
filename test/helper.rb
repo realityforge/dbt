@@ -43,6 +43,7 @@ class Dbt::TestCase < Minitest::Test
     Dbt.database_keys.each do |database_key|
       Dbt.remove_database(database_key)
     end
+    Dbt.reset_configuration
   end
 
   # Create a file with specified content relative to working directory

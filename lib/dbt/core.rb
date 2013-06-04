@@ -1526,6 +1526,10 @@ TXT
     @@repository.load_configuration_data(Dbt::Config.config_filename)
   end
 
+  def self.reset_configuration
+    @@repository.configuration_data = nil
+  end
+
   def self.config_key(database_key, env = Dbt::Config.environment)
     default_database?(database_key) ? env : "#{database_key}_#{env}"
   end
