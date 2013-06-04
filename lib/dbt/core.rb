@@ -278,8 +278,8 @@ SQL
 
       if add_database_environment_filter?
         filters << Proc.new do |sql|
-            sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s)
-          end
+          sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s)
+        end
       end
 
       self.filters.each do |filter|
@@ -423,8 +423,8 @@ SQL
     end
 
     def validate
-      @imports.values.each {|d| d.validate}
-      @module_groups.values.each {|d| d.validate}
+      @imports.values.each { |d| d.validate }
+      @module_groups.values.each { |d| d.validate }
     end
 
     # symbolic name of database
@@ -745,7 +745,7 @@ SQL
     end
     jar.include "#{package_dir}/code", :as => '.'
     jar.include "#{package_dir}/data"
-    jar.with :manifest => buildr_project.manifest.merge('Main-Class'=>'org.realityforge.dbt.dbtcli')
+    jar.with :manifest => buildr_project.manifest.merge('Main-Class' => 'org.realityforge.dbt.dbtcli')
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
@@ -831,7 +831,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
         banner("Loading Dataset #{dataset_name}", database.key)
-        load_datasets_for_modules( database, dataset_name )
+        load_datasets_for_modules(database, dataset_name)
       end
     end
 
@@ -942,10 +942,10 @@ SQL
     elsif "backup" == command
       Dbt.backup(database)
     elsif /^datasets:/ =~ command
-      dataset_name = command[9,command.length]
+      dataset_name = command[9, command.length]
       Dbt.load_datasets_for_modules(database, dataset_name)
     elsif /^import/ =~ command
-      import_key = command[7,command.length]
+      import_key = command[7, command.length]
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
@@ -955,7 +955,7 @@ SQL
       end
       raise "Unknown import '#{import_key}'"
     elsif /^create_by_import/ =~ command
-      import_key = command[17,command.length]
+      import_key = command[17, command.length]
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
@@ -977,7 +977,7 @@ SQL
 
   def self.package_database_code(database, package_dir)
     mkdir_p package_dir
-    valid_commands = ["create","drop"]
+    valid_commands = ["create", "drop"]
     valid_commands << "restore" if database.restore?
     valid_commands << "backup" if database.backup?
     if database.enable_separate_import_task?
@@ -1001,7 +1001,7 @@ SQL
     valid_commands << "migrate" if database.enable_migrations?
 
     mkdir_p "#{package_dir}/org/realityforge/dbt"
-    File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb","w") do |f|
+    File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb", "w") do |f|
       f << <<TXT
 require 'dbt'
 require 'optparse'
@@ -1104,7 +1104,7 @@ ARGV.each do |command|
 end
 TXT
     end
-    sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir,Dir.pwd)} #{::Buildr::Util.relative_path(package_dir,Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
+    sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 
@@ -1118,7 +1118,7 @@ TXT
     mkdir_p package_dir
 
     import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
-    dataset_dirs = database.datasets.collect{ |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}"}
+    dataset_dirs = database.datasets.collect { |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}" }
     dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
     database.modules.each do |module_name|
       dirs.each do |relative_dir_name|
