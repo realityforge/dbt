@@ -1,10 +1,12 @@
 $:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'minitest/autorun'
+require 'test/unit/assertions'
 require 'dbt'
 require 'tmpdir'
 
 class Dbt::TestCase < Minitest::Test
+  include Test::Unit::Assertions
 
   def setup
     Dbt::Config.default_search_dirs = nil
