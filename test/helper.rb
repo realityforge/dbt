@@ -5,6 +5,7 @@ require 'dbt'
 require 'tmpdir'
 
 class Dbt::TestCase < Minitest::Test
+
   def setup
     Dbt::Config.default_search_dirs = nil
     Dbt::Config.default_no_create = nil
@@ -26,8 +27,16 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_migrations_dir_name = nil
     Dbt::Config.default_database = nil
     Dbt::Config.task_prefix = nil
+
+    @cwd = Dir.pwd
+    @base_temp_dir = ENV["TEST_TMP_DIR"] || File.expand_path("#{File.dirname(__FILE__)}/../tmp")
+    @temp_dir = "#{@base_temp_dir}/#{name}"
+    FileUtils.mkdir_p @temp_dir
+    Dir.chdir(@temp_dir)
   end
 
   def teardown
+    Dir.chdir(@cwd)
+    FileUtils.rm_rf @base_temp_dir if File.exist?(@base_temp_dir)
   end
 end
