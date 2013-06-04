@@ -39,4 +39,8 @@ class Dbt::TestCase < Minitest::Test
     Dir.chdir(@cwd)
     FileUtils.rm_rf @base_temp_dir if File.exist?(@base_temp_dir)
   end
+
+  def working_dir
+    @temp_dir
+  end
 end
