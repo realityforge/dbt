@@ -1693,10 +1693,6 @@ TXT
     @@repository.configuration_for_key(config_key)
   end
 
-  def self.configuration_data
-    @@repository.configuration_data
-  end
-
   def self.configuration_data=(configuration_data)
     @@repository.configuration_data = configuration_data
   end
