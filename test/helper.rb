@@ -40,6 +40,9 @@ class Dbt::TestCase < Minitest::Test
   def teardown
     Dir.chdir(@cwd)
     FileUtils.rm_rf @base_temp_dir if File.exist?(@base_temp_dir)
+    Dbt.database_keys.each do |database_key|
+      Dbt.remove_database(database_key)
+    end
   end
 
   def working_dir

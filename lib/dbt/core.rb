@@ -640,6 +640,10 @@ SQL
     @@database_driver_hooks << block
   end
 
+  def self.database_keys
+    @@databases.keys
+  end
+
   def self.add_database(database_key, options = {}, &block)
     raise "Database with key #{database_key} already defined." if @@databases.has_key?(database_key)
 
@@ -649,6 +653,11 @@ SQL
     define_tasks_for_database(database) if database.enable_rake_integration?
 
     database
+  end
+
+  def self.remove_database(database_key)
+    raise "Database with key #{database_key} not defined." unless @@databases.has_key?(database_key)
+    @@databases.delete(database_key)
   end
 
   def self.define_database_package(database_key, buildr_project, options = {})
