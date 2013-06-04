@@ -39,20 +39,8 @@ class Dbt
       'postgres'
     end
 
-    def host
-      config_value("host", false)
-    end
-
     def port
       config_value("port", true) || 5432
-    end
-
-    def username
-      config_value("username", true)
-    end
-
-    def password
-      config_value("password", true)
     end
   end
 
