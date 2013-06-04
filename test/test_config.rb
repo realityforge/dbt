@@ -49,4 +49,10 @@ class TestConfig < Dbt::TestCase
     Dbt::Config.default_no_create = true
     assert_equal Dbt::Config.default_no_create?, true
   end
+
+  def test_default_database?
+    Dbt::Config.default_database = :foo
+    assert_equal Dbt::Config.default_database?(:foo), true
+    assert_equal Dbt::Config.default_database?(:bar), false
+  end
 end

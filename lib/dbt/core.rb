@@ -79,6 +79,10 @@ class Dbt
         @default_database || :default
       end
 
+      def default_database?(database_key)
+        database_key.to_s == default_database.to_s
+      end
+
       attr_writer :default_import
 
       def default_import
