@@ -196,6 +196,15 @@ class Dbt
     end
   end
 
+  class DatabaseElement < BaseElement
+
+    def initialize(database, key, options, &block)
+      @database = database
+      super(key, options, &block)
+    end
+
+    attr_reader :database
+  end
 
   DatabaseNameFilter = ::Struct.new('DatabaseNameFilter', :pattern, :database_key, :optional)
   PropertyFilter = ::Struct.new('PropertyFilter', :pattern, :value)
@@ -291,16 +300,13 @@ SQL
     end
   end
 
-  class ImportDefinition < BaseElement
+  class ImportDefinition < DatabaseElement
     include FilterContainer
 
     def initialize(database, key, options, &block)
-      @database = database
       @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs = nil
-      super(key, options, &block)
+      super(database, key, options, &block)
     end
-
-    attr_reader :database
 
     attr_writer :modules
 
@@ -349,15 +355,12 @@ SQL
     end
   end
 
-  class ModuleGroupDefinition < BaseElement
+  class ModuleGroupDefinition < DatabaseElement
 
     def initialize(database, key, options, &block)
-      @database = database
       @modules = @import_enabled = nil
-      super(key, options, &block)
+      super(database, key, options, &block)
     end
-
-    attr_reader :database
 
     attr_writer :modules
 
