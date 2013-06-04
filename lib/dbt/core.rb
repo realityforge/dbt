@@ -175,6 +175,28 @@ class Dbt
     end
   end
 
+  class BaseElement
+    attr_reader :key
+
+    def initialize(key, options, &block)
+      @key = key
+      self.options = options
+      yield self if block_given?
+    end
+
+    def options=(options)
+      options.each_pair do |k, v|
+        keys = k.to_s.split('.')
+        target = self
+        keys[0, keys.length - 1].each do |target_accessor_key|
+          target = target.send target_accessor_key.to_sym
+        end
+        target.send "#{keys.last}=", v
+      end
+    end
+  end
+
+
   DatabaseNameFilter = ::Struct.new('DatabaseNameFilter', :pattern, :database_key, :optional)
   PropertyFilter = ::Struct.new('PropertyFilter', :pattern, :value)
 
@@ -269,26 +291,24 @@ SQL
     end
   end
 
-  class ImportDefinition
+  class ImportDefinition < BaseElement
     include FilterContainer
 
-    def initialize(database, key, options)
+    def initialize(database, key, options, &block)
       @database = database
-      @key = key
-      @modules = options[:modules]
-      @dir = options[:dir]
-      @reindex = options[:reindex]
-      @shrink = options[:shrink]
-      @pre_import_dirs = options[:pre_import_dirs]
-      @post_import_dirs = options[:post_import_dirs]
+      @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs = nil
+      super(key, options, &block)
     end
 
-    attr_accessor :database
-    attr_accessor :key
+    attr_reader :database
+
+    attr_writer :modules
 
     def modules
       @modules || database.modules
     end
+
+    attr_writer :dir
 
     def dir
       @dir || "import"
@@ -329,17 +349,15 @@ SQL
     end
   end
 
-  class ModuleGroupDefinition
+  class ModuleGroupDefinition < BaseElement
 
-    def initialize(database, key, options)
+    def initialize(database, key, options, &block)
       @database = database
-      @key = key
-      @modules = options[:modules]
-      @import_enabled = options[:import_enabled]
+      @modules = @import_enabled = nil
+      super(key, options, &block)
     end
 
-    attr_accessor :database
-    attr_accessor :key
+    attr_reader :database
 
     attr_writer :modules
 
@@ -347,6 +365,8 @@ SQL
       raise "Missing modules configuration for module_group #{key}" unless @modules
       @modules
     end
+
+    attr_writer :import_enabled
 
     def import_enabled?
       @import_enabled.nil? ? false : @import_enabled
@@ -361,7 +381,7 @@ SQL
     end
   end
 
-  class DatabaseDefinition
+  class DatabaseDefinition < BaseElement
     include FilterContainer
 
     def initialize(key, options, &block)
@@ -369,30 +389,6 @@ SQL
       options = options.dup
       imports_config = options.delete(:imports)
       module_groups_config = options.delete(:module_groups)
-
-      @migrations = nil
-      @backup = nil
-      @modules = nil
-      @restore = nil
-      @datasets = nil
-      @resource_prefix = nil
-      @up_dirs = nil
-      @down_dirs = nil
-      @finalize_dirs = nil
-      @pre_create_dirs = nil
-      @post_create_dirs = nil
-      @search_dirs = nil
-      @migrations_dir_name = nil
-      @migrations_applied_at_create = nil
-      @rake_integration = nil
-      @separate_import_task = nil
-      @import_task_as_part_of_create = nil
-      @schema_overrides = nil
-
-      raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
-      raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
-
-      self.options = options
 
       @imports = {}
       imports_config.keys.each do |import_key|
@@ -403,18 +399,16 @@ SQL
         add_module_group(module_group_key, module_groups_config[module_group_key])
       end if module_groups_config
 
-      yield self if block_given?
-    end
+      @migrations = @backup = @modules = @restore = @datasets = @resource_prefix =
+        @up_dirs = @down_dirs = @finalize_dirs = @pre_create_dirs = @post_create_dirs =
+          @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
+            @rake_integration = @separate_import_task = @import_task_as_part_of_create =
+              @schema_overrides = nil
 
-    def options=(options)
-      options.each_pair do |k, v|
-        keys = k.to_s.split('.')
-        target = self
-        keys[0, keys.length - 1].each do |target_accessor_key|
-          target = target.send target_accessor_key.to_sym
-        end
-        target.send "#{keys.last}=", v
-      end
+      raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
+      raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
+
+      super(key, options, &block)
     end
 
     def add_import(import_key, import_config)
