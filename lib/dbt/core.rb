@@ -629,6 +629,8 @@ SQL
 
     def initialize
       @databases = {}
+      @configurations = {}
+      @configuration_data = {}
     end
 
     def database_keys
@@ -655,13 +657,28 @@ SQL
       @databases.delete(database_key)
     end
 
+    def configuration_for_key?(config_key)
+      !!@configuration_data[config_key.to_s]
+    end
+
+    def configuration_for_key(config_key)
+      existing = @configurations[config_key.to_s]
+      return existing if existing
+      c = @configuration_data[config_key.to_s]
+      raise "Missing config for #{config_key}" unless c
+      configuration = Dbt.const_get("#{Dbt::Config.driver}DbConfig").new(c)
+      @configurations[config_key.to_s] = configuration
+    end
+
+    def configuration_data=(configuration_data)
+      @configurations = {}
+      @configuration_data = configuration_data.nil? ? {} : configuration_data
+    end
   end
 
   @@defined_init_tasks = false
   @@database_driver_hooks = []
   @@repository = Repository.new
-  @@configurations = {}
-  @@configuration_data = {}
 
   def self.init_database(database_key, &block)
     setup_connection(database_key, false, &block)
@@ -726,7 +743,7 @@ SQL
   end
 
   def self.filter_database_name(sql, pattern, config_key, optional = true)
-    return sql if optional && self.configuration_data[config_key].nil?
+    return sql if optional && !@@repository.configuration_for_key?(config_key)
     sql.gsub(pattern, configuration_for_key(config_key).catalog_name)
   end
 
@@ -1673,21 +1690,15 @@ TXT
   end
 
   def self.configuration_for_key(config_key)
-    existing = @@configurations[config_key.to_s]
-    return existing if existing
-    c = self.configuration_data[config_key.to_s]
-    raise "Missing config for #{config_key}" unless c
-    configuration = Dbt.const_get("#{Dbt::Config.driver}DbConfig").new(c)
-    @@configurations[config_key.to_s] = configuration
+    @@repository.configuration_for_key(config_key)
   end
 
   def self.configuration_data
-    @@configuration_data
+    @@repository.configuration_data
   end
 
   def self.configuration_data=(configuration_data)
-    @@configuration_data = configuration_data
-    @@configurations = {}
+    @@repository.configuration_data = configuration_data
   end
 
   def self.run_filtered_sql_batch(database, sql, script_file_name = nil)

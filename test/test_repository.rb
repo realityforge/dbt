@@ -31,4 +31,43 @@ class TestRepository < Dbt::TestCase
     end
   end
 
+  def test_database_configurations
+    repository = Dbt::Repository.new
+
+    assert_equal repository.configuration_for_key?(:development), false
+
+    repository.configuration_data = {
+      'development' =>
+        {
+          'database' => 'DBT_TEST',
+          'username' => 'postgres',
+          'password' => 'mypass',
+          'host' => '127.0.0.1',
+          'port' => 5432
+        }
+    }
+    assert_equal repository.configuration_for_key?(:development), true
+
+    Dbt::Config.driver = 'Pg'
+
+    config = repository.configuration_for_key(:development)
+
+    assert config.is_a?(Dbt::PgDbConfig)
+
+    assert config.host, '127.0.0.1'
+    assert config.port, 5432
+    assert config.catalog_name, 'DBT_TEST'
+    assert config.username, 'postgres'
+    assert config.password, 'mypass'
+
+    assert repository.configuration_for_key(:development) == repository
+
+    repository.configuration_data = nil
+
+    assert_equal repository.configuration_for_key?(:development), false
+
+    assert_raises(RuntimeError) do
+      repository.configuration_for_key(:development)
+    end
+  end
 end
