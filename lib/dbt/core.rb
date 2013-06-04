@@ -278,6 +278,7 @@ SQL
       @modules = options[:modules]
       @dir = options[:dir]
       @reindex = options[:reindex]
+      @shrink = options[:shrink]
       @pre_import_dirs = options[:pre_import_dirs]
       @post_import_dirs = options[:post_import_dirs]
     end
