@@ -14,6 +14,11 @@
 
 class Dbt
   class PgDbConfig < AbstractDbConfig
+
+    def control_catalog_name
+      'postgres'
+    end
+
     def port
       config_value("port", true) || "5432"
     end
