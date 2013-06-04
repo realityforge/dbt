@@ -70,4 +70,29 @@ class TestRepository < Dbt::TestCase
       repository.configuration_for_key(:development)
     end
   end
+
+  def test_database_configuration_load
+    repository = Dbt::Repository.new
+
+    database_yml = create_file("database.yml", <<-DATABASE_YML)
+development:
+  database: DBT_TEST
+  username: <%= 'postgres' %>
+  password: <%= 'mypass' %>
+  host: 127.0.0.1
+  port: 5432
+    DATABASE_YML
+
+    repository.load_configuration_data(database_yml)
+
+    assert_equal repository.configuration_for_key?(:development), true
+    Dbt::Config.driver = 'Pg'
+
+    config = repository.configuration_for_key(:development)
+    assert_equal config.host, '127.0.0.1'
+    assert_equal config.port, 5432
+    assert_equal config.catalog_name, 'DBT_TEST'
+    assert_equal config.username, 'postgres'
+    assert_equal config.password, 'mypass'
+  end
 end

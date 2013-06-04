@@ -670,6 +670,12 @@ SQL
       @configurations[config_key.to_s] = configuration
     end
 
+    def load_configuration_data(filename)
+      require 'yaml'
+      require 'erb'
+      self.configuration_data = YAML::load(ERB.new(IO.read(filename)).result)
+    end
+
     def configuration_data=(configuration_data)
       @configurations = {}
       @configuration_data = configuration_data.nil? ? {} : configuration_data
@@ -1517,9 +1523,7 @@ TXT
       database_hook.call
     end
 
-    require 'yaml'
-    require 'erb'
-    self.configuration_data = YAML::load(ERB.new(IO.read(Dbt::Config.config_filename)).result)
+    @@repository.load_configuration_data(Dbt::Config.config_filename)
   end
 
   def self.config_key(database_key, env = Dbt::Config.environment)
@@ -1691,10 +1695,6 @@ TXT
 
   def self.configuration_for_key(config_key)
     @@repository.configuration_for_key(config_key)
-  end
-
-  def self.configuration_data=(configuration_data)
-    @@repository.configuration_data = configuration_data
   end
 
   def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
