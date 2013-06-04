@@ -54,13 +54,13 @@ class TestRepository < Dbt::TestCase
 
     assert config.is_a?(Dbt::PgDbConfig)
 
-    assert config.host, '127.0.0.1'
-    assert config.port, 5432
-    assert config.catalog_name, 'DBT_TEST'
-    assert config.username, 'postgres'
-    assert config.password, 'mypass'
+    assert_equal config.host, '127.0.0.1'
+    assert_equal config.port, 5432
+    assert_equal config.catalog_name, 'DBT_TEST'
+    assert_equal config.username, 'postgres'
+    assert_equal config.password, 'mypass'
 
-    assert repository.configuration_for_key(:development) == repository
+    assert repository.configuration_for_key(:development) == config
 
     repository.configuration_data = nil
 
