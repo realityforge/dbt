@@ -24,6 +24,24 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def test_create_with_no_create
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config('no_create' => true)
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['foo', 'bar', 'baz']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    mock.expects(:open).with(config, false)
+    mock.expects(:create_schema).with(module_name)
+    mock.expects(:close).with()
+
+    Dbt.runtime.create(database)
+  end
+
   def test_create_with_fixtures
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -117,7 +135,6 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: test fixture loading with multiple fixtures (ensure ordering)
-  # TODO: test no_create? flag
   # TODO: test pre/post database scripts
   # TODO: test import
   # TODO: test import with IMPORT_RESUME_AT
@@ -162,7 +179,7 @@ class TestRuntimeBasic < Dbt::TestCase
     end
   end
 
-  def create_postgres_config
+  def create_postgres_config(config = {})
     Dbt::Config.driver = 'Pg'
     Dbt.repository.configuration_data = {
       Dbt::Config.environment =>
@@ -172,7 +189,7 @@ class TestRuntimeBasic < Dbt::TestCase
           'password' => 'letmein',
           'host' => '127.0.0.1',
           'port' => 5432
-        }
+        }.merge(config)
     }
     Dbt.repository.configuration_for_key(Dbt::Config.environment)
   end
