@@ -67,7 +67,6 @@ class Dbt
       @add_database_environment_filter.nil? ? false : @add_database_environment_filter
     end
 
-
     def filters
       @filters ||= []
     end
