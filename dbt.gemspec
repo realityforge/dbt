@@ -26,4 +26,5 @@ Gem::Specification.new do |s|
   s.rdoc_options       = ["--line-numbers", "--inline-source", "--title", "dbt"]
 
   s.add_development_dependency(%q<minitest>, ["= 5.0.2"])
+  s.add_development_dependency(%q<mocha>, ["= 0.14.0"])
 end
