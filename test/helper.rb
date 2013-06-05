@@ -48,7 +48,7 @@ class Dbt::TestCase < Minitest::Test
 
   # Create a file with specified content relative to working directory
   def create_file(filename, content)
-    expanded_filename = File.expand_path("#{working_dir}/#{filename}")
+    expanded_filename = "#{working_dir}/#{filename}"
     FileUtils.mkdir_p File.dirname(expanded_filename)
     File.open(expanded_filename, "wb") do |f|
       f.write content
