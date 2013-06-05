@@ -160,7 +160,10 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
     Dbt::Config.default_finalize_dirs = ['Dir3', 'Dir4']
     Dbt::Config.fixture_dir_name = 'foo'
+    Dbt::Config.default_pre_create_dirs = ['db-pre-create']
+    Dbt::Config.default_post_create_dirs = ['db-post-create']
 
+    create_table_sql("db-pre-create", 'preCreate')
     create_table_sql("#{module_name}", 'a')
     create_table_sql("#{module_name}", 'b')
     create_table_sql("#{module_name}/Dir1", 'd')
@@ -170,6 +173,7 @@ class TestRuntimeBasic < Dbt::TestCase
     create_fixture(module_name, 'foo')
     create_table_sql("#{module_name}/Dir3", 'g')
     create_table_sql("#{module_name}/Dir4", 'h')
+    create_table_sql("db-post-create", 'postCreate')
 
     mock.expects(:open).with(config, true)
     mock.expects(:drop).with(database, config)
@@ -177,6 +181,7 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:open).with(config, false)
     mock.expects(:create_database).with(database, config)
     mock.expects(:create_schema).with(module_name)
+    expect_create_table(mock, '', 'db-pre-create/', 'preCreate')
     expect_create_table(mock, module_name, '', 'a')
     expect_create_table(mock, module_name, '', 'b')
     expect_create_table(mock, module_name, 'Dir1/', 'd')
@@ -186,6 +191,7 @@ class TestRuntimeBasic < Dbt::TestCase
     expect_fixture(mock, 'foo')
     expect_create_table(mock, module_name, 'Dir3/', 'g')
     expect_create_table(mock, module_name, 'Dir4/', 'h')
+    expect_create_table(mock, '', 'db-post-create/', 'postCreate')
     mock.expects(:close).with()
 
     Dbt.runtime.create(database)
@@ -210,7 +216,6 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: ensure ordering across run sql, run fixtures etc ...
-  # TODO: test pre/post database scripts
   # TODO: test import
   # TODO: test import with IMPORT_RESUME_AT
   # TODO: test import changing the pre/post config dirs
