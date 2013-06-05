@@ -611,6 +611,10 @@ SQL
       perform_load_database_config(database)
     end
 
+    def package_database_data(database, package_dir)
+      perform_package_database_data(database, package_dir)
+    end
+
     def filter_database_name(sql, pattern, config_key, optional = true)
       return sql if optional && !Dbt.repository.configuration_for_key?(config_key)
       sql.gsub(pattern, Dbt.repository.configuration_for_key(config_key).catalog_name)
@@ -812,9 +816,6 @@ SQL
       value.gsub(/\/\.\//, '/')
     end
 
-    # TODO: Remove me
-    public
-
     def collect_files(directories)
 
       index = []
@@ -873,9 +874,6 @@ SQL
       files
     end
 
-    # TODO: Remove me
-    private
-
     def perform_import_action(imp, should_perform_delete, module_group)
       if module_group.nil?
         imp.pre_import_dirs.each do |dir|
@@ -906,6 +904,77 @@ SQL
           collect_files(database.dirs_for_database(dir))
         end
       run_sql_files(database, label, files, is_import)
+    end
+
+    def perform_package_database_data(database, package_dir)
+      mkdir_p package_dir
+
+      import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
+      dataset_dirs = database.datasets.collect { |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}" }
+      dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
+      database.modules.each do |module_name|
+        dirs.each do |relative_dir_name|
+          relative_module_dir = "#{module_name}/#{relative_dir_name}"
+          target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
+          actual_dirs = database.dirs_for_database(relative_module_dir)
+          files = collect_files(actual_dirs)
+          cp_files_to_dir(files, target_dir)
+          generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
+          actual_dirs.each do |dir|
+            if File.exist?(dir)
+              if Dbt::Config.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
+                database.table_ordering(module_name).each do |table_name|
+                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
+                end
+              else
+                if import_dirs.include?(relative_dir_name)
+                  database.table_ordering(module_name).each do |table_name|
+                    cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
+                    cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir)
+                  end
+                else
+                  cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
+                end
+              end
+            end
+          end
+        end
+      end
+      create_hooks = [database.pre_create_dirs, database.post_create_dirs]
+      import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }
+      database_wide_dirs = create_hooks + import_hooks
+      database_wide_dirs.flatten.compact.each do |relative_dir_name|
+        target_dir = "#{package_dir}/#{relative_dir_name}"
+        actual_dirs = database.dirs_for_database(relative_dir_name)
+        files = collect_files(actual_dirs)
+        cp_files_to_dir(files, target_dir)
+        generate_index(target_dir, files)
+      end
+      database.dirs_for_database('.').each do |dir|
+        repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
+        cp repository_file, package_dir if File.exist?(repository_file)
+      end
+      if database.enable_migrations?
+        target_dir = "#{package_dir}/#{database.migrations_dir_name}"
+        actual_dirs = database.dirs_for_database(database.migrations_dir_name)
+        files = collect_files(actual_dirs)
+        cp_files_to_dir(files, target_dir)
+        generate_index(target_dir, files)
+      end
+    end
+
+    def cp_files_to_dir(files, target_dir)
+      return if files.empty?
+      mkdir_p target_dir
+      cp_r files, target_dir
+    end
+
+    def generate_index(target_dir, files)
+      unless files.empty?
+        File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |index_file|
+          index_file.write files.collect { |f| File.basename(f) }.join("\n")
+        end
+      end
     end
 
     def dir_display_name(dir)
@@ -1386,7 +1455,7 @@ SQL
   def self.package_database(database, package_dir)
     rm_rf package_dir
     package_database_code(database, "#{package_dir}/code")
-    package_database_data(database, "#{package_dir}/data")
+    @@runtime.package_database_data(database, "#{package_dir}/data")
   end
 
   def self.package_database_code(database, package_dir)
@@ -1520,77 +1589,6 @@ TXT
     end
     sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
     cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
-  end
-
-  def self.cp_files_to_dir(files, target_dir)
-    return if files.empty?
-    mkdir_p target_dir
-    cp_r files, target_dir
-  end
-
-  def self.package_database_data(database, package_dir)
-    mkdir_p package_dir
-
-    import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
-    dataset_dirs = database.datasets.collect { |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}" }
-    dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
-    database.modules.each do |module_name|
-      dirs.each do |relative_dir_name|
-        relative_module_dir = "#{module_name}/#{relative_dir_name}"
-        target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
-        actual_dirs = database.dirs_for_database(relative_module_dir)
-        files = @@runtime.collect_files(actual_dirs)
-        cp_files_to_dir(files, target_dir)
-        generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
-        actual_dirs.each do |dir|
-          if File.exist?(dir)
-            if Dbt::Config.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
-              database.table_ordering(module_name).each do |table_name|
-                cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.yml"), target_dir)
-              end
-            else
-              if import_dirs.include?(relative_dir_name)
-                database.table_ordering(module_name).each do |table_name|
-                  cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.yml"), target_dir)
-                  cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.sql"), target_dir)
-                end
-              else
-                cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
-              end
-            end
-          end
-        end
-      end
-    end
-    create_hooks = [database.pre_create_dirs, database.post_create_dirs]
-    import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }
-    database_wide_dirs = create_hooks + import_hooks
-    database_wide_dirs.flatten.compact.each do |relative_dir_name|
-      target_dir = "#{package_dir}/#{relative_dir_name}"
-      actual_dirs = database.dirs_for_database(relative_dir_name)
-      files = @@runtime.collect_files(actual_dirs)
-      cp_files_to_dir(files, target_dir)
-      generate_index(target_dir, files)
-    end
-    database.dirs_for_database('.').each do |dir|
-      repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
-      cp repository_file, package_dir if File.exist?(repository_file)
-    end
-    if database.enable_migrations?
-      target_dir = "#{package_dir}/#{database.migrations_dir_name}"
-      actual_dirs = database.dirs_for_database(database.migrations_dir_name)
-      files = @@runtime.collect_files(actual_dirs)
-      cp_files_to_dir(files, target_dir)
-      generate_index(target_dir, files)
-    end
-  end
-
-  def self.generate_index(target_dir, files)
-    unless files.empty?
-      File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |index_file|
-        index_file.write files.collect { |f| File.basename(f) }.join("\n")
-      end
-    end
   end
 
   def self.global_init
