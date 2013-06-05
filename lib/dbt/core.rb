@@ -1081,7 +1081,7 @@ SQL
       end
 
       if !database.load_from_classloader? && !filesystem_files.empty?
-        raise "Unknown fixtures found in database search paths. Files: #{filesystem_files.inspect}"
+        raise "Unexpected fixtures found in database search paths. Fixtures do not match existing tables. Files: #{filesystem_files.inspect}"
       end
 
       database.table_ordering(module_name).reverse.each do |table_name|
