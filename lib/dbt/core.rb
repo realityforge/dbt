@@ -1107,6 +1107,8 @@ SQL
     end
 
     def load_fixture(table_name, content)
+      require 'erb'
+      require 'yaml'
       yaml = YAML::load(ERB.new(content).result)
       # Skip empty files
       return unless yaml
