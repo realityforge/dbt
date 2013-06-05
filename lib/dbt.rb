@@ -16,6 +16,7 @@ require 'rexml/document'
 require 'dbt/orderedhash'
 
 require 'dbt/base'
+require 'dbt/config'
 
 require 'dbt/doc'
 require 'dbt/core'
