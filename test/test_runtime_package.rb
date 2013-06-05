@@ -58,7 +58,4 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyOtherModule/base.sql")
   end
 
-  def assert_file_exist(filename)
-    assert File.exist?(filename), "File.exist?(#{filename})"
-  end
 end

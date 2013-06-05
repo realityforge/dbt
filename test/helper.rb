@@ -66,4 +66,8 @@ class Dbt::TestCase < Minitest::Test
   def working_dir
     @temp_dir
   end
+
+  def assert_file_exist(filename)
+    assert File.exist?(filename), "File.exist?(#{filename})"
+  end
 end
