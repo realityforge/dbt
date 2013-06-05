@@ -646,6 +646,10 @@ SQL
       puts message
     end
 
+    def reset
+      @db = nil
+    end
+
     private
 
     IMPORT_RESUME_AT_ENV_KEY = "IMPORT_RESUME_AT"

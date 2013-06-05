@@ -44,6 +44,7 @@ class Dbt::TestCase < Minitest::Test
       Dbt.remove_database(database_key)
     end
     Dbt.repository.configuration_data = nil
+    Dbt.runtime.reset
   end
 
   # Create a directory relative to working directory
