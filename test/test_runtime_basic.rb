@@ -137,7 +137,6 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.expects(:info).with("Fixture        : #{table_name}")
   end
 
-
   def create_simple_db_definition(db_scripts, module_name, table_names)
     Dbt.add_database(:default) do |db|
       db.rake_integration = false
