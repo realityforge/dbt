@@ -297,7 +297,7 @@ SQL
           end
         elsif filter.is_a?(DatabaseNameFilter)
           filters << Proc.new do |sql|
-            Dbt.filter_database_name(sql, filter.pattern, Dbt.config_key(filter.database_key), filter.optional)
+            Dbt.runtime.filter_database_name(sql, filter.pattern, Dbt.runtime.config_key(filter.database_key), filter.optional)
           end
         else
           filters << filter
@@ -707,20 +707,653 @@ SQL
     end
   end
 
+  class Runtime
+    def create(database)
+      create_database(database)
+      init_database(database.key) do
+        perform_pre_create_hooks(database)
+        perform_create_action(database, :up)
+        perform_create_action(database, :finalize)
+        perform_post_create_hooks(database)
+        perform_post_create_migrations_setup(database)
+      end
+    end
+
+    def create_by_import(imp)
+      database = imp.database
+      create_database(database) unless partial_import_completed?
+      init_database(database.key) do
+        perform_pre_create_hooks(database) unless partial_import_completed?
+        perform_create_action(database, :up) unless partial_import_completed?
+        perform_import_action(imp, false, nil)
+        perform_create_action(database, :finalize)
+        perform_post_create_hooks(database)
+        perform_post_create_migrations_setup(database)
+      end
+    end
+
+    def drop(database)
+      init_control_database(database.key) do
+        db.drop(database, configuration_for_database(database))
+      end
+    end
+
+    def migrate(database)
+      init_database(database.key) do
+        perform_migration(database, :perform)
+      end
+    end
+
+    def backup(database)
+      init_control_database(database.key) do
+        db.backup(database, configuration_for_database(database))
+      end
+    end
+
+    def restore(database)
+      init_control_database(database.key) do
+        db.restore(database, configuration_for_database(database))
+      end
+    end
+
+    def database_import(imp, module_group)
+      init_database(imp.database.key) do
+        perform_import_action(imp, true, module_group)
+      end
+    end
+
+    def up_module_group(module_group)
+      database = module_group.database
+      init_database(database.key) do
+        database.modules.each do |module_name|
+          next unless module_group.modules.include?(module_name)
+          create_module(database, module_name, :up)
+          create_module(database, module_name, :finalize)
+        end
+      end
+    end
+
+    def down_module_group(module_group)
+      database = module_group.database
+      init_database(database.key) do
+        database.modules.reverse.each do |module_name|
+          next unless module_group.modules.include?(module_name)
+          process_module(database, module_name, :down)
+          tables = database.table_ordering(module_name)
+          schema_name = database.schema_name_for_module(module_name)
+          db.drop_schema(schema_name, tables)
+        end
+      end
+    end
+
+    def load_datasets_for_modules(database, dataset_name)
+      init_database(database.key) do
+        database.modules.each do |module_name|
+          load_dataset(database, module_name, dataset_name)
+        end
+      end
+    end
+
+    def load_database_config(database)
+      perform_load_database_config(database)
+    end
+
+    def filter_database_name(sql, pattern, config_key, optional = true)
+      return sql if optional && !Dbt.repository.configuration_for_key?(config_key)
+      sql.gsub(pattern, Dbt.repository.configuration_for_key(config_key).catalog_name)
+    end
+
+    def dump_tables_to_fixtures(tables, fixture_dir)
+      tables.each do |table_name|
+        File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
+          puts("Dumping #{table_name}\n")
+          const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
+          if Object.const_defined?(const_name)
+            sql = Object.const_get(const_name)
+          else
+            sql = "SELECT * FROM #{table_name}"
+          end
+
+          records = YAML::Omap.new
+          i = 0
+          db.query(sql).each do |record|
+            records["r#{i += 1}"] = record
+          end
+
+          file.write records.to_yaml
+        end
+      end
+    end
+
+    def info(message)
+      puts message
+    end
+
+    private
+
+    IMPORT_RESUME_AT_ENV_KEY = "IMPORT_RESUME_AT"
+
+    def partial_import_completed?
+      !!ENV[IMPORT_RESUME_AT_ENV_KEY]
+    end
+
+    def perform_load_database_config(database)
+      unless database.modules
+        if database.load_from_classloader?
+          content = load_resource(database, Dbt::Config.repository_config_file)
+          database.parse_repository_config(content)
+        else
+          database.dirs_for_database('.').each do |dir|
+            repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
+            if File.exist?(repository_config_file)
+              if database.modules
+                raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
+              else
+                File.open(repository_config_file, 'r') do |f|
+                  database.parse_repository_config(f)
+                end
+              end
+            end
+          end
+          raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
+        end
+      end
+      database.validate
+    end
+
+    def config_key(database_key, env = Dbt::Config.environment)
+      Dbt::Config.default_database?(database_key) ? env : "#{database_key}_#{env}"
+    end
+
+    def configuration_for_key(config_key)
+      Dbt.repository.configuration_for_key(config_key)
+    end
+
+    def configuration_for_database(database)
+      configuration_for_key(config_key(database.key))
+    end
+
+    def init_database(database_key, &block)
+      setup_connection(database_key, false, &block)
+    end
+
+    def init_control_database(database_key, &block)
+      setup_connection(database_key, true, &block)
+    end
+
+    def create_database(database)
+      configuration = configuration_for_database(database)
+      return if configuration.no_create?
+      init_control_database(database.key) do
+        db.drop(database, configuration)
+        db.create_database(database, configuration)
+      end
+    end
+
+    def perform_post_create_migrations_setup(database)
+      if database.enable_migrations?
+        db.setup_migrations
+        if database.assume_migrations_applied_at_create?
+          perform_migration(database, :record)
+        else
+          perform_migration(database)
+        end
+      end
+    end
+
+    def perform_migration(database, action)
+      files =
+        if database.load_from_classloader?
+          collect_resources(database, database.migrations_dir_name)
+        else
+          collect_files(database.dirs_for_database(database.migrations_dir_name))
+        end
+      files.each do |filename|
+        migration_name = File.basename(filename, '.sql')
+        if db.should_migrate?(database.key.to_s, migration_name)
+          run_sql_file(database, "Migration: ", filename, false) unless :record == action
+          db.mark_migration_as_run(database.key.to_s, migration_name)
+        end
+      end
+    end
+
+    def perform_post_create_hooks(database)
+      database.post_create_dirs.each do |dir|
+        process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+      end
+    end
+
+    def perform_pre_create_hooks(database)
+      database.pre_create_dirs.each do |dir|
+        process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+      end
+    end
+
+    def import(imp, module_name, should_perform_delete)
+      ordered_tables = imp.database.table_ordering(module_name)
+
+      # check the import configuration is set
+      configuration_for_key(config_key(imp.database.key, "import"))
+
+      # Iterate over module in dependency order doing import as appropriate
+      # Note: that tables with initial fixtures are skipped
+      tables = ordered_tables.reject do |table|
+        try_find_file_in_module(imp.database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
+      end
+
+      unless imp.database.load_from_classloader?
+        dirs = imp.database.search_dirs.map { |d| "#{d}/#{module_name}/#{imp.dir}" }
+        filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] + Dir["#{d}/*.sql"] }.flatten.compact
+        tables.each do |table_name|
+          table_name = clean_table_name(table_name)
+          sql_file = /#{table_name}.sql$/
+          yml_file = /#{table_name}.yml$/
+          filesystem_files = filesystem_files.delete_if { |f| f =~ sql_file || f =~ yml_file }
+        end
+        raise "Discovered additional files in import directory in database search path. Files: #{filesystem_files.inspect}" unless filesystem_files.empty?
+      end
+
+      if should_perform_delete && !partial_import_completed?
+        tables.reverse.each do |table|
+          info("Deleting #{clean_table_name(table)}")
+          run_sql_batch("DELETE FROM #{table}")
+        end
+      end
+
+      tables.each do |table|
+        if ENV[IMPORT_RESUME_AT_ENV_KEY] == clean_table_name(table)
+          run_sql_batch("DELETE FROM #{table}")
+          ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
+        end
+        unless partial_import_completed?
+          db.pre_table_import(imp, table)
+          perform_import(imp.database, module_name, table, imp.dir)
+          db.post_table_import(imp, table)
+        end
+      end
+
+      if ENV[IMPORT_RESUME_AT_ENV_KEY].nil?
+        db.post_data_module_import(imp, module_name)
+      end
+    end
+
+    def create_module(database, module_name, mode)
+      schema_name = database.schema_name_for_module(module_name)
+      db.create_schema(schema_name)
+      process_module(database, module_name, mode)
+    end
+
+    def perform_create_action(database, mode)
+      database.modules.each do |module_name|
+        create_module(database, module_name, mode)
+      end
+    end
+
+    def collect_resources(database, dir)
+      index_name = cleanup_resource_name("#{dir}/#{Dbt::Config.index_file_name}")
+      return [] unless resource_present?(database, index_name)
+      load_resource(database, index_name).split("\n").collect { |l| cleanup_resource_name("#{dir}/#{l.strip}") }
+    end
+
+    def cleanup_resource_name(value)
+      value.gsub(/\/\.\//, '/')
+    end
+
+    # TODO: Remove me
+    public
+
+    def collect_files(directories)
+
+      index = []
+      files = []
+
+      directories.each do |dir|
+
+        index_file = File.join(dir, Dbt::Config.index_file_name)
+        index_entries =
+          File.exists?(index_file) ? File.new(index_file).readlines.collect { |filename| filename.strip } : []
+        index_entries.each do |e|
+          exists = false
+          directories.each do |d|
+            if File.exists?(File.join(d, e))
+              exists = true
+              break
+            end
+          end
+          raise "A specified index entry does not exist on the disk #{e}" unless exists
+        end
+
+        index += index_entries
+
+        if File.exists?(dir)
+          files += Dir["#{dir}/*.sql"]
+        end
+
+      end
+
+      file_map = {}
+
+      files.each do |filename|
+        basename = File.basename(filename)
+        file_map[basename] = (file_map[basename] || []) + [filename]
+      end
+      duplicates = file_map.reject { |basename, filenames| filenames.size == 1 }.values
+
+      unless duplicates.empty?
+        raise "Files with duplicate basename not allowed.\n\t#{duplicates.collect { |filenames| filenames.join("\n\t") }.join("\n\t")}"
+      end
+
+      files.sort! do |x, y|
+        x_index = index.index(File.basename(x))
+        y_index = index.index(File.basename(y))
+        if x_index.nil? && y_index.nil?
+          File.basename(x) <=> File.basename(y)
+        elsif x_index.nil? && !y_index.nil?
+          1
+        elsif y_index.nil? && !x_index.nil?
+          -1
+        else
+          x_index <=> y_index
+        end
+      end
+
+      files
+    end
+
+    # TODO: Remove me
+    private
+
+    def perform_import_action(imp, should_perform_delete, module_group)
+      if module_group.nil?
+        imp.pre_import_dirs.each do |dir|
+          process_dir_set(imp.database, dir, true, dir_display_name(dir))
+        end unless partial_import_completed?
+      end
+      imp.modules.each do |module_key|
+        if module_group.nil? || module_group.modules.include?(module_key)
+          import(imp, module_key, should_perform_delete)
+        end
+      end
+      if partial_import_completed?
+        raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
+      end
+      if module_group.nil?
+        imp.post_import_dirs.each do |dir|
+          process_dir_set(imp.database, dir, true, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+        end
+      end
+      db.post_database_import(imp)
+    end
+
+    def process_dir_set(database, dir, is_import, label)
+      files =
+        if database.load_from_classloader?
+          collect_resources(database, dir)
+        else
+          collect_files(database.dirs_for_database(dir))
+        end
+      run_sql_files(database, label, files, is_import)
+    end
+
+    def dir_display_name(dir)
+      (dir == '.' ? '' : "#{dir}/")
+    end
+
+    def run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
+      sql = filter_sql(sql, database.expanded_filters)
+      sql = sql.gsub(/@@TABLE@@/, table) if table
+      sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
+      sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
+      run_sql_batch(sql, script_file_name, print_dot, true)
+    end
+
+    def generate_standard_import_sql(table)
+      sql = "INSERT INTO @@TARGET@@.#{table}("
+      columns = db.column_names_for_table(table)
+      sql += columns.join(', ')
+      sql += ")\n  SELECT "
+      sql += columns.join(', ')
+      sql += " FROM @@SOURCE@@.#{table}\n"
+      sql
+    end
+
+    def perform_standard_import(database, table)
+      run_import_sql(database, table, generate_standard_import_sql(table))
+    end
+
+    def perform_import(database, module_name, table, import_dir)
+      fixture_file = try_find_file_in_module(database, module_name, import_dir, table, 'yml')
+      sql_file = try_find_file_in_module(database, module_name, import_dir, table, 'sql')
+
+      if fixture_file && sql_file
+        raise "Unexpectantly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
+      end
+
+      info("#{'%-15s' % module_name}: Importing #{clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
+      if fixture_file
+        load_fixture(table, load_data(database, fixture_file))
+      elsif sql_file
+        run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
+      else
+        perform_standard_import(database, table)
+      end
+    end
+
+    def setup_connection(database_key, open_control_database, &block)
+      db.open(configuration_for_key(config_key(database_key)), open_control_database)
+      if block_given?
+        begin
+          yield
+        ensure
+          db.close
+        end
+      end
+    end
+
+    def process_module(database, module_name, mode)
+      dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
+      dirs.each do |dir|
+        process_dir_set(database, "#{module_name}/#{dir}", false, "#{'%-15s' % module_name}: #{dir_display_name(dir)}")
+      end
+      load_fixtures(database, module_name) if mode == :up
+    end
+
+    def load_fixtures(database, module_name)
+      load_fixtures_from_dirs(database, module_name, Dbt::Config.fixture_dir_name)
+    end
+
+    def load_dataset(database, module_name, dataset_name)
+      load_fixtures_from_dirs(database, module_name, "#{Dbt::Config.datasets_dir_name}/#{dataset_name}")
+    end
+
+    def db
+      @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
+    end
+
+    def load_fixtures_from_dirs(database, module_name, subdir)
+      fixtures = {}
+      unless database.load_from_classloader?
+        dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+        filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
+      end
+      database.table_ordering(module_name).each do |table_name|
+        if database.load_from_classloader?
+          filename = module_filename(module_name, subdir, table_name, 'yml')
+          if resource_present?(database, filename)
+            fixtures[table_name] = filename
+          end
+        else
+          dirs.each do |dir|
+            filename = table_name_to_fixture_filename(dir, table_name)
+            filesystem_files.delete(filename)
+            if File.exists?(filename)
+              raise "Duplicate fixture for #{table_name} found in database search paths" if fixtures[table_name]
+              fixtures[table_name] = filename
+            end
+          end
+        end
+      end
+
+      if !database.load_from_classloader? && !filesystem_files.empty?
+        raise "Unknown fixtures found in database search paths. Files: #{filesystem_files.inspect}"
+      end
+
+      database.table_ordering(module_name).reverse.each do |table_name|
+        if fixtures[table_name]
+          run_sql_batch("DELETE FROM #{table_name}")
+        end
+      end
+
+      database.table_ordering(module_name).each do |table_name|
+        filename = fixtures[table_name]
+        next unless filename
+        info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
+        load_fixture(table_name, load_data(database, filename))
+      end
+    end
+
+    def table_name_to_fixture_filename(dir, table_name)
+      "#{dir}/#{clean_table_name(table_name)}.yml"
+    end
+
+    # TODO: Remove me!
+    public
+
+    def clean_table_name(table_name)
+      table_name.tr('[]"' '', '')
+    end
+
+    # TODO: Remove me!
+    private
+
+    def load_fixture(table_name, content)
+      yaml = YAML::load(ERB.new(content).result)
+      # Skip empty files
+      return unless yaml
+      # NFI
+      yaml_value =
+        if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
+          yaml.value
+        else
+          [yaml]
+        end
+      db.pre_fixture_import(table_name)
+      yaml_value.each do |fixture|
+        raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
+        fixture.each do |name, data|
+          raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
+          db.insert(table_name, data)
+        end
+        db.post_fixture_import(table_name)
+      end
+    end
+
+    def run_filtered_sql_batch(database, sql, script_file_name = nil)
+      sql = filter_sql(sql, database.expanded_filters)
+      run_sql_batch(sql, script_file_name)
+    end
+
+    def filter_sql(sql, filters)
+      filters.each do |filter|
+        sql = filter.call(sql)
+      end
+      sql
+    end
+
+    def run_sql_files(database, label, files, is_import)
+      files.each do |filename|
+        run_sql_file(database, label, filename, is_import)
+      end
+    end
+
+    def load_data(database, filename)
+      if database.load_from_classloader?
+        load_resource(database, filename)
+      else
+        IO.readlines(filename).join
+      end
+    end
+
+    def run_sql_file(database, label, filename, is_import)
+      info("#{label}#{File.basename(filename)}")
+      sql = load_data(database, filename)
+      if is_import
+        run_import_sql(database, nil, sql, filename)
+      else
+        run_filtered_sql_batch(database, sql, filename)
+      end
+    end
+
+    def load_resource(database, resource_path)
+      require 'java'
+      stream = java.lang.ClassLoader.getCallerClassLoader().getResourceAsStream("#{database.resource_prefix}/#{resource_path}")
+      raise "Missing resource #{resource_path}" unless stream
+      content = ""
+      while stream.available() > 0
+        content << stream.read()
+      end
+      content
+    end
+
+    def run_sql_batch(sql, script_file_name = nil, print_dot = false, execute_in_control_database = false)
+      sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
+        $stdout.putc '.' if print_dot
+        begin
+          db.execute(ddl, execute_in_control_database)
+        rescue
+          if script_file_name.nil? || index.nil?
+            raise $!
+          else
+            raise "An error occurred while trying to execute batch ##{index + 1} of #{File.basename(script_file_name)}:\n#{$!}"
+          end
+        end
+      end
+      $stdout.putc "\n" if print_dot
+    end
+
+    def module_filename(module_name, subdir, table, extension)
+      "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
+    end
+
+    def resource_present?(database, resource_path)
+      require 'java'
+      !!java.lang.ClassLoader.getCallerClassLoader().getResource("#{database.resource_prefix}/#{resource_path}")
+    end
+
+    def try_find_file_in_module(database, module_name, subdir, table, extension)
+      filename = module_filename(module_name, subdir, table, extension)
+      if database.load_from_classloader?
+        resource_present?(database, filename) ? filename : nil
+      else
+        filename = module_filename(module_name, subdir, table, extension)
+        database.search_dirs.map do |d|
+          file = "#{d}/#{filename}"
+          return file if File.exist?(file)
+        end
+        return nil
+      end
+    end
+  end
+
   @@defined_init_tasks = false
   @@database_driver_hooks = []
   @@repository = Repository.new
+  @@runtime = Runtime.new
 
-  def self.init_database(database_key, &block)
-    setup_connection(database_key, false, &block)
+  def self.repository
+    @@repository
   end
 
-  def self.init_control_database(database_key, &block)
-    setup_connection(database_key, true, &block)
+  def self.runtime
+    @@runtime
   end
 
   def self.add_database_driver_hook(&block)
     @@database_driver_hooks << block
+  end
+
+  def self.database_for_key(database_key)
+    @@repository.database_for_key(database_key)
   end
 
   def self.database_keys
@@ -740,7 +1373,7 @@ SQL
   end
 
   def self.define_database_package(database_key, buildr_project, options = {})
-    database = database_for_key(database_key)
+    database = @@repository.database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
 
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
@@ -755,73 +1388,16 @@ SQL
       ["org.jruby:jruby-complete:jar:#{JRUBY_VERSION}"] +
         Dbt.const_get("#{Dbt::Config.driver}DbConfig").jdbc_driver_dependencies
 
-    #TODO: Buildr is too slow merging jars so lets try an ugly hack
-    if false
-      dependencies.each do |spec|
-        jar.merge(Buildr.artifact(spec))
-      end
-    else
-      dependencies.each do |spec|
-        dependency = Buildr.artifact(spec)
-        jar.enhance [dependency] do
-          Buildr.unzip("#{package_dir}/code" => dependency.to_s).extract
-        end
-      end
+    dependencies.each do |spec|
+      jar.merge(Buildr.artifact(spec))
     end
     jar.include "#{package_dir}/code", :as => '.'
     jar.include "#{package_dir}/data"
     jar.with :manifest => buildr_project.manifest.merge('Main-Class' => 'org.realityforge.dbt.dbtcli')
   end
 
-  def self.filter_database_name(sql, pattern, config_key, optional = true)
-    return sql if optional && !@@repository.configuration_for_key?(config_key)
-    sql.gsub(pattern, configuration_for_key(config_key).catalog_name)
-  end
-
-  def self.dump_tables_to_fixtures(tables, fixture_dir)
-    tables.each do |table_name|
-      File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
-        puts("Dumping #{table_name}\n")
-        const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
-        if Object.const_defined?(const_name)
-          sql = Object.const_get(const_name)
-        else
-          sql = "SELECT * FROM #{table_name}"
-        end
-
-        records = YAML::Omap.new
-        i = 0
-        db.query(sql).each do |record|
-          records["r#{i += 1}"] = record
-        end
-
-        file.write records.to_yaml
-      end
-    end
-  end
-
-  def self.load_modules_fixtures(database_key, module_name)
-    database = database_for_key(database_key)
-    init_database(database.key) do
-      load_fixtures(database, module_name)
-    end
-  end
 
   private
-
-  IMPORT_RESUME_AT_ENV_KEY = "IMPORT_RESUME_AT"
-
-  def self.partial_import_completed?
-    !!ENV[IMPORT_RESUME_AT_ENV_KEY]
-  end
-
-  def self.database_for_key(database_key)
-    @@repository.database_for_key(database_key)
-  end
-
-  def self.configuration_for_database(database)
-    configuration_for_key(config_key(database.key))
-  end
 
   def self.define_tasks_for_database(database)
     self.define_basic_tasks
@@ -832,7 +1408,7 @@ SQL
     desc "Drop the #{database.key} database."
     task "#{database.task_prefix}:drop" => ["#{database.task_prefix}:load_config"] do
       banner('Dropping database', database.key)
-      drop(database)
+      @@runtime.drop(database)
     end
 
     # Database creation
@@ -840,7 +1416,7 @@ SQL
     task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
 
     task "#{database.task_prefix}:prepare_fs" => ["#{database.task_prefix}:pre_build"] do
-      load_database_config(database)
+      @@runtime.load_database_config(database)
     end
 
     task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:prepare_fs"]
@@ -848,7 +1424,7 @@ SQL
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
       banner('Creating database', database.key)
-      create(database)
+      @@runtime.create(database)
     end
 
     # Data set loading etc
@@ -856,7 +1432,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
         banner("Loading Dataset #{dataset_name}", database.key)
-        load_datasets_for_modules(database, dataset_name)
+        @@runtime.load_datasets_for_modules(database, dataset_name)
       end
     end
 
@@ -864,7 +1440,7 @@ SQL
       desc "Apply migrations to bring data to latest version"
       task "#{database.task_prefix}:migrate" => ["#{database.task_prefix}:prepare"] do
         banner("Migrating", database.key)
-        migrate(database)
+        @@runtime.migrate(database)
       end
     end
 
@@ -882,11 +1458,11 @@ SQL
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
         key = ""
-        key = ":" + imp.key.to_s unless default_import?(imp.key)
+        key = ":" + imp.key.to_s unless Dbt::Config.default_import?(imp.key)
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:prepare"] do
           banner("Creating Database By Import", database.key)
-          create_by_import(imp)
+          @@runtime.create_by_import(imp)
         end
       end
     end
@@ -895,7 +1471,7 @@ SQL
       desc "Perform backup of #{database.key} database"
       task "#{database.task_prefix}:backup" => ["#{database.task_prefix}:load_config"] do
         banner("Backing up Database", database.key)
-        backup(database)
+        @@runtime.backup(database)
       end
     end
 
@@ -903,7 +1479,7 @@ SQL
       desc "Perform restore of #{database.key} database"
       task "#{database.task_prefix}:restore" => ["#{database.task_prefix}:load_config"] do
         banner("Restoring Database", database.key)
-        restore(database)
+        @@runtime.restore(database)
       end
     end
   end
@@ -913,13 +1489,13 @@ SQL
     desc "Up the #{module_group.key} module group in the #{database.key} database."
     task "#{database.task_prefix}:#{module_group.key}:up" => ["#{database.task_prefix}:prepare"] do
       banner("Upping module group '#{module_group.key}'", database.key)
-      up_module_group(module_group)
+      @@runtime.up_module_group(module_group)
     end
 
     desc "Down the #{module_group.key} schema group in the #{database.key} database."
     task "#{database.task_prefix}:#{module_group.key}:down" => ["#{database.task_prefix}:prepare"] do
       banner("Downing module group '#{module_group.key}'", database.key)
-      down_module_group(module_group)
+      @@runtime.down_module_group(module_group)
     end
 
     database.imports.values.each do |imp|
@@ -932,14 +1508,14 @@ SQL
   end
 
   def self.define_import_task(prefix, imp, description, module_group = nil)
-    is_default_import = default_import?(imp.key)
+    is_default_import = Dbt::Config.default_import?(imp.key)
     desc_prefix = is_default_import ? 'Import' : "#{imp.key.to_s.capitalize} import"
 
     task_name = is_default_import ? :import : :"import:#{imp.key}"
     desc "#{desc_prefix} #{description} of the #{imp.database.key} database."
     task "#{prefix}:#{task_name}" => ["#{imp.database.task_prefix}:prepare"] do
       banner("Importing Database#{is_default_import ? '' : " (#{imp.key})"}", imp.database.key)
-      database_import(imp, module_group)
+      @@runtime.database_import(imp, module_group)
     end
   end
 
@@ -957,24 +1533,24 @@ SQL
 
   def self.execute_command(database, command)
     if "create" == command
-      Dbt.create(database)
+      @@runtime.create(database)
     elsif "drop" == command
-      Dbt.drop(database)
+      @@runtime.drop(database)
     elsif "migrate" == command
-      Dbt.migrate(database)
+      @@runtime.migrate(database)
     elsif "restore" == command
-      Dbt.restore(database)
+      @@runtime.restore(database)
     elsif "backup" == command
-      Dbt.backup(database)
+      @@runtime.backup(database)
     elsif /^datasets:/ =~ command
       dataset_name = command[9, command.length]
-      Dbt.load_datasets_for_modules(database, dataset_name)
+      @@runtime.load_datasets_for_modules(database, dataset_name)
     elsif /^import/ =~ command
       import_key = command[7, command.length]
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
-          database_import(imp, nil)
+          @@runtime.database_import(imp, nil)
           return
         end
       end
@@ -984,7 +1560,7 @@ SQL
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
       database.imports.values.each do |imp|
         if imp.key.to_s == import_key
-          create_by_import(imp)
+          @@runtime.create_by_import(imp)
           return
         end
       end
@@ -1008,14 +1584,14 @@ SQL
     if database.enable_separate_import_task?
       database.imports.values.each do |imp|
         command = "import"
-        command = "#{command}:#{imp.key}" unless default_import?(imp.key)
+        command = "#{command}:#{imp.key}" unless Dbt::Config.default_import?(imp.key)
         valid_commands << command
       end
     end
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
         command = "create_by_import"
-        command = "#{command}:#{imp.key}" unless default_import?(imp.key)
+        command = "#{command}:#{imp.key}" unless Dbt::Config.default_import?(imp.key)
         valid_commands << command
       end
     end
@@ -1122,7 +1698,7 @@ puts "Config File: \#{Dbt::Config.config_filename}"
 puts "Commands: \#{ARGV.join(' ')}"
 
 Dbt.global_init
-Dbt.load_database_config(database)
+Dbt.runtime.load_database_config(database)
 
 ARGV.each do |command|
   Dbt.execute_command(database, command)
@@ -1150,20 +1726,20 @@ TXT
         relative_module_dir = "#{module_name}/#{relative_dir_name}"
         target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
         actual_dirs = database.dirs_for_database(relative_module_dir)
-        files = collect_files(actual_dirs)
+        files = @@runtime.collect_files(actual_dirs)
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
         actual_dirs.each do |dir|
           if File.exist?(dir)
             if Dbt::Config.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
               database.table_ordering(module_name).each do |table_name|
-                cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
+                cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.yml"), target_dir)
               end
             else
               if import_dirs.include?(relative_dir_name)
                 database.table_ordering(module_name).each do |table_name|
-                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
-                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir)
+                  cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.yml"), target_dir)
+                  cp_files_to_dir(Dir.glob("#{dir}/#{@@runtime.clean_table_name(table_name)}.sql"), target_dir)
                 end
               else
                 cp_files_to_dir(Dir.glob("#{dir}/*.sql"), target_dir)
@@ -1179,7 +1755,7 @@ TXT
     database_wide_dirs.flatten.compact.each do |relative_dir_name|
       target_dir = "#{package_dir}/#{relative_dir_name}"
       actual_dirs = database.dirs_for_database(relative_dir_name)
-      files = collect_files(actual_dirs)
+      files = @@runtime.collect_files(actual_dirs)
       cp_files_to_dir(files, target_dir)
       generate_index(target_dir, files)
     end
@@ -1190,7 +1766,7 @@ TXT
     if database.enable_migrations?
       target_dir = "#{package_dir}/#{database.migrations_dir_name}"
       actual_dirs = database.dirs_for_database(database.migrations_dir_name)
-      files = collect_files(actual_dirs)
+      files = @@runtime.collect_files(actual_dirs)
       cp_files_to_dir(files, target_dir)
       generate_index(target_dir, files)
     end
@@ -1202,345 +1778,6 @@ TXT
         index_file.write files.collect { |f| File.basename(f) }.join("\n")
       end
     end
-  end
-
-  def self.backup(database)
-    init_control_database(database.key) do
-      db.backup(database, configuration_for_database(database))
-    end
-  end
-
-  def self.restore(database)
-    init_control_database(database.key) do
-      db.restore(database, configuration_for_database(database))
-    end
-  end
-
-  def self.create_database(database)
-    configuration = configuration_for_database(database)
-    return if configuration.no_create?
-    init_control_database(database.key) do
-      db.drop(database, configuration)
-      db.create_database(database, configuration)
-    end
-  end
-
-  def self.database_import(imp, module_group)
-    init_database(imp.database.key) do
-      perform_import_action(imp, true, module_group)
-    end
-  end
-
-  def self.up_module_group(module_group)
-    database = module_group.database
-    init_database(database.key) do
-      database.modules.each do |module_name|
-        next unless module_group.modules.include?(module_name)
-        create_module(database, module_name, :up)
-        create_module(database, module_name, :finalize)
-      end
-    end
-  end
-
-  def self.down_module_group(module_group)
-    database = module_group.database
-    init_database(database.key) do
-      database.modules.reverse.each do |module_name|
-        next unless module_group.modules.include?(module_name)
-        process_module(database, module_name, :down)
-        tables = database.table_ordering(module_name)
-        schema_name = database.schema_name_for_module(module_name)
-        db.drop_schema(schema_name, tables)
-      end
-    end
-  end
-
-  def self.create_by_import(imp)
-    database = imp.database
-    create_database(database) unless partial_import_completed?
-    init_database(database.key) do
-      perform_pre_create_hooks(database) unless partial_import_completed?
-      perform_create_action(database, :up) unless partial_import_completed?
-      perform_import_action(imp, false, nil)
-      perform_create_action(database, :finalize)
-      perform_post_create_hooks(database)
-      perform_post_create_migrations_setup(database)
-    end
-  end
-
-  def self.load_database_config(database)
-    unless database.modules
-      if database.load_from_classloader?
-        content = load_resource(database, Dbt::Config.repository_config_file)
-        parse_repository_config(database, content)
-      else
-        database.dirs_for_database('.').each do |dir|
-          repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
-          if File.exist?(repository_config_file)
-            if database.modules
-              raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
-            else
-              File.open(repository_config_file, 'r') do |f|
-                parse_repository_config(database, f)
-              end
-            end
-          end
-        end
-        raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
-      end
-    end
-    database.validate
-  end
-
-  def self.parse_repository_config(database, content)
-    require 'yaml'
-    repository_config = YAML::load(content)
-    database.modules = repository_config['modules'].collect { |m| m[0] }
-    schema_overrides = {}
-    table_map = {}
-    repository_config['modules'].each do |module_config|
-      name = module_config[0]
-      schema = module_config[1]['schema']
-      tables = module_config[1]['tables']
-      table_map[name] = tables
-      schema_overrides[name] = schema if name != schema
-    end
-    database.schema_overrides = schema_overrides
-    database.table_map = table_map
-  end
-
-  def self.create(database)
-    create_database(database)
-    init_database(database.key) do
-      perform_pre_create_hooks(database)
-      perform_create_action(database, :up)
-      perform_create_action(database, :finalize)
-      perform_post_create_hooks(database)
-      perform_post_create_migrations_setup(database)
-    end
-  end
-
-  def self.migrate(database)
-    init_database(database.key) do
-      perform_migration(database, :perform)
-    end
-  end
-
-  def self.perform_post_create_migrations_setup(database)
-    if database.enable_migrations?
-      db.setup_migrations
-      if database.assume_migrations_applied_at_create?
-        perform_migration(database, :record)
-      else
-        perform_migration(database)
-      end
-    end
-  end
-
-  def self.perform_migration(database, action)
-    files =
-      if database.load_from_classloader?
-        collect_resources(database, database.migrations_dir_name)
-      else
-        collect_files(database.dirs_for_database(database.migrations_dir_name))
-      end
-    files.each do |filename|
-      migration_name = File.basename(filename, '.sql')
-      if db.should_migrate?(database.key.to_s, migration_name)
-        run_sql_file(database, "Migration: ", filename, false) unless :record == action
-        db.mark_migration_as_run(database.key.to_s, migration_name)
-      end
-    end
-  end
-
-  def self.load_datasets_for_modules( database, dataset_name )
-    init_database(database.key) do
-      database.modules.each do |module_name|
-        load_dataset(database, module_name, dataset_name)
-      end
-    end
-  end
-
-  def self.perform_post_create_hooks(database)
-    database.post_create_dirs.each do |dir|
-      process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
-    end
-  end
-
-  def self.perform_pre_create_hooks(database)
-    database.pre_create_dirs.each do |dir|
-      process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
-    end
-  end
-
-  def self.drop(database)
-    init_control_database(database.key) do
-      db.drop(database, configuration_for_database(database))
-    end
-  end
-
-  def self.import(imp, module_name, should_perform_delete)
-    ordered_tables = imp.database.table_ordering(module_name)
-
-    # check the import configuration is set
-    configuration_for_key(config_key(imp.database.key, "import"))
-
-    # Iterate over module in dependency order doing import as appropriate
-    # Note: that tables with initial fixtures are skipped
-    tables = ordered_tables.reject do |table|
-      try_find_file_in_module(imp.database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
-    end
-
-    unless imp.database.load_from_classloader?
-      dirs = imp.database.search_dirs.map { |d| "#{d}/#{module_name}/#{imp.dir}" }
-      filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] + Dir["#{d}/*.sql"] }.flatten.compact
-      tables.each do |table_name|
-        table_name = Dbt.clean_table_name(table_name)
-        sql_file = /#{table_name}.sql$/
-        yml_file = /#{table_name}.yml$/
-        filesystem_files = filesystem_files.delete_if{|f| f =~ sql_file || f =~ yml_file}
-      end
-      raise "Discovered additional files in import directory in database search path. Files: #{filesystem_files.inspect}" unless filesystem_files.empty?
-    end
-
-    if should_perform_delete && !partial_import_completed?
-      tables.reverse.each do |table|
-        info("Deleting #{clean_table_name(table)}")
-        run_sql_batch("DELETE FROM #{table}")
-      end
-    end
-
-    tables.each do |table|
-      if ENV[IMPORT_RESUME_AT_ENV_KEY] == Dbt.clean_table_name(table)
-        run_sql_batch("DELETE FROM #{table}")
-        ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
-      end
-      unless partial_import_completed?
-        db.pre_table_import(imp, table)
-        perform_import(imp.database, module_name, table, imp.dir)
-        db.post_table_import(imp, table)
-      end
-    end
-
-    if ENV[IMPORT_RESUME_AT_ENV_KEY].nil?
-      db.post_data_module_import(imp, module_name)
-    end
-  end
-
-  def self.create_module(database, module_name, mode)
-    schema_name = database.schema_name_for_module(module_name)
-    db.create_schema(schema_name)
-    process_module(database, module_name, mode)
-  end
-
-  def self.perform_create_action(database, mode)
-    database.modules.each do |module_name|
-      create_module(database, module_name, mode)
-    end
-  end
-
-  def self.collect_resources(database, dir)
-    index_name = cleanup_resource_name("#{dir}/#{Dbt::Config.index_file_name}")
-    return [] unless resource_present?(database, index_name)
-    load_resource(database, index_name).split("\n").collect{|l|cleanup_resource_name("#{dir}/#{l.strip}")}
-  end
-
-  def self.cleanup_resource_name(value)
-    value.gsub(/\/\.\//,'/')
-  end
-
-  def self.collect_files(directories)
-
-    index = []
-    files = []
-
-    directories.each do |dir|
-
-      index_file = File.join(dir, Dbt::Config.index_file_name)
-      index_entries =
-        File.exists?(index_file) ? File.new(index_file).readlines.collect { |filename| filename.strip } : []
-      index_entries.each do |e|
-        exists = false
-        directories.each do |d|
-          if File.exists?(File.join(d, e))
-            exists = true
-            break
-          end
-        end
-        raise "A specified index entry does not exist on the disk #{e}" unless exists
-      end
-
-      index += index_entries
-
-      if File.exists?(dir)
-        files += Dir["#{dir}/*.sql"]
-      end
-
-    end
-
-    file_map = {}
-
-    files.each do |filename|
-      basename =  File.basename(filename)
-      file_map[basename] = (file_map[basename] || []) + [filename]
-    end
-    duplicates = file_map.reject { |basename, filenames| filenames.size == 1 }.values
-
-    unless duplicates.empty?
-      raise "Files with duplicate basename not allowed.\n\t#{duplicates.collect{|filenames| filenames.join("\n\t")}.join("\n\t")}"
-    end
-
-    files.sort! do |x, y|
-      x_index = index.index(File.basename(x))
-      y_index = index.index(File.basename(y))
-      if x_index.nil? && y_index.nil?
-         File.basename(x) <=> File.basename(y)
-      elsif x_index.nil? && !y_index.nil?
-        1
-      elsif y_index.nil? && !x_index.nil?
-        -1
-      else
-        x_index <=> y_index
-      end
-    end
-
-    files
-  end
-
-  def self.perform_import_action(imp, should_perform_delete, module_group)
-    if module_group.nil?
-      imp.pre_import_dirs.each do |dir|
-        process_dir_set(imp.database, dir, true, dir_display_name(dir))
-      end unless partial_import_completed?
-    end
-    imp.modules.each do |module_key|
-      if module_group.nil? || module_group.modules.include?(module_key)
-        import(imp, module_key, should_perform_delete)
-      end
-    end
-    if partial_import_completed?
-      raise "Partial import unable to be completed as bad table name supplied #{ENV[IMPORT_RESUME_AT_ENV_KEY]}"
-    end
-    if module_group.nil?
-      imp.post_import_dirs.each do |dir|
-        process_dir_set(imp.database, dir, true, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
-      end
-    end
-    db.post_database_import(imp)
-  end
-
-  def self.process_dir_set(database, dir, is_import, label)
-    files =
-      if database.load_from_classloader?
-        collect_resources(database, dir)
-      else
-        collect_files(database.dirs_for_database(dir))
-      end
-    run_sql_files(database, label, files, is_import)
-  end
-
-  def self.dir_display_name(dir)
-    (dir == '.' ? '' : "#{dir}/")
   end
 
   def self.global_init
@@ -1555,257 +1792,12 @@ TXT
     @@repository.configuration_data = nil
   end
 
-  def self.config_key(database_key, env = Dbt::Config.environment)
-    default_database?(database_key) ? env : "#{database_key}_#{env}"
-  end
-
-  def self.default_database?(database_key)
-    database_key.to_s == Dbt::Config.default_database.to_s
-  end
-
-  def self.default_import?(import_key)
-    import_key.to_s == Dbt::Config.default_import.to_s
-  end
-
-  def self.run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
-    sql = filter_sql(sql, database.expanded_filters)
-    sql = sql.gsub(/@@TABLE@@/, table) if table
-    sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
-    sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
-    run_sql_batch(sql, script_file_name, print_dot, true)
-  end
-
-  def self.generate_standard_import_sql(table)
-    sql = "INSERT INTO @@TARGET@@.#{table}("
-    columns = db.column_names_for_table(table)
-    sql += columns.join(', ')
-    sql += ")\n  SELECT "
-    sql += columns.join(', ')
-    sql += " FROM @@SOURCE@@.#{table}\n"
-    sql
-  end
-
-  def self.perform_standard_import(database, table)
-    run_import_sql(database, table, generate_standard_import_sql(table))
-  end
-
-  def self.perform_import(database, module_name, table, import_dir)
-    fixture_file = try_find_file_in_module(database, module_name, import_dir, table, 'yml')
-    sql_file = try_find_file_in_module(database, module_name, import_dir, table, 'sql')
-
-    if fixture_file && sql_file
-      raise "Unexpectantly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
-    end
-
-    info("#{'%-15s' % module_name}: Importing #{Dbt.clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
-    if fixture_file
-      load_fixture(table, load_data(database, fixture_file))
-    elsif sql_file
-      run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
-    else
-      perform_standard_import(database, table)
-    end
-  end
-
-  def self.setup_connection(database_key, open_control_database, &block)
-    db.open(configuration_for_key(config_key(database_key)), open_control_database)
-    if block_given?
-      begin
-        yield
-      ensure
-        db.close
-      end
-    end
-  end
-
-  def self.process_module(database, module_name, mode)
-    dirs = mode == :up ? database.up_dirs : mode == :down ? database.down_dirs : database.finalize_dirs
-    dirs.each do |dir|
-      process_dir_set(database,"#{module_name}/#{dir}",false,"#{'%-15s' % module_name}: #{dir_display_name(dir)}")
-    end
-    load_fixtures(database, module_name) if mode == :up
-  end
-
-  def self.load_fixtures(database, module_name)
-    load_fixtures_from_dirs(database, module_name, Dbt::Config.fixture_dir_name)
-  end
-
-  def self.load_dataset(database, module_name, dataset_name)
-    load_fixtures_from_dirs(database, module_name, "#{Dbt::Config.datasets_dir_name}/#{dataset_name}")
-  end
-
-  def self.load_fixtures_from_dirs(database, module_name, subdir)
-    fixtures = {}
-    unless database.load_from_classloader?
-      dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
-      filesystem_files = dirs.collect{|d|Dir["#{d}/*.yml"]}.flatten.compact
-    end
-    database.table_ordering(module_name).each do |table_name|
-      if database.load_from_classloader?
-        filename = module_filename(module_name, subdir, table_name, 'yml')
-        if resource_present?(database,filename)
-          fixtures[table_name] = filename
-        end
-      else
-        dirs.each do |dir|
-          filename = table_name_to_fixture_filename(dir, table_name)
-          filesystem_files.delete(filename)
-          if File.exists?(filename)
-            raise "Duplicate fixture for #{table_name} found in database search paths" if fixtures[table_name]
-            fixtures[table_name] = filename
-          end
-        end
-      end
-    end
-
-    if !database.load_from_classloader? && !filesystem_files.empty?
-      raise "Unknown fixtures found in database search paths. Files: #{filesystem_files.inspect}"
-    end
-
-    database.table_ordering(module_name).reverse.each do |table_name|
-      if fixtures[table_name]
-        run_sql_batch("DELETE FROM #{table_name}")
-      end
-    end
-
-    database.table_ordering(module_name).each do |table_name|
-      filename = fixtures[table_name]
-      next unless filename
-      info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
-      load_fixture(table_name, load_data(database, filename))
-    end
-  end
-
-  def self.table_name_to_fixture_filename(dir, table_name)
-    "#{dir}/#{clean_table_name(table_name)}.yml"
-  end
-
-  def self.clean_table_name(table_name)
-    table_name.tr('[]"''', '')
-  end
-
-  def self.load_fixture(table_name, content)
-    yaml = YAML::load(ERB.new(content).result)
-    # Skip empty files
-    return unless yaml
-    # NFI
-    yaml_value =
-      if yaml.respond_to?(:type_id) && yaml.respond_to?(:value)
-        yaml.value
-      else
-        [yaml]
-      end
-    db.pre_fixture_import(table_name)
-    yaml_value.each do |fixture|
-      raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
-      fixture.each do |name, data|
-        raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
-        db.insert(table_name, data)
-      end
-      db.post_fixture_import(table_name)
-    end
-  end
-
-  def self.run_sql_batch(sql, script_file_name = nil, print_dot = false, execute_in_control_database = false)
-    sql.gsub(/\r/, '').split(/(\s|^)GO(\s|$)/).reject { |q| q.strip.empty? }.each_with_index do |ddl, index|
-      $stdout.putc '.' if print_dot
-      begin
-        db.execute(ddl, execute_in_control_database)
-      rescue
-        if script_file_name.nil? || index.nil?
-          raise $!
-        else
-          raise "An error occurred while trying to execute batch ##{index + 1} of #{File.basename(script_file_name)}:\n#{$!}"
-        end
-      end
-    end
-    $stdout.putc "\n" if print_dot
-  end
-
   def self.configuration_for_key(config_key)
     @@repository.configuration_for_key(config_key)
   end
 
-  def self.run_filtered_sql_batch(database, sql, script_file_name = nil)
-    sql = filter_sql(sql, database.expanded_filters)
-    run_sql_batch(sql, script_file_name)
-  end
-
-  def self.filter_sql(sql, filters)
-    filters.each do |filter|
-      sql = filter.call(sql)
-    end
-    sql
-  end
-
-  def self.run_sql_files(database, label, files, is_import)
-    files.each do |filename|
-      run_sql_file(database, label, filename, is_import)
-    end
-  end
-
-  def self.load_data(database, filename)
-    if database.load_from_classloader?
-      load_resource(database, filename)
-    else
-      IO.readlines(filename).join
-    end
-  end
-
-  def self.run_sql_file(database, label, filename, is_import)
-    info("#{label}#{File.basename(filename)}")
-    sql = load_data(database, filename)
-    if is_import
-      run_import_sql(database, nil, sql, filename)
-    else
-      run_filtered_sql_batch(database, sql, filename)
-    end
-  end
-
-  def self.resource_present?(database, resource_path)
-    require 'java'
-    !!java.lang.ClassLoader.getCallerClassLoader().getResource("#{database.resource_prefix}/#{resource_path}")
-  end
-
-  def self.load_resource(database, resource_path)
-    require 'java'
-    stream = java.lang.ClassLoader.getCallerClassLoader().getResourceAsStream("#{database.resource_prefix}/#{resource_path}")
-    raise "Missing resource #{resource_path}" unless stream
-    content = ""
-    while stream.available() > 0
-      content << stream.read()
-    end
-    content
-  end
-
-  def self.module_filename(module_name, subdir, table, extension)
-    "#{module_name}/#{subdir}/#{clean_table_name(table)}.#{extension}"
-  end
-
-  def self.try_find_file_in_module(database, module_name, subdir, table, extension)
-    filename = module_filename(module_name, subdir, table, extension)
-    if database.load_from_classloader?
-      resource_present?(database, filename) ? filename : nil
-    else
-      filename = module_filename(module_name, subdir, table, extension)
-      database.search_dirs.map do |d|
-        file = "#{d}/#{filename}"
-        return file if File.exist?(file)
-      end
-      return nil
-    end
-  end
-
   def self.banner(message, database_key)
-    info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}) ****")
-  end
-
-  def self.info(message)
-    puts message
-  end
-
-  def self.db
-    @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
+    @@runtime.info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}) ****")
   end
 
   class DbConfig
