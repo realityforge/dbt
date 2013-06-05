@@ -183,37 +183,6 @@ class Dbt
     end
   end
 
-  class BaseElement
-    attr_reader :key
-
-    def initialize(key, options, &block)
-      @key = key
-      self.options = options
-      yield self if block_given?
-    end
-
-    def options=(options)
-      options.each_pair do |k, v|
-        keys = k.to_s.split('.')
-        target = self
-        keys[0, keys.length - 1].each do |target_accessor_key|
-          target = target.send target_accessor_key.to_sym
-        end
-        target.send "#{keys.last}=", v
-      end
-    end
-  end
-
-  class DatabaseElement < BaseElement
-
-    def initialize(database, key, options, &block)
-      @database = database
-      super(key, options, &block)
-    end
-
-    attr_reader :database
-  end
-
   DatabaseNameFilter = ::Struct.new('DatabaseNameFilter', :pattern, :database_key, :optional)
   PropertyFilter = ::Struct.new('PropertyFilter', :pattern, :value)
 
