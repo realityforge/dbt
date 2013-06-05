@@ -46,6 +46,13 @@ class Dbt::TestCase < Minitest::Test
     Dbt.reset_configuration
   end
 
+  # Create a directory relative to working directory
+  def create_dir(filename)
+    expanded_filename = "#{working_dir}/#{filename}"
+    FileUtils.mkdir_p expanded_filename
+    expanded_filename
+  end
+
   # Create a file with specified content relative to working directory
   def create_file(filename, content)
     expanded_filename = "#{working_dir}/#{filename}"
