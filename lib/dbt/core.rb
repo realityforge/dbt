@@ -1098,15 +1098,9 @@ SQL
       "#{dir}/#{clean_table_name(table_name)}.yml"
     end
 
-    # TODO: Remove me!
-    public
-
     def clean_table_name(table_name)
       table_name.tr('[]"' '', '')
     end
-
-    # TODO: Remove me!
-    private
 
     def load_fixture(table_name, content)
       yaml = YAML::load(ERB.new(content).result)
