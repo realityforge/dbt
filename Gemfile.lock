@@ -15,5 +15,5 @@ PLATFORMS
 
 DEPENDENCIES
   dbt!
-  minitest (>= 5.0.2)
+  minitest (= 5.0.2)
   rake
