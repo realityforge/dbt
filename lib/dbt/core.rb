@@ -907,7 +907,7 @@ SQL
     end
 
     def perform_package_database_data(database, package_dir)
-      mkdir_p package_dir
+      FileUtils.mkdir_p package_dir
 
       import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
       dataset_dirs = database.datasets.collect { |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}" }
@@ -965,8 +965,8 @@ SQL
 
     def cp_files_to_dir(files, target_dir)
       return if files.empty?
-      mkdir_p target_dir
-      cp_r files, target_dir
+      FileUtils.mkdir_p target_dir
+      FileUtils.cp_r files, target_dir
     end
 
     def generate_index(target_dir, files)
@@ -1459,7 +1459,7 @@ SQL
   end
 
   def self.package_database_code(database, package_dir)
-    mkdir_p package_dir
+    FileUtils.mkdir_p package_dir
     valid_commands = ["create", "drop"]
     valid_commands << "restore" if database.restore?
     valid_commands << "backup" if database.backup?
@@ -1483,7 +1483,7 @@ SQL
 
     valid_commands << "migrate" if database.enable_migrations?
 
-    mkdir_p "#{package_dir}/org/realityforge/dbt"
+    FileUtils.mkdir_p "#{package_dir}/org/realityforge/dbt"
     File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb", "w") do |f|
       f << <<TXT
 require 'dbt'
@@ -1588,7 +1588,7 @@ end
 TXT
     end
     sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
-    cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
+    FileUtils.cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 
   def self.global_init
