@@ -594,6 +594,23 @@ SQL
       tables
     end
 
+    def parse_repository_config(content)
+      require 'yaml'
+      repository_config = YAML::load(content)
+      self.modules = repository_config['modules'].collect { |m| m[0] }
+      schema_overrides = {}
+      table_map = {}
+      repository_config['modules'].each do |module_config|
+        name = module_config[0]
+        schema = module_config[1]['schema']
+        tables = module_config[1]['tables']
+        table_map[name] = tables
+        schema_overrides[name] = schema if name != schema
+      end
+      self.schema_overrides = schema_overrides
+      self.table_map = table_map
+    end
+
     # Enable domgen support. Assume the database is associated with a single repository
     # definition, a single task to generate sql etc.
     def enable_domgen(repository_key, load_task_name, generate_task_name)

@@ -111,4 +111,35 @@ class TestDatabaseDefinition < Dbt::TestCase
       definition2.validate
     end
   end
+
+  def test_parse_repository_config
+    definition = Dbt::DatabaseDefinition.new(:default, {})
+    definition.parse_repository_config(<<-CONFIG)
+---
+modules: !omap
+- CodeMetrics:
+    schema: CodeMetrics
+    tables:
+    - "[CodeMetrics].[tblCollection]"
+    - "[CodeMetrics].[tblMethodMetric]"
+- Geo:
+    schema: Geo
+    tables:
+    - "[Geo].[tblMobilePOI]"
+    - "[Geo].[tblPOITrack]"
+    - "[Geo].[tblSector]"
+    - "[Geo].[tblOtherGeom]"
+- TestModule:
+    schema: TM
+    tables:
+    - "[TM].[tblBaseX]"
+    - "[TM].[tblFoo]"
+    - "[TM].[tblBar]"
+    CONFIG
+
+    assert_equal definition.modules, ['CodeMetrics', 'Geo', 'TestModule']
+    assert_equal definition.schema_overrides.size, 1
+    assert_equal definition.schema_name_for_module('TestModule'), 'TM'
+    assert_equal definition.table_ordering('Geo'), ["[Geo].[tblMobilePOI]","[Geo].[tblPOITrack]","[Geo].[tblSector]","[Geo].[tblOtherGeom]"]
+  end
 end
