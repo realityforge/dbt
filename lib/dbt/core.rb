@@ -1593,10 +1593,6 @@ TXT
     @@repository.load_configuration_data(Dbt::Config.config_filename)
   end
 
-  def self.reset_configuration
-    @@repository.configuration_data = nil
-  end
-
   def self.configuration_for_key(config_key)
     @@repository.configuration_for_key(config_key)
   end
