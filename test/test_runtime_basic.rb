@@ -120,7 +120,7 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
-  def test_create_with_fixtures
+  def test_create_with_fixtures_including_non_fixture
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
 
