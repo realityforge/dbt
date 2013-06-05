@@ -116,6 +116,22 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.drop(database)
   end
 
+  # TODO: test fixture loading with multiple fixtures (ensure ordering)
+  # TODO: test no_create? flag
+  # TODO: test pre/post database scripts
+  # TODO: test import
+  # TODO: test import with IMPORT_RESUME_AT
+  # TODO: test import changing the pre/post config dirs
+  # TODO: test migrations
+  # TODO: test post create migrations setup
+  # TODO: test post create migrations setup with assume_migrations_applied_at_create?
+  # TODO: test load_datasets_for_modules
+  # TODO: test up module group
+  # TODO: test down module group
+  # TODO: test dump_tables_to_fixtures
+  # TODO: test index files changing the order
+  # TODO: test filters ??
+
   def create_table_sql(dir, table_name)
     create_file("databases/#{dir}/#{table_name}.sql", "CREATE TABLE [#{table_name}]")
   end
