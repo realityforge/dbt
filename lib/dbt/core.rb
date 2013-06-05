@@ -1061,6 +1061,7 @@ SQL
       unless database.load_from_classloader?
         dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
         filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
+        filesystem_sql_files = dirs.collect { |d| Dir["#{d}/*.sql"] }.flatten.compact
       end
       database.table_ordering(module_name).each do |table_name|
         if database.load_from_classloader?
@@ -1082,6 +1083,10 @@ SQL
 
       if !database.load_from_classloader? && !filesystem_files.empty?
         raise "Unexpected fixtures found in database search paths. Fixtures do not match existing tables. Files: #{filesystem_files.inspect}"
+      end
+
+      if !database.load_from_classloader? && !filesystem_sql_files.empty?
+        raise "Unexpected sql files found in fixture directories. SQL files are not processed. Files: #{filesystem_sql_files.inspect}"
       end
 
       database.table_ordering(module_name).reverse.each do |table_name|

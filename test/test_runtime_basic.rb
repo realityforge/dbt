@@ -108,10 +108,6 @@ class TestRuntimeBasic < Dbt::TestCase
 
     create_fixture(module_name, 'foo')
 
-    # Look at me - I am not a fixture!
-    # TODO: Presence of this file should generate an error?
-    create_file("databases/#{module_name}/fixtures/bar.sql", "SELECT * FROM tblNotRun")
-
     mock.expects(:open).with(config, true)
     mock.expects(:drop).with(database, config)
     mock.expects(:close).with()
@@ -122,6 +118,32 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:close).with()
 
     Dbt.runtime.create(database)
+  end
+
+  def test_create_with_fixtures
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]', '[bar]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    create_file("databases/#{module_name}/fixtures/bar.sql", "SELECT * FROM tblNotRun")
+
+    mock.expects(:open).with(config, true)
+    mock.expects(:drop).with(database, config)
+    mock.expects(:close).with()
+    mock.expects(:open).with(config, false)
+    mock.expects(:create_database).with(database, config)
+    mock.expects(:create_schema).with(module_name)
+    mock.expects(:close).with()
+
+     assert_raises(RuntimeError) do
+      Dbt.runtime.create(database)
+    end
   end
 
   def test_create_with_sql
