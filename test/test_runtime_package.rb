@@ -58,4 +58,9 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyOtherModule/base.sql")
   end
 
+  # TODO: test multiple search dirs
+  # TODO: test extra fixtures skipped
+  # TODO: test order appears in index is correct
+  # TODO: test order appears in index is correct when partial order supplied
+  # TODO: test order appears in index is correct when full order supplied
 end
