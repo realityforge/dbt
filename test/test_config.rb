@@ -55,4 +55,10 @@ class TestConfig < Dbt::TestCase
     assert_equal Dbt::Config.default_database?(:foo), true
     assert_equal Dbt::Config.default_database?(:bar), false
   end
+
+  def test_default_import?
+    Dbt::Config.default_import = :foo
+    assert_equal Dbt::Config.default_import?(:foo), true
+    assert_equal Dbt::Config.default_import?(:bar), false
+  end
 end

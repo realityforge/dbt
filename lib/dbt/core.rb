@@ -89,6 +89,10 @@ class Dbt
         @default_import || :default
       end
 
+      def default_import?(import_key)
+        import_key.to_s == default_import.to_s
+      end
+
       # config_file is where the yaml config file is located
       attr_writer :config_filename
 
