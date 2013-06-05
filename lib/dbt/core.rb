@@ -800,7 +800,7 @@ SQL
 
     def create_module(database, module_name, mode)
       schema_name = database.schema_name_for_module(module_name)
-      db.create_schema(schema_name)
+      db.create_schema(schema_name) if :up == mode
       process_module(database, module_name, mode)
     end
 
