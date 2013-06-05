@@ -33,6 +33,7 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyModule/stored-procedures/spA.sql")
     assert_file_exist("#{output_dir}/MyModule/misc/spA.sql")
     assert_file_exist("#{output_dir}/MyModule/fixtures/foo.yml")
+    # TODO: Presence of this next file is an error as it is not used by fixture loader?
     assert_file_exist("#{output_dir}/MyModule/fixtures/bar.sql")
     assert_file_exist("#{output_dir}/MyModule/triggers/trgA.sql")
     assert_file_exist("#{output_dir}/MyModule/finalize/finA.sql")
