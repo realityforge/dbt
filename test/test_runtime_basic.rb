@@ -42,6 +42,59 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def test_create_with_multiple_fixtures
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]', '[bar]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    create_fixture(module_name, 'foo')
+    create_fixture(module_name, 'bar')
+
+    mock.expects(:open).with(config, true)
+    mock.expects(:drop).with(database, config)
+    mock.expects(:close).with()
+    mock.expects(:open).with(config, false)
+    mock.expects(:create_database).with(database, config)
+    mock.expects(:create_schema).with(module_name)
+    expect_fixture(mock, 'foo')
+    expect_fixture(mock, 'bar')
+    mock.expects(:close).with()
+
+    Dbt.runtime.create(database)
+  end
+
+  def test_create_with_unexpected_fixtures
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]', '[bar]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    create_fixture(module_name, 'baz')
+
+    mock.expects(:open).with(config, true)
+    mock.expects(:drop).with(database, config)
+    mock.expects(:close).with()
+    mock.expects(:open).with(config, false)
+    mock.expects(:create_database).with(database, config)
+    mock.expects(:create_schema).with(module_name)
+    mock.expects(:close).with()
+
+    assert_raises(RuntimeError) do
+      Dbt.runtime.create(database)
+    end
+  end
+
   def test_create_with_fixtures
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -134,7 +187,7 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.drop(database)
   end
 
-  # TODO: test fixture loading with multiple fixtures (ensure ordering)
+  # TODO: ensure ordering across run sql, run fixtures etc ...
   # TODO: test pre/post database scripts
   # TODO: test import
   # TODO: test import with IMPORT_RESUME_AT
