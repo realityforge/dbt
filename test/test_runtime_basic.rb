@@ -240,6 +240,31 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
+  def test_import_with_IMPORT_RESUME_AT
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+
+    mock.expects(:open).with(config, false)
+    expect_table_import(mock, import, module_name, 'baz', 'D', false)
+    expect_table_import(mock, import, module_name, 'bar', 'D', true)
+    mock.expects(:post_data_module_import).with(import, module_name)
+    mock.expects(:post_database_import).with(import)
+
+    mock.expects(:close).with()
+
+    ENV['IMPORT_RESUME_AT'] = 'MyModule.bar'
+    Dbt.runtime.database_import(database.import_by_name(:default), nil)
+  end
+
   def test_import_by_sql
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -339,7 +364,6 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: ensure ordering across run sql, run fixtures etc ...
-  # TODO: test import with IMPORT_RESUME_AT
   # TODO: test create_by_import
   # TODO: test import with module group
   # TODO: test migrations
