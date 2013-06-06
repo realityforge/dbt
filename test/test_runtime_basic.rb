@@ -10,7 +10,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['foo', 'bar', 'baz']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     mock.expects(:open).with(config, true)
@@ -32,7 +32,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['foo', 'bar', 'baz']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     mock.expects(:open).with(config, false)
@@ -50,7 +50,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     create_fixture(module_name, 'foo')
@@ -62,8 +62,8 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:open).with(config, false)
     mock.expects(:create_database).with(database, config)
     mock.expects(:create_schema).with(module_name)
-    expect_fixture(mock, 'foo')
-    expect_fixture(mock, 'bar')
+    expect_fixture(mock, module_name, 'foo')
+    expect_fixture(mock, module_name, 'bar')
     mock.expects(:close).with()
 
     Dbt.runtime.create(database)
@@ -77,7 +77,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     create_fixture(module_name, 'baz')
@@ -103,7 +103,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     create_fixture(module_name, 'foo')
@@ -114,7 +114,7 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:open).with(config, false)
     mock.expects(:create_database).with(database, config)
     mock.expects(:create_schema).with(module_name)
-    expect_fixture(mock, 'foo')
+    expect_fixture(mock, module_name, 'foo')
     mock.expects(:close).with()
 
     Dbt.runtime.create(database)
@@ -154,7 +154,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
@@ -188,7 +188,7 @@ class TestRuntimeBasic < Dbt::TestCase
     expect_create_table(mock, module_name, 'Dir1/', 'c')
     expect_create_table(mock, module_name, 'Dir2/', 'e')
     expect_create_table(mock, module_name, 'Dir2/', 'f')
-    expect_fixture(mock, 'foo')
+    expect_fixture(mock, module_name, 'foo')
     expect_create_table(mock, module_name, 'Dir3/', 'g')
     expect_create_table(mock, module_name, 'Dir4/', 'h')
     expect_create_table(mock, '', 'db-post-create/', 'postCreate')
@@ -205,7 +205,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]', '[baz]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     mock.expects(:open).with(config, true)
@@ -223,15 +223,15 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]', '[bar]', '[baz]']
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
     mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'baz', 'D')
-    expect_table_import(mock, import, module_name, 'bar', 'D')
-    expect_table_import(mock, import, module_name, 'foo', 'D')
+    expect_table_import(mock, import, module_name, 'baz', 'D', true)
+    expect_table_import(mock, import, module_name, 'bar', 'D', true)
+    expect_table_import(mock, import, module_name, 'foo', 'D', true)
     mock.expects(:post_data_module_import).with(import, module_name)
     mock.expects(:post_database_import).with(import)
 
@@ -248,17 +248,17 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]']
+    table_names = ['[MyModule].[foo]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
     Dbt::Config.default_import_dir = 'zzzz'
     import_sql = "INSERT INTO DBT_TEST.[foo]"
-    create_file("databases/#{module_name}/zzzz/foo.sql", import_sql)
+    create_file("databases/#{module_name}/zzzz/MyModule.foo.sql", import_sql)
 
     mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'foo', 'S')
+    expect_table_import(mock, import, module_name, 'foo', 'S', true)
     mock.expects(:post_data_module_import).with(import, module_name)
     mock.expects(:post_database_import).with(import)
     mock.expects(:execute).with(import_sql, true)
@@ -275,20 +275,20 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]']
+    table_names = ['[MyModule].[foo]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
     Dbt::Config.default_import_dir = 'zzzz'
     fixture_data = "1:\n  ID: 1\n"
-    create_file("databases/#{module_name}/zzzz/foo.yml", fixture_data)
+    create_file("databases/MyModule/zzzz/MyModule.foo.yml", fixture_data)
 
     mock.expects(:open).with(config, false)
-    mock.expects(:pre_fixture_import).with('[foo]')
-    expect_table_import(mock, import, module_name, 'foo', 'F')
-    mock.expects(:insert).with('[foo]', 'ID' => 1)
-    mock.expects(:post_fixture_import).with('[foo]')
+    mock.expects(:pre_fixture_import).with('[MyModule].[foo]')
+    expect_table_import(mock, import, module_name, 'foo', 'F', true)
+    mock.expects(:insert).with('[MyModule].[foo]', 'ID' => 1)
+    mock.expects(:post_fixture_import).with('[MyModule].[foo]')
     mock.expects(:post_data_module_import).with(import, module_name)
     mock.expects(:post_database_import).with(import)
     mock.expects(:close).with()
@@ -304,7 +304,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[foo]']
+    table_names = ['[MyModule].[foo]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
     database.separate_import_task = true
     import = database.add_import(:default, {})
@@ -322,7 +322,7 @@ class TestRuntimeBasic < Dbt::TestCase
     create_file("databases/d/zzz.sql", post_import_sql_2)
 
     mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'foo', 'D')
+    expect_table_import(mock, import, module_name, 'foo', 'D', true)
     mock.expects(:post_data_module_import).with(import, module_name)
     mock.expects(:post_database_import).with(import)
     mock.expects(:execute).with(pre_import_sql, true)
@@ -357,7 +357,7 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   def create_fixture(module_name, table_name)
-    create_file("databases/#{module_name}/#{Dbt::Config.fixture_dir_name}/#{table_name}.yml", "1:\n  ID: 1\n")
+    create_file("databases/#{module_name}/#{Dbt::Config.fixture_dir_name}/#{module_name}.#{table_name}.yml", "1:\n  ID: 1\n")
   end
 
   def expect_create_table(mock, module_name, dirname, table_name)
@@ -365,23 +365,25 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: #{dirname}#{table_name}.sql")
   end
 
-  def expect_fixture(mock, table_name)
-    mock.expects(:execute).with("DELETE FROM [#{table_name}]", false)
-    mock.expects(:pre_fixture_import).with("[#{table_name}]")
-    mock.expects(:insert).with("[#{table_name}]", 'ID' => 1)
-    mock.expects(:post_fixture_import).with("[#{table_name}]")
-    Dbt.runtime.expects(:info).with("Fixture        : #{table_name}")
+  def expect_fixture(mock, module_name, table_name)
+    mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false)
+    mock.expects(:pre_fixture_import).with("[#{module_name}].[#{table_name}]")
+    mock.expects(:insert).with("[#{module_name}].[#{table_name}]", 'ID' => 1)
+    mock.expects(:post_fixture_import).with("[#{module_name}].[#{table_name}]")
+    Dbt.runtime.expects(:info).with("Fixture        : #{module_name}.#{table_name}")
   end
 
-  def expect_table_import(mock, import_definition, module_name, table_name, import_type)
-    mock.expects(:pre_table_import).with(import_definition, "[#{table_name}]")
-    mock.expects(:execute).with("DELETE FROM [#{table_name}]", false)
-    mock.expects(:post_table_import).with(import_definition, "[#{table_name}]")
-    Dbt.runtime.expects(:info).with("Deleting #{table_name}")
-    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: Importing #{table_name} (By #{import_type})")
+  def expect_table_import(mock, import_definition, module_name, table_name, import_type, delete)
+    if delete
+      mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false)
+      Dbt.runtime.expects(:info).with("Deleting #{module_name}.#{table_name}")
+    end
+    mock.expects(:pre_table_import).with(import_definition, "[#{module_name}].[#{table_name}]")
+    mock.expects(:post_table_import).with(import_definition, "[#{module_name}].[#{table_name}]")
+    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: Importing #{module_name}.#{table_name} (By #{import_type})")
     if 'D' == import_type
-      mock.expects(:column_names_for_table).with("[#{table_name}]").returns(['[ID]'])
-      mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{table_name}]\n", true)
+      mock.expects(:column_names_for_table).with("[#{module_name}].[#{table_name}]").returns(['[ID]'])
+      mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{module_name}].[#{table_name}]\n", true)
     end
   end
 
