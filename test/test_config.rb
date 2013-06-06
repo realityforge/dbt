@@ -13,6 +13,7 @@ class TestConfig < Dbt::TestCase
     [:default_post_create_dirs, ['db-hooks/post'], ['foo']],
     [:default_database, :default, 'iris'],
     [:default_import, :default, 'import-lite'],
+    [:default_import_dir, 'import', 'import-lite'],
     [:repository_config_file, 'repository.yml', 'repo.yml'],
     [:datasets_dir_name, 'datasets', 'mydatasets'],
     [:fixture_dir_name, 'fixtures', 'myfixtures'],

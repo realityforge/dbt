@@ -138,7 +138,7 @@ SQL
     attr_writer :dir
 
     def dir
-      @dir || "import"
+      @dir || Dbt::Config.default_import_dir
     end
 
     # TODO: Move to specific DbConfig

@@ -34,6 +34,7 @@ class Dbt # nodoc
     @default_migrations_dir_name = nil
     @default_database = nil
     @task_prefix = nil
+    @default_import_dir = nil
 
     class << self
       attr_writer :environment
@@ -74,6 +75,12 @@ class Dbt # nodoc
 
       def default_import
         @default_import || :default
+      end
+
+      attr_writer :default_import_dir
+
+      def default_import_dir
+        @default_import_dir || 'import'
       end
 
       def default_import?(import_key)

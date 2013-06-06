@@ -22,6 +22,7 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_post_create_dirs = nil
     Dbt::Config.default_pre_import_dirs = nil
     Dbt::Config.default_post_import_dirs = nil
+    Dbt::Config.default_import_dir = nil
     Dbt::Config.index_file_name = nil
     Dbt::Config.default_import = nil
     Dbt::Config.fixture_dir_name = nil

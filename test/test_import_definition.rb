@@ -17,7 +17,8 @@ class TestImportDefinition < Dbt::TestCase
     assert_equal imp.key, :foo
     assert_equal imp.database, definition
     assert_equal imp.modules, ['Bar', 'Baz']
-    assert_equal imp.dir, 'import'
+    Dbt::Config.default_import_dir = 'foo'
+    assert_equal imp.dir, 'foo'
     assert_equal imp.reindex?, true
     assert_equal imp.shrink?, false
     Dbt::Config.default_pre_import_dirs = ['zang']
