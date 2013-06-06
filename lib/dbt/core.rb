@@ -887,7 +887,7 @@ SQL
     def perform_import_action(imp, should_perform_delete, module_group)
       if module_group.nil?
         imp.pre_import_dirs.each do |dir|
-          process_dir_set(imp.database, dir, true, dir_display_name(dir))
+          process_dir_set(imp.database, dir, true, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
         end unless partial_import_completed?
       end
       imp.modules.each do |module_key|
