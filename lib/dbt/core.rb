@@ -235,8 +235,8 @@ SQL
       super(key, options, &block)
     end
 
-    def add_import(import_key, import_config)
-      @imports[import_key] = ImportDefinition.new(self, import_key, import_config)
+    def add_import(import_key, import_config = {})
+      @imports[import_key.to_s] = ImportDefinition.new(self, import_key, import_config)
     end
 
     def add_module_group(module_group_key, module_group_config)
@@ -253,6 +253,12 @@ SQL
 
     # List of modules to import
     attr_reader :imports
+
+    def import_by_name(import_key)
+      import = @imports[import_key.to_s]
+      raise "Unable to locate import definition by key '#{import_key}'" unless import
+      import
+    end
 
     # List of module_groups configs
     attr_reader :module_groups
