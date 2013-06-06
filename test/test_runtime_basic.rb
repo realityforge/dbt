@@ -296,9 +296,50 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
+  def test_import_using_pre_post_dirs
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+
+    Dbt::Config.default_pre_import_dirs = ['a','b']
+    pre_import_sql = "SELECT 1"
+    create_file("databases/a/yyy.sql", pre_import_sql)
+    pre_import_sql_2 = "SELECT 2"
+    create_file("databases/b/qqq.sql", pre_import_sql_2)
+
+    Dbt::Config.default_post_import_dirs = ['c','d']
+    post_import_sql = "SELECT 3"
+    create_file("databases/c/xxx.sql", post_import_sql)
+    post_import_sql_2 = "SELECT 4"
+    create_file("databases/d/zzz.sql", post_import_sql_2)
+
+    mock.expects(:open).with(config, false)
+    expect_table_import(mock, import, module_name, 'foo', 'D')
+    mock.expects(:post_data_module_import).with(import, module_name)
+    mock.expects(:post_database_import).with(import)
+    mock.expects(:execute).with(pre_import_sql, true)
+    mock.expects(:execute).with(pre_import_sql_2, true)
+    mock.expects(:execute).with(post_import_sql, true)
+    mock.expects(:execute).with(post_import_sql_2, true)
+    Dbt.runtime.expects(:info).with("               : a/yyy.sql")
+    Dbt.runtime.expects(:info).with("               : b/qqq.sql")
+    Dbt.runtime.expects(:info).with("               : c/xxx.sql")
+    Dbt.runtime.expects(:info).with("               : d/zzz.sql")
+    mock.expects(:close).with()
+
+    Dbt.runtime.database_import(database.import_by_name(:default), nil)
+  end
+
   # TODO: ensure ordering across run sql, run fixtures etc ...
   # TODO: test import with IMPORT_RESUME_AT
-  # TODO: test import changing the pre/post config dirs
   # TODO: test create_by_import
   # TODO: test import with module group
   # TODO: test migrations
