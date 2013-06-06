@@ -267,15 +267,18 @@ class TestRuntimeBasic < Dbt::TestCase
   def create_postgres_config(config = {}, top_level_config = {})
     Dbt::Config.driver = 'Pg'
     Dbt.repository.configuration_data = {
-      Dbt::Config.environment =>
-        {
-          'database' => 'DBT_TEST',
-          'username' => ENV['USER'],
-          'password' => 'letmein',
-          'host' => '127.0.0.1',
-          'port' => 5432
-        }.merge(config)
+      Dbt::Config.environment => base_postgres_config(config)
     }.merge(top_level_config)
     Dbt.repository.configuration_for_key(Dbt::Config.environment)
+  end
+
+  def base_postgres_config(config = {})
+    {
+      'database' => 'DBT_TEST',
+      'username' => ENV['USER'],
+      'password' => 'letmein',
+      'host' => '127.0.0.1',
+      'port' => 5432
+    }.merge(config)
   end
 end
