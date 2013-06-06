@@ -92,8 +92,9 @@ class TestDatabaseDefinition < Dbt::TestCase
     definition = Dbt::DatabaseDefinition.new(:default, :imports => {:foo => {}})
     definition.module_groups
     assert_equal definition.imports.size, 1
-    assert_equal definition.imports[:foo].key, :foo
-    assert_equal definition.imports[:foo].database, definition
+    assert_equal definition.import_by_name(:foo).key, :foo
+    assert_equal definition.imports['foo'].key, :foo
+    assert_equal definition.imports['foo'].database, definition
   end
 
   def test_validate
