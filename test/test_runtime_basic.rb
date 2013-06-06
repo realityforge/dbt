@@ -24,6 +24,33 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def test_create_by_import
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+
+    mock.expects(:open).with(config, true)
+    mock.expects(:drop).with(database, config)
+    mock.expects(:close).with()
+    mock.expects(:open).with(config, false)
+    mock.expects(:create_database).with(database, config)
+    mock.expects(:create_schema).with(module_name)
+    expect_table_import(mock, import, module_name, 'foo', 'D', false)
+    mock.expects(:post_data_module_import).with(import, module_name)
+    mock.expects(:post_database_import).with(import)
+    mock.expects(:close).with()
+
+    Dbt.runtime.create_by_import(import)
+  end
+
   def test_create_with_no_create
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -370,7 +397,6 @@ class TestRuntimeBasic < Dbt::TestCase
   #  egg.expects(:crack).in_sequence(breakfast)
   #  egg.expects(:fry).in_sequence(breakfast)
   #  egg.expects(:eat).in_sequence(breakfast)
-  # TODO: test create_by_import
   # TODO: test import with module group
   # TODO: test migrations
   # TODO: test post create migrations setup
