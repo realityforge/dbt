@@ -37,16 +37,16 @@ class TestRuntimeBasic < Dbt::TestCase
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
-    expect_table_import(mock, import, module_name, 'foo', 'D', false)
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_default_table_import(mock, import, module_name, 'foo')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create_by_import(import)
   end
@@ -446,6 +446,27 @@ class TestRuntimeBasic < Dbt::TestCase
       mock.expects(:column_names_for_table).with("[#{module_name}].[#{table_name}]").returns(['[ID]'])
       mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{module_name}].[#{table_name}]\n", true)
     end
+  end
+
+  def expect_default_table_import(mock, import_definition, module_name, table_name)
+    expect_pre_table_import(mock, import_definition, module_name, table_name, 'D')
+    mock.expects(:column_names_for_table).with("[#{module_name}].[#{table_name}]").returns(['[ID]']).in_sequence(@s)
+    mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{module_name}].[#{table_name}]\n", true).in_sequence(@s)
+    expect_post_table_import(mock, import_definition, module_name, table_name)
+  end
+
+  def expect_pre_table_import(mock, import_definition, module_name, table_name, import_type)
+    mock.expects(:pre_table_import).with(import_definition, "[#{module_name}].[#{table_name}]").in_sequence(@s)
+    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: Importing #{module_name}.#{table_name} (By #{import_type})").in_sequence(@s)
+  end
+
+  def expect_post_table_import(mock, import_definition, module_name, table_name)
+    mock.expects(:post_table_import).with(import_definition, "[#{module_name}].[#{table_name}]").in_sequence(@s)
+  end
+
+  def expect_delete_for_table_import(mock, module_name, table_name)
+    Dbt.runtime.expects(:info).with("Deleting #{module_name}.#{table_name}").in_sequence(@s)
+    mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false).in_sequence(@s)
   end
 
   def create_simple_db_definition(db_scripts, module_name, table_names)
