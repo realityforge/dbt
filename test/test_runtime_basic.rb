@@ -13,13 +13,13 @@ class TestRuntimeBasic < Dbt::TestCase
     table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create(database)
   end
@@ -407,6 +407,11 @@ class TestRuntimeBasic < Dbt::TestCase
   # TODO: test dump_tables_to_fixtures
   # TODO: test index files changing the order
   # TODO: test filters ??
+
+  def setup
+    super
+    @s = sequence('main')
+  end
 
   def create_table_sql(dir, table_name)
     create_file("databases/#{dir}/#{table_name}.sql", "CREATE TABLE [#{table_name}]")
