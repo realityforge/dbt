@@ -110,5 +110,9 @@ class Dbt #nodoc
     def post_data_module_import(imp, module_name)
       raise NotImplementedError
     end
+
+    def post_database_import(imp)
+      raise NotImplementedError
+    end
   end
 end
