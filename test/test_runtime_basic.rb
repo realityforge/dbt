@@ -205,7 +205,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['foo', 'bar', 'baz']
+    table_names = ['[foo]', '[bar]', '[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     mock.expects(:open).with(config, true)
