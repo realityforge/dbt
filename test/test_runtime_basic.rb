@@ -215,9 +215,33 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.drop(database)
   end
 
+  def test_import
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]', '[bar]', '[baz]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+
+    mock.expects(:open).with(config, false)
+    expect_table_import(mock, import, module_name, 'baz', 'D')
+    expect_table_import(mock, import, module_name, 'bar', 'D')
+    expect_table_import(mock, import, module_name, 'foo', 'D')
+    mock.expects(:post_data_module_import).with(import, module_name)
+    mock.expects(:post_database_import).with(import)
+
+    mock.expects(:close).with()
+
+    Dbt.runtime.database_import(database.import_by_name(:default), nil)
+  end
+
   # TODO: ensure ordering across run sql, run fixtures etc ...
   # TODO: test import via sql
-  # TODO: test import
   # TODO: test import via fixture
   # TODO: test import via sql
   # TODO: test import with IMPORT_RESUME_AT
@@ -253,6 +277,18 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:insert).with("[#{table_name}]", 'ID' => 1)
     mock.expects(:post_fixture_import).with("[#{table_name}]")
     Dbt.runtime.expects(:info).with("Fixture        : #{table_name}")
+  end
+
+  def expect_table_import(mock, import_definition, module_name, table_name, import_type)
+    mock.expects(:pre_table_import).with(import_definition, "[#{table_name}]")
+    mock.expects(:execute).with("DELETE FROM [#{table_name}]", false)
+    mock.expects(:post_table_import).with(import_definition, "[#{table_name}]")
+    Dbt.runtime.expects(:info).with("Deleting #{table_name}")
+    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: Importing #{table_name} (By #{import_type})")
+    if 'D' == import_type
+      mock.expects(:column_names_for_table).with("[#{table_name}]").returns(['[ID]'])
+      mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{table_name}]\n", true)
+    end
   end
 
   def create_simple_db_definition(db_scripts, module_name, table_names)
