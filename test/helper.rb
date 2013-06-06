@@ -30,6 +30,7 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_migrations_dir_name = nil
     Dbt::Config.default_database = nil
     Dbt::Config.task_prefix = nil
+    ENV["IMPORT_RESUME_AT"] = nil
 
     @cwd = Dir.pwd
     @base_temp_dir = ENV["TEST_TMP_DIR"] || File.expand_path("#{File.dirname(__FILE__)}/../tmp")
