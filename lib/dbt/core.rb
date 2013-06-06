@@ -789,6 +789,7 @@ SQL
 
       tables.each do |table|
         if ENV[IMPORT_RESUME_AT_ENV_KEY] == clean_table_name(table)
+          info("Deleting #{clean_table_name(table)}")
           run_sql_batch("DELETE FROM #{table}")
           ENV[IMPORT_RESUME_AT_ENV_KEY] = nil
         end
