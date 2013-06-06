@@ -267,8 +267,36 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
+  def test_import_by_fixture
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+
+    Dbt::Config.default_import_dir = 'zzzz'
+    fixture_data = "1:\n  ID: 1\n"
+    create_file("databases/#{module_name}/zzzz/foo.yml", fixture_data)
+
+    mock.expects(:open).with(config, false)
+    mock.expects(:pre_fixture_import).with('[foo]')
+    expect_table_import(mock, import, module_name, 'foo', 'F')
+    mock.expects(:insert).with('[foo]', 'ID' => 1)
+    mock.expects(:post_fixture_import).with('[foo]')
+    mock.expects(:post_data_module_import).with(import, module_name)
+    mock.expects(:post_database_import).with(import)
+    mock.expects(:close).with()
+
+    Dbt.runtime.database_import(database.import_by_name(:default), nil)
+  end
+
   # TODO: ensure ordering across run sql, run fixtures etc ...
-  # TODO: test import via fixture
   # TODO: test import with IMPORT_RESUME_AT
   # TODO: test import changing the pre/post config dirs
   # TODO: test create_by_import
