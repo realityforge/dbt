@@ -363,7 +363,13 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
-  # TODO: ensure ordering across run sql, run fixtures etc ...
+  # TODO: ensure ordering across run sql, run fixtures etc ... Eg.
+  #  breakfast = sequence('breakfast')
+  #
+  #  egg = mock('egg')
+  #  egg.expects(:crack).in_sequence(breakfast)
+  #  egg.expects(:fry).in_sequence(breakfast)
+  #  egg.expects(:eat).in_sequence(breakfast)
   # TODO: test create_by_import
   # TODO: test import with module group
   # TODO: test migrations
