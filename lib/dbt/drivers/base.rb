@@ -36,6 +36,7 @@ class Dbt #nodoc
     end
 
     def execute(sql, execute_in_control_database = false)
+      p sql
       raise NotImplementedError
     end
 

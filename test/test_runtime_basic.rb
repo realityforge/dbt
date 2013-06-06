@@ -62,9 +62,9 @@ class TestRuntimeBasic < Dbt::TestCase
     table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_schema).with(module_name)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create(database)
   end
@@ -83,15 +83,17 @@ class TestRuntimeBasic < Dbt::TestCase
     create_fixture(module_name, 'foo')
     create_fixture(module_name, 'bar')
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_delete(mock, module_name, 'bar')
+    expect_delete(mock, module_name, 'foo')
     expect_fixture(mock, module_name, 'foo')
     expect_fixture(mock, module_name, 'bar')
-    mock.expects(:close).with()
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create(database)
   end
@@ -109,13 +111,13 @@ class TestRuntimeBasic < Dbt::TestCase
 
     create_fixture(module_name, 'baz')
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     assert_raises(RuntimeError) do
       Dbt.runtime.create(database)
@@ -135,14 +137,15 @@ class TestRuntimeBasic < Dbt::TestCase
 
     create_fixture(module_name, 'foo')
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_delete(mock, module_name, 'foo')
     expect_fixture(mock, module_name, 'foo')
-    mock.expects(:close).with()
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create(database)
   end
@@ -160,13 +163,13 @@ class TestRuntimeBasic < Dbt::TestCase
 
     create_file("databases/#{module_name}/fixtures/bar.sql", "SELECT * FROM tblNotRun")
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
      assert_raises(RuntimeError) do
       Dbt.runtime.create(database)
@@ -181,7 +184,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
+    table_names = ['[MyModule].[foo]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
     Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
@@ -202,24 +205,25 @@ class TestRuntimeBasic < Dbt::TestCase
     create_table_sql("#{module_name}/Dir4", 'h')
     create_table_sql("db-post-create", 'postCreate')
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
-    mock.expects(:open).with(config, false)
-    mock.expects(:create_database).with(database, config)
-    mock.expects(:create_schema).with(module_name)
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
     expect_create_table(mock, '', 'db-pre-create/', 'preCreate')
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
     expect_create_table(mock, module_name, '', 'a')
     expect_create_table(mock, module_name, '', 'b')
-    expect_create_table(mock, module_name, 'Dir1/', 'd')
     expect_create_table(mock, module_name, 'Dir1/', 'c')
+    expect_create_table(mock, module_name, 'Dir1/', 'd')
     expect_create_table(mock, module_name, 'Dir2/', 'e')
     expect_create_table(mock, module_name, 'Dir2/', 'f')
+    expect_delete(mock, module_name, 'foo')
     expect_fixture(mock, module_name, 'foo')
     expect_create_table(mock, module_name, 'Dir3/', 'g')
     expect_create_table(mock, module_name, 'Dir4/', 'h')
     expect_create_table(mock, '', 'db-post-create/', 'postCreate')
-    mock.expects(:close).with()
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.create(database)
   end
@@ -235,9 +239,9 @@ class TestRuntimeBasic < Dbt::TestCase
     table_names = ['[MyModule].[foo]', '[MyModule].[bar]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
-    mock.expects(:open).with(config, true)
-    mock.expects(:drop).with(database, config)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.drop(database)
   end
@@ -255,14 +259,17 @@ class TestRuntimeBasic < Dbt::TestCase
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
-    mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'baz', 'D', true)
-    expect_table_import(mock, import, module_name, 'bar', 'D', true)
-    expect_table_import(mock, import, module_name, 'foo', 'D', true)
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete_for_table_import(mock, module_name, 'baz')
+    expect_delete_for_table_import(mock, module_name, 'bar')
+    expect_delete_for_table_import(mock, module_name, 'foo')
+    expect_default_table_import(mock, import, module_name, 'foo')
+    expect_default_table_import(mock, import, module_name, 'bar')
+    expect_default_table_import(mock, import, module_name, 'baz')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
 
-    mock.expects(:close).with()
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
@@ -280,11 +287,12 @@ class TestRuntimeBasic < Dbt::TestCase
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
-    mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'baz', 'D', false)
-    expect_table_import(mock, import, module_name, 'bar', 'D', true)
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete_for_table_import(mock, module_name, 'bar')
+    expect_default_table_import(mock, import, module_name, 'bar')
+    expect_default_table_import(mock, import, module_name, 'baz')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
 
     mock.expects(:close).with()
 
@@ -309,12 +317,14 @@ class TestRuntimeBasic < Dbt::TestCase
     import_sql = "INSERT INTO DBT_TEST.[foo]"
     create_file("databases/#{module_name}/zzzz/MyModule.foo.sql", import_sql)
 
-    mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'foo', 'S', true)
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
-    mock.expects(:execute).with(import_sql, true)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete_for_table_import(mock, module_name, 'foo')
+    expect_pre_table_import(mock, import, module_name, 'foo', 'S')
+    mock.expects(:execute).with(import_sql, true).in_sequence(@s)
+    expect_post_table_import(mock, import, module_name, 'foo')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
@@ -336,14 +346,16 @@ class TestRuntimeBasic < Dbt::TestCase
     fixture_data = "1:\n  ID: 1\n"
     create_file("databases/MyModule/zzzz/MyModule.foo.yml", fixture_data)
 
-    mock.expects(:open).with(config, false)
-    mock.expects(:pre_fixture_import).with('[MyModule].[foo]')
-    expect_table_import(mock, import, module_name, 'foo', 'F', true)
-    mock.expects(:insert).with('[MyModule].[foo]', 'ID' => 1)
-    mock.expects(:post_fixture_import).with('[MyModule].[foo]')
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
-    mock.expects(:close).with()
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete_for_table_import(mock, module_name, 'foo')
+    expect_pre_table_import(mock, import, module_name, 'foo', 'F')
+    mock.expects(:pre_fixture_import).with('[MyModule].[foo]').in_sequence(@s)
+    mock.expects(:insert).with('[MyModule].[foo]', 'ID' => 1).in_sequence(@s)
+    mock.expects(:post_fixture_import).with('[MyModule].[foo]').in_sequence(@s)
+    expect_post_table_import(mock, import, module_name, 'foo')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
 
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
@@ -373,30 +385,24 @@ class TestRuntimeBasic < Dbt::TestCase
     post_import_sql_2 = "SELECT 4"
     create_file("databases/d/zzz.sql", post_import_sql_2)
 
-    mock.expects(:open).with(config, false)
-    expect_table_import(mock, import, module_name, 'foo', 'D', true)
-    mock.expects(:post_data_module_import).with(import, module_name)
-    mock.expects(:post_database_import).with(import)
-    mock.expects(:execute).with(pre_import_sql, true)
-    mock.expects(:execute).with(pre_import_sql_2, true)
-    mock.expects(:execute).with(post_import_sql, true)
-    mock.expects(:execute).with(post_import_sql_2, true)
-    Dbt.runtime.expects(:info).with("               : a/yyy.sql")
-    Dbt.runtime.expects(:info).with("               : b/qqq.sql")
-    Dbt.runtime.expects(:info).with("               : c/xxx.sql")
-    Dbt.runtime.expects(:info).with("               : d/zzz.sql")
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    Dbt.runtime.expects(:info).with("               : a/yyy.sql").in_sequence(@s)
+    mock.expects(:execute).with(pre_import_sql, true).in_sequence(@s)
+    Dbt.runtime.expects(:info).with("               : b/qqq.sql").in_sequence(@s)
+    mock.expects(:execute).with(pre_import_sql_2, true).in_sequence(@s)
+    expect_delete_for_table_import(mock, module_name, 'foo')
+    expect_default_table_import(mock, import, module_name, 'foo')
+    mock.expects(:post_data_module_import).with(import, module_name).in_sequence(@s)
+    Dbt.runtime.expects(:info).with("               : c/xxx.sql").in_sequence(@s)
+    mock.expects(:execute).with(post_import_sql, true).in_sequence(@s)
+    Dbt.runtime.expects(:info).with("               : d/zzz.sql").in_sequence(@s)
+    mock.expects(:execute).with(post_import_sql_2, true).in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
     mock.expects(:close).with()
 
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
-  # TODO: ensure ordering across run sql, run fixtures etc ... Eg.
-  #  breakfast = sequence('breakfast')
-  #
-  #  egg = mock('egg')
-  #  egg.expects(:crack).in_sequence(breakfast)
-  #  egg.expects(:fry).in_sequence(breakfast)
-  #  egg.expects(:eat).in_sequence(breakfast)
   # TODO: test import with module group
   # TODO: test migrations
   # TODO: test post create migrations setup
@@ -421,31 +427,20 @@ class TestRuntimeBasic < Dbt::TestCase
     create_file("databases/#{module_name}/#{Dbt::Config.fixture_dir_name}/#{module_name}.#{table_name}.yml", "1:\n  ID: 1\n")
   end
 
-  def expect_create_table(mock, module_name, dirname, table_name)
-    mock.expects(:execute).with("CREATE TABLE [#{table_name}]", false)
-    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: #{dirname}#{table_name}.sql")
+  def expect_create_table(mock, module_name, dirname, table_name, seq = true)
+    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: #{dirname}#{table_name}.sql").in_sequence(@s)
+    mock.expects(:execute).with("CREATE TABLE [#{table_name}]", false).in_sequence(@s)
+  end
+
+  def expect_delete(mock, module_name, table_name)
+    mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false).in_sequence(@s)
   end
 
   def expect_fixture(mock, module_name, table_name)
-    mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false)
-    mock.expects(:pre_fixture_import).with("[#{module_name}].[#{table_name}]")
-    mock.expects(:insert).with("[#{module_name}].[#{table_name}]", 'ID' => 1)
-    mock.expects(:post_fixture_import).with("[#{module_name}].[#{table_name}]")
-    Dbt.runtime.expects(:info).with("Fixture        : #{module_name}.#{table_name}")
-  end
-
-  def expect_table_import(mock, import_definition, module_name, table_name, import_type, delete)
-    if delete
-      mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false)
-      Dbt.runtime.expects(:info).with("Deleting #{module_name}.#{table_name}")
-    end
-    mock.expects(:pre_table_import).with(import_definition, "[#{module_name}].[#{table_name}]")
-    mock.expects(:post_table_import).with(import_definition, "[#{module_name}].[#{table_name}]")
-    Dbt.runtime.expects(:info).with("#{'%-15s' % module_name}: Importing #{module_name}.#{table_name} (By #{import_type})")
-    if 'D' == import_type
-      mock.expects(:column_names_for_table).with("[#{module_name}].[#{table_name}]").returns(['[ID]'])
-      mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{module_name}].[#{table_name}]\n", true)
-    end
+    Dbt.runtime.expects(:info).with("Fixture        : #{module_name}.#{table_name}").in_sequence(@s)
+    mock.expects(:pre_fixture_import).with("[#{module_name}].[#{table_name}]").in_sequence(@s)
+    mock.expects(:insert).with("[#{module_name}].[#{table_name}]", 'ID' => 1).in_sequence(@s)
+    mock.expects(:post_fixture_import).with("[#{module_name}].[#{table_name}]").in_sequence(@s)
   end
 
   def expect_default_table_import(mock, import_definition, module_name, table_name)
@@ -466,7 +461,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
   def expect_delete_for_table_import(mock, module_name, table_name)
     Dbt.runtime.expects(:info).with("Deleting #{module_name}.#{table_name}").in_sequence(@s)
-    mock.expects(:execute).with("DELETE FROM [#{module_name}].[#{table_name}]", false).in_sequence(@s)
+    expect_delete(mock, module_name, table_name)
   end
 
   def create_simple_db_definition(db_scripts, module_name, table_names)
