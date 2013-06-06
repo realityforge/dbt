@@ -216,9 +216,14 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: ensure ordering across run sql, run fixtures etc ...
+  # TODO: test import via sql
   # TODO: test import
+  # TODO: test import via fixture
+  # TODO: test import via sql
   # TODO: test import with IMPORT_RESUME_AT
   # TODO: test import changing the pre/post config dirs
+  # TODO: test create_by_import
+  # TODO: test import with module group
   # TODO: test migrations
   # TODO: test post create migrations setup
   # TODO: test post create migrations setup with assume_migrations_applied_at_create?
