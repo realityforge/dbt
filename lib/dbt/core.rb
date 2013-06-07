@@ -723,7 +723,7 @@ SQL
         if database.assume_migrations_applied_at_create?
           perform_migration(database, :record)
         else
-          perform_migration(database)
+          perform_migration(database, :force)
         end
       end
     end
@@ -737,7 +737,7 @@ SQL
         end
       files.each do |filename|
         migration_name = File.basename(filename, '.sql')
-        if db.should_migrate?(database.key.to_s, migration_name)
+        if [:record, :force].include?(action) || db.should_migrate?(database.key.to_s, migration_name)
           run_sql_file(database, "Migration: ", filename, false) unless :record == action
           db.mark_migration_as_run(database.key.to_s, migration_name)
         end
