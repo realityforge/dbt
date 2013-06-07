@@ -465,9 +465,67 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.migrate(database)
   end
 
+  def test_create_with_migrations
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.migrations = true
+    database.migrations_applied_at_create = false
+
+    Dbt::Config.default_migrations_dir_name = 'migrate22'
+    migrate_sql_1 = "SELECT 1"
+    create_file("databases/migrate22/001_x.sql", migrate_sql_1)
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:setup_migrations).with().in_sequence(@s)
+    expect_migrate(mock, 'default', "001_x", migrate_sql_1)
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.create(database)
+  end
+
+  def test_create_with_migrations_already_applied
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.migrations = true
+    database.migrations_applied_at_create = true
+
+    Dbt::Config.default_migrations_dir_name = 'migrate22'
+    migrate_sql_1 = "SELECT 1"
+    create_file("databases/migrate22/001_x.sql", migrate_sql_1)
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    mock.expects(:setup_migrations).with().in_sequence(@s)
+    expect_mark_migration_as_run(mock, 'default', '001_x')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.create(database)
+  end
+
   # TODO: test import with module group
-  # TODO: test post create migrations setup
-  # TODO: test post create migrations setup with assume_migrations_applied_at_create?
   # TODO: test load_datasets_for_modules
   # TODO: test up module group
   # TODO: test down module group
@@ -507,6 +565,10 @@ class TestRuntimeBasic < Dbt::TestCase
   def expect_migrate(mock, database_key, migration_name, sql)
     Dbt.runtime.expects(:info).with("Migration: #{migration_name}.sql").in_sequence(@s)
     mock.expects(:execute).with(sql, false).in_sequence(@s)
+    expect_mark_migration_as_run(mock, database_key, migration_name)
+  end
+
+  def expect_mark_migration_as_run(mock, database_key, migration_name)
     mock.expects(:mark_migration_as_run).with(database_key, migration_name).in_sequence(@s)
   end
 
