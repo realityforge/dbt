@@ -403,6 +403,38 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
+   def test_migrate
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.migrations = true
+
+    Dbt::Config.default_migrations_dir_name = 'migrate22'
+    migrate_sql_1 = "SELECT 1"
+    create_file("databases/migrate22/001_x.sql", migrate_sql_1)
+    migrate_sql_2 = "SELECT 2"
+    create_file("databases/migrate22/002_x.sql", migrate_sql_2)
+    migrate_sql_3 = "SELECT 3"
+    create_file("databases/migrate22/003_x.sql", migrate_sql_3)
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:"should_migrate?").with('default', '001_x').returns(true).in_sequence(@s)
+    expect_migrate(mock, 'default', "001_x", migrate_sql_1)
+    mock.expects(:"should_migrate?").with('default', '002_x').returns(true).in_sequence(@s)
+    expect_migrate(mock, 'default', "002_x", migrate_sql_2)
+    mock.expects(:"should_migrate?").with('default', '003_x').returns(true).in_sequence(@s)
+    expect_migrate(mock, 'default', "003_x", migrate_sql_3)
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.migrate(database)
+  end
+
   # TODO: test import with module group
   # TODO: test migrations
   # TODO: test migrate where existing migrations exist
@@ -442,6 +474,12 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:pre_fixture_import).with("[#{module_name}].[#{table_name}]").in_sequence(@s)
     mock.expects(:insert).with("[#{module_name}].[#{table_name}]", 'ID' => 1).in_sequence(@s)
     mock.expects(:post_fixture_import).with("[#{module_name}].[#{table_name}]").in_sequence(@s)
+  end
+
+  def expect_migrate(mock, database_key, migration_name, sql)
+    Dbt.runtime.expects(:info).with("Migration: #{migration_name}.sql").in_sequence(@s)
+    mock.expects(:execute).with(sql, false).in_sequence(@s)
+    mock.expects(:mark_migration_as_run).with(database_key, migration_name).in_sequence(@s)
   end
 
   def expect_default_table_import(mock, import_definition, module_name, table_name)
