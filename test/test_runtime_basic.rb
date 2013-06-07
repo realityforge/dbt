@@ -435,6 +435,36 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.migrate(database)
   end
 
+  def test_migrate_with_existing_migrations_applied
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database.migrations = true
+
+    Dbt::Config.default_migrations_dir_name = 'migrate22'
+    migrate_sql_1 = "SELECT 1"
+    create_file("databases/migrate22/001_x.sql", migrate_sql_1)
+    migrate_sql_2 = "SELECT 2"
+    create_file("databases/migrate22/002_x.sql", migrate_sql_2)
+    migrate_sql_3 = "SELECT 3"
+    create_file("databases/migrate22/003_x.sql", migrate_sql_3)
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:"should_migrate?").with('default', '001_x').returns(false).in_sequence(@s)
+    mock.expects(:"should_migrate?").with('default', '002_x').returns(false).in_sequence(@s)
+    mock.expects(:"should_migrate?").with('default', '003_x').returns(true).in_sequence(@s)
+    expect_migrate(mock, 'default', "003_x", migrate_sql_3)
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.migrate(database)
+  end
+
   # TODO: test import with module group
   # TODO: test migrations
   # TODO: test migrate where existing migrations exist
