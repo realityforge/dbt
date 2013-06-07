@@ -466,7 +466,6 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: test import with module group
-  # TODO: test migrations
   # TODO: test post create migrations setup
   # TODO: test post create migrations setup with assume_migrations_applied_at_create?
   # TODO: test load_datasets_for_modules
