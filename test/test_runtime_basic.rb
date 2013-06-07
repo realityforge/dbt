@@ -171,7 +171,7 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:create_schema).with(module_name).in_sequence(@s)
     mock.expects(:close).with().in_sequence(@s)
 
-     assert_raises(RuntimeError) do
+    assert_raises(RuntimeError) do
       Dbt.runtime.create(database)
     end
   end
@@ -373,13 +373,13 @@ class TestRuntimeBasic < Dbt::TestCase
     database.separate_import_task = true
     import = database.add_import(:default, {})
 
-    Dbt::Config.default_pre_import_dirs = ['a','b']
+    Dbt::Config.default_pre_import_dirs = ['a', 'b']
     pre_import_sql = "SELECT 1"
     create_file("databases/a/yyy.sql", pre_import_sql)
     pre_import_sql_2 = "SELECT 2"
     create_file("databases/b/qqq.sql", pre_import_sql_2)
 
-    Dbt::Config.default_post_import_dirs = ['c','d']
+    Dbt::Config.default_post_import_dirs = ['c', 'd']
     post_import_sql = "SELECT 3"
     create_file("databases/c/xxx.sql", post_import_sql)
     post_import_sql_2 = "SELECT 4"
@@ -403,7 +403,7 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), nil)
   end
 
-   def test_migrate
+  def test_migrate
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
 
