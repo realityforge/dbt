@@ -1069,8 +1069,32 @@ SQL
       @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
     end
 
+    def down_fixtures(database, module_name, fixtures)
+      database.table_ordering(module_name).reverse.each do |table_name|
+        if fixtures[table_name]
+          run_sql_batch("DELETE FROM #{table_name}")
+        end
+      end
+    end
+
+    def up_fixtures(database, module_name, fixtures)
+      database.table_ordering(module_name).each do |table_name|
+        filename = fixtures[table_name]
+        next unless filename
+        info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
+        load_fixture(table_name, load_data(database, filename))
+      end
+    end
+
     def load_fixtures_from_dirs(database, module_name, subdir)
       fixtures = {}
+      collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
+
+      down_fixtures(database, module_name, fixtures)
+      up_fixtures(database, module_name, fixtures)
+    end
+
+    def collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
       unless database.load_from_classloader?
         dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
         filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
@@ -1102,18 +1126,7 @@ SQL
         raise "Unexpected sql files found in fixture directories. SQL files are not processed. Files: #{filesystem_sql_files.inspect}"
       end
 
-      database.table_ordering(module_name).reverse.each do |table_name|
-        if fixtures[table_name]
-          run_sql_batch("DELETE FROM #{table_name}")
-        end
-      end
-
-      database.table_ordering(module_name).each do |table_name|
-        filename = fixtures[table_name]
-        next unless filename
-        info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
-        load_fixture(table_name, load_data(database, filename))
-      end
+      fixtures
     end
 
     def table_name_to_fixture_filename(dir, table_name)
