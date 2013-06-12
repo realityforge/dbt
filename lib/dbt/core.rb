@@ -297,6 +297,12 @@ SQL
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
 
+    attr_writer :datasets_dir_name
+
+    def datasets_dir_name
+      @datasets_dir_name || Dbt::Config.default_datasets_dir_name
+    end
+
     attr_writer :pre_create_dirs
 
     def pre_create_dirs
@@ -921,7 +927,7 @@ SQL
       FileUtils.mkdir_p package_dir
 
       import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
-      dataset_dirs = database.datasets.collect { |dataset| "#{Dbt::Config.datasets_dir_name}/#{dataset}" }
+      dataset_dirs = database.datasets.collect { |dataset| "#{database.datasets_dir_name}/#{dataset}" }
       dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
       database.modules.each do |module_name|
         dirs.each do |relative_dir_name|
@@ -1056,7 +1062,7 @@ SQL
     end
 
     def load_dataset_for_module(database, module_name, dataset_name)
-      load_fixtures_from_dirs(database, module_name, "#{Dbt::Config.datasets_dir_name}/#{dataset_name}")
+      load_fixtures_from_dirs(database, module_name, "#{database.datasets_dir_name}/#{dataset_name}")
     end
 
     def db
