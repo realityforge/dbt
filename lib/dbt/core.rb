@@ -605,10 +605,10 @@ SQL
       end
     end
 
-    def load_datasets_for_modules(database, dataset_name)
+    def load_dataset(database, dataset_name)
       init_database(database.key) do
         database.modules.each do |module_name|
-          load_dataset(database, module_name, dataset_name)
+          load_dataset_for_module(database, module_name, dataset_name)
         end
       end
     end
@@ -1055,7 +1055,7 @@ SQL
       load_fixtures_from_dirs(database, module_name, Dbt::Config.fixture_dir_name)
     end
 
-    def load_dataset(database, module_name, dataset_name)
+    def load_dataset_for_module(database, module_name, dataset_name)
       load_fixtures_from_dirs(database, module_name, "#{Dbt::Config.datasets_dir_name}/#{dataset_name}")
     end
 
@@ -1326,7 +1326,7 @@ SQL
       desc "Loads #{dataset_name} data"
       task "#{database.task_prefix}:datasets:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
         banner("Loading Dataset #{dataset_name}", database.key)
-        @@runtime.load_datasets_for_modules(database, dataset_name)
+        @@runtime.load_dataset(database, dataset_name)
       end
     end
 
@@ -1438,7 +1438,7 @@ SQL
       @@runtime.backup(database)
     elsif /^datasets:/ =~ command
       dataset_name = command[9, command.length]
-      @@runtime.load_datasets_for_modules(database, dataset_name)
+      @@runtime.load_dataset(database, dataset_name)
     elsif /^import/ =~ command
       import_key = command[7, command.length]
       import_key = Dbt::Config.default_import.to_s if import_key.nil?
