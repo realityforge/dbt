@@ -28,7 +28,7 @@ class Dbt # nodoc
     @default_post_import_dirs = nil
     @index_file_name = nil
     @default_import = nil
-    @fixture_dir_name = nil
+    @default_fixture_dir_name = nil
     @environment = nil
     @driver = nil
     @default_migrations_dir_name = nil
@@ -151,10 +151,10 @@ class Dbt # nodoc
         @index_file_name || 'index.txt'
       end
 
-      attr_writer :fixture_dir_name
+      attr_writer :default_fixture_dir_name
 
-      def fixture_dir_name
-        @fixture_dir_name || 'fixtures'
+      def default_fixture_dir_name
+        @default_fixture_dir_name || 'fixtures'
       end
 
       attr_writer :default_datasets_dir_name

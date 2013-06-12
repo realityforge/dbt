@@ -189,7 +189,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
     Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
     Dbt::Config.default_finalize_dirs = ['Dir3', 'Dir4']
-    Dbt::Config.fixture_dir_name = 'foo'
+    Dbt::Config.default_fixture_dir_name = 'foo'
     Dbt::Config.default_pre_create_dirs = ['db-pre-create']
     Dbt::Config.default_post_create_dirs = ['db-post-create']
 
@@ -543,7 +543,7 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   def create_fixture(module_name, table_name)
-    create_file("databases/#{module_name}/#{Dbt::Config.fixture_dir_name}/#{module_name}.#{table_name}.yml", "1:\n  ID: 1\n")
+    create_file("databases/#{module_name}/#{Dbt::Config.default_fixture_dir_name}/#{module_name}.#{table_name}.yml", "1:\n  ID: 1\n")
   end
 
   def expect_create_table(mock, module_name, dirname, table_name, seq = true)

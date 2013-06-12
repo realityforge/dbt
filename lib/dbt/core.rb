@@ -303,6 +303,12 @@ SQL
       @datasets_dir_name || Dbt::Config.default_datasets_dir_name
     end
 
+    attr_writer :fixture_dir_name
+
+    def fixture_dir_name
+      @fixture_dir_name || Dbt::Config.default_fixture_dir_name
+    end
+
     attr_writer :pre_create_dirs
 
     def pre_create_dirs
@@ -771,7 +777,7 @@ SQL
       # Iterate over module in dependency order doing import as appropriate
       # Note: that tables with initial fixtures are skipped
       tables = ordered_tables.reject do |table|
-        try_find_file_in_module(imp.database, module_name, Dbt::Config.fixture_dir_name, table, 'yml')
+        try_find_file_in_module(imp.database, module_name, imp.database.fixture_dir_name, table, 'yml')
       end
 
       unless imp.database.load_from_classloader?
@@ -928,7 +934,7 @@ SQL
 
       import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
       dataset_dirs = database.datasets.collect { |dataset| "#{database.datasets_dir_name}/#{dataset}" }
-      dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [Dbt::Config.fixture_dir_name] + import_dirs + dataset_dirs
+      dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [database.fixture_dir_name] + import_dirs + dataset_dirs
       database.modules.each do |module_name|
         dirs.each do |relative_dir_name|
           relative_module_dir = "#{module_name}/#{relative_dir_name}"
@@ -939,7 +945,7 @@ SQL
           generate_index(target_dir, files) unless import_dirs.include?(relative_dir_name)
           actual_dirs.each do |dir|
             if File.exist?(dir)
-              if Dbt::Config.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
+              if database.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
                 database.table_ordering(module_name).each do |table_name|
                   cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
                 end
@@ -1058,7 +1064,7 @@ SQL
     end
 
     def load_fixtures(database, module_name)
-      load_fixtures_from_dirs(database, module_name, Dbt::Config.fixture_dir_name)
+      load_fixtures_from_dirs(database, module_name, database.fixture_dir_name)
     end
 
     def load_dataset_for_module(database, module_name, dataset_name)

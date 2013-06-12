@@ -25,7 +25,7 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_import_dir = nil
     Dbt::Config.index_file_name = nil
     Dbt::Config.default_import = nil
-    Dbt::Config.fixture_dir_name = nil
+    Dbt::Config.default_fixture_dir_name = nil
     Dbt::Config.environment = nil
     Dbt::Config.driver = nil
     Dbt::Config.default_migrations_dir_name = nil
