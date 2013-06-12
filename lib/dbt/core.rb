@@ -1575,6 +1575,14 @@ end
 database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.resource_prefix = "data"
+  database.fixture_dir_name = "#{database.fixture_dir_name}"
+  database.datasets_dir_name = "#{database.datasets_dir_name}"
+  database.migrations_dir_name = "#{database.migrations_dir_name}"
+  database.up_dirs = %w(#{database.up_dirs.join(' ')})
+  database.down_dirs = %w(#{database.down_dirs.join(' ')})
+  database.finalize_dirs = %w(#{database.finalize_dirs.join(' ')})
+  database.pre_create_dirs = %w(#{database.pre_create_dirs.join(' ')})
+  database.post_create_dirs = %w(#{database.post_create_dirs.join(' ')})
   database.datasets = %w(#{database.datasets.join(' ')})
 TXT
       if database.add_import_assert_filters?
