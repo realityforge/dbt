@@ -318,9 +318,6 @@ class TestRuntimeBasic < Dbt::TestCase
     mock.expects(:close).with().in_sequence(@s)
     mock.expects(:open).with(config, false).in_sequence(@s)
     mock.expects(:create_schema).with(module_name).in_sequence(@s)
-    #expect_create_table(mock, module_name, 'Dir1/', 'd')
-    #expect_create_table(mock, module_name, 'Dir1/', 'e')
-    #expect_create_table(mock, module_name, 'Dir1/', 'f')
     mock.expects(:close).with().in_sequence(@s)
 
     assert_raises(RuntimeError) do
@@ -657,7 +654,39 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.load_dataset(database, dataset_name)
   end
 
-  # TODO: test import with module group
+  def test_import_with_module_group
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    database = create_db_definition(db_scripts,
+                                    'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
+                                    'MyOtherModule' => ['[MyOtherModule].[baz]'],
+                                    'MyThirdModule' => ['[MyThirdModule].[biz]'])
+    module_group = database.add_module_group('zz', :modules => ['MyOtherModule','MyThirdModule'], :import_enabled => true)
+    assert_equal module_group.modules, ['MyOtherModule', 'MyThirdModule']
+    assert_equal module_group.import_enabled?, true
+
+    import = database.add_import(:default, {})
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete_for_table_import(mock, 'MyOtherModule', 'baz')
+    expect_default_table_import(mock, import, 'MyOtherModule', 'baz')
+    mock.expects(:post_data_module_import).with(import, 'MyOtherModule').in_sequence(@s)
+    # TODO: This is wrong behaviour. All of deletes should occur first
+    expect_delete_for_table_import(mock, 'MyThirdModule', 'biz')
+    expect_default_table_import(mock, import, 'MyThirdModule', 'biz')
+    mock.expects(:post_data_module_import).with(import, 'MyThirdModule').in_sequence(@s)
+    mock.expects(:post_database_import).with(import).in_sequence(@s)
+
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.database_import(database.import_by_name(:default), database.module_group_by_name('zz'))
+  end
+
   # TODO: test up module group
   # TODO: test down module group
   # TODO: test dump_tables_to_fixtures
