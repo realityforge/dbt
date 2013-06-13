@@ -17,7 +17,7 @@ class Dbt
     include Dbt::SqlServerConfig
 
     def self.jdbc_driver_dependencies
-      %w(net.sourceforge.jtds:jtds:jar:1.2.4)
+      %w(net.sourceforge.jtds:jtds:jar:1.2.7)
     end
 
     def jdbc_driver
