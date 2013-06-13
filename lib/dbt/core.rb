@@ -28,7 +28,6 @@
 
 class Dbt
 
-  @@database_driver_hooks = []
   @@repository = Repository.new
   @@runtime = Runtime.new
 
@@ -38,10 +37,6 @@ class Dbt
 
   def self.runtime
     @@runtime
-  end
-
-  def self.add_database_driver_hook(&block)
-    @@database_driver_hooks << block
   end
 
   def self.database_for_key(database_key)
