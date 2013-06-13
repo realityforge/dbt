@@ -412,7 +412,7 @@ SQL
     # Map of module => schema overrides
     # i.e. What database schema is created for a specific module
     def schema_overrides
-      @schema_overrides || {}
+      @schema_overrides ||= {}
     end
 
     attr_writer :table_map
