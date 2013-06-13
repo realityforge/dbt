@@ -228,6 +228,106 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def test_create_with_sql_and_index_covering_partial
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    Dbt::Config.default_up_dirs = ['Dir1']
+    Dbt::Config.index_file_name = 'index2.txt'
+
+    create_file("databases/#{module_name}/Dir1/index2.txt", "d.sql\ne.sql")
+    create_table_sql("#{module_name}/Dir1", 'c')
+    create_table_sql("#{module_name}/Dir1", 'd')
+    create_table_sql("#{module_name}/Dir1", 'e')
+    create_table_sql("#{module_name}/Dir1", 'f')
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_create_table(mock, module_name, 'Dir1/', 'd')
+    expect_create_table(mock, module_name, 'Dir1/', 'e')
+    expect_create_table(mock, module_name, 'Dir1/', 'c')
+    expect_create_table(mock, module_name, 'Dir1/', 'f')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.create(database)
+  end
+
+  def test_create_with_sql_and_index_covering_full
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    Dbt::Config.default_up_dirs = ['Dir1']
+    Dbt::Config.index_file_name = 'index2.txt'
+
+    create_file("databases/#{module_name}/Dir1/index2.txt", "d.sql\ne.sql")
+    create_table_sql("#{module_name}/Dir1", 'd')
+    create_table_sql("#{module_name}/Dir1", 'e')
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_create_table(mock, module_name, 'Dir1/', 'd')
+    expect_create_table(mock, module_name, 'Dir1/', 'e')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.create(database)
+  end
+
+  def test_create_with_sql_and_index_with_additional
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    Dbt::Config.default_up_dirs = ['Dir1']
+    Dbt::Config.index_file_name = 'index2.txt'
+
+    create_file("databases/#{module_name}/Dir1/index2.txt", "d.sql\ne.sql\nf.sql")
+    create_table_sql("#{module_name}/Dir1", 'd')
+    create_table_sql("#{module_name}/Dir1", 'e')
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    #expect_create_table(mock, module_name, 'Dir1/', 'd')
+    #expect_create_table(mock, module_name, 'Dir1/', 'e')
+    #expect_create_table(mock, module_name, 'Dir1/', 'f')
+    mock.expects(:close).with().in_sequence(@s)
+
+    assert_raises(RuntimeError) do
+      Dbt.runtime.create(database)
+    end
+  end
+
   def test_drop
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -561,7 +661,6 @@ class TestRuntimeBasic < Dbt::TestCase
   # TODO: test up module group
   # TODO: test down module group
   # TODO: test dump_tables_to_fixtures
-  # TODO: test index files changing the order
   # TODO: test filters ??
 
   def setup
