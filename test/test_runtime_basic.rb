@@ -525,8 +525,39 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def test_load_dataset
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyOtherModule].[baz]']
+    dataset_name = 'mydataset'
+
+    database = create_db_definition(db_scripts,
+                                    'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
+                                    'MyOtherModule' => ['[MyOtherModule].[baz]'])
+
+    Dbt::Config.default_datasets_dir_name = 'mydatasets'
+    create_file("databases/MyModule/mydatasets/mydataset/MyModule.foo.yml", "1:\n  ID: 1\n")
+    create_file("databases/MyModule/mydatasets/mydataset/MyModule.bar.yml", "1:\n  ID: 1\n")
+    create_file("databases/MyOtherModule/mydatasets/mydataset/MyOtherModule.baz.yml", "1:\n  ID: 1\n")
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_delete(mock, 'MyOtherModule', 'baz')
+    expect_delete(mock, module_name, 'bar')
+    expect_delete(mock, module_name, 'foo')
+    expect_fixture(mock, module_name, 'foo')
+    expect_fixture(mock, module_name, 'bar')
+    expect_fixture(mock, 'MyOtherModule', 'baz')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.load_dataset(database, dataset_name)
+  end
+
   # TODO: test import with module group
-  # TODO: test load_datasets_for_modules
   # TODO: test up module group
   # TODO: test down module group
   # TODO: test dump_tables_to_fixtures
