@@ -28,62 +28,6 @@
 
 class Dbt
 
-  class ImportDefinition < DatabaseElement
-    include FilterContainer
-
-    def initialize(database, key, options, &block)
-      @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs =
-        @database_environment_filter = @import_assert_filters = nil
-      super(database, key, options, &block)
-    end
-
-    attr_writer :modules
-
-    def modules
-      @modules || database.modules
-    end
-
-    attr_writer :dir
-
-    def dir
-      @dir || Dbt::Config.default_import_dir
-    end
-
-    # TODO: Move to specific DbConfig
-    attr_writer :reindex
-
-    def reindex?
-      @reindex.nil? ? true : @reindex
-    end
-
-    # TODO: Move to specific DbConfig
-    attr_writer :shrink
-
-    def shrink?
-      @shrink.nil? ? false : @shrink
-    end
-
-    attr_writer :pre_import_dirs
-
-    def pre_import_dirs
-      @pre_import_dirs || Dbt::Config.default_pre_import_dirs
-    end
-
-    attr_writer :post_import_dirs
-
-    def post_import_dirs
-      @post_import_dirs || Dbt::Config.default_post_import_dirs
-    end
-
-    def validate
-      self.modules.each do |module_key|
-        if !database.modules.include?(module_key.to_s)
-          raise "Module #{module_key} in import #{self.key} does not exist in database module list #{self.database.modules.inspect}"
-        end
-      end
-    end
-  end
-
   class ModuleGroupDefinition < DatabaseElement
 
     def initialize(database, key, options, &block)
