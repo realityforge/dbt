@@ -16,6 +16,47 @@ class Dbt #nodoc
 
   @@defined_init_tasks = false
 
+  class DatabaseDefinition #nodoc
+
+    # Enable domgen support. Assume the database is associated with a single repository
+    # definition, a single task to generate sql etc.
+    def enable_domgen(repository_key, load_task_name, generate_task_name)
+      task "#{task_prefix}:load_config" => load_task_name
+      task "#{task_prefix}:pre_build" => generate_task_name
+
+      desc "Verify constraints on database."
+      task "#{task_prefix}:verify_constraints" => ["#{task_prefix}:load_config"] do
+        Dbt.banner("Verifying database", key)
+        Dbt.init_database(key) do
+          failed_constraints = []
+          Domgen.repository_by_name(repository_key).data_modules.select { |data_module| data_module.sql? }.each do |data_module|
+            failed_constraints += Dbt.db.query("EXEC #{data_module.sql.schema}.spCheckConstraints")
+          end
+          if failed_constraints.size > 0
+            error_message = "Failed Constraints:\n#{failed_constraints.collect do |row|
+              "\t#{row['ConstraintName']} on #{row['SchemaName']}.#{row['TableName']}"
+            end.join("\n")}"
+            raise error_message
+          end
+        end
+        Dbt.banner("Database verified", key)
+      end
+    end
+
+    # Enable db doc support. Assume that all the directories in up/down will have documentation and
+    # will generate relative to specified directory.
+    def enable_db_doc(target_directory)
+      task "#{task_prefix}:db_doc"
+      task "#{task_prefix}:pre_build" => ["#{task_prefix}:db_doc"]
+
+      (up_dirs + down_dirs).each do |relative_dir_name|
+        dirs_for_database(relative_dir_name).each do |dir|
+          task "#{task_prefix}:db_doc" => Dbt::DbDoc.define_doc_tasks(dir, "#{target_directory}/#{relative_dir_name}")
+        end
+      end
+    end
+  end
+
   private
 
   def self.define_tasks_for_database(database)
