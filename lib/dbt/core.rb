@@ -51,20 +51,16 @@ class Dbt
     #   ASSERT_UNCHANGED_ROW_COUNT()
     #   ASSERT(@Id IS NULL)
     #
-    def add_import_assert_filters
-      @add_import_assert_filters = true
+    attr_writer :import_assert_filters
+
+    def import_assert_filters?
+      @import_assert_filters.nil? ? false : @import_assert_filters
     end
 
-    def add_import_assert_filters?
-      @add_import_assert_filters.nil? ? false : @add_import_assert_filters
-    end
+    attr_writer :database_environment_filter
 
-    def add_database_environment_filter
-      @add_database_environment_filter = true
-    end
-
-    def add_database_environment_filter?
-      @add_database_environment_filter.nil? ? false : @add_database_environment_filter
+    def database_environment_filter?
+      @database_environment_filter.nil? ? false : @database_environment_filter
     end
 
     def filters
@@ -73,7 +69,7 @@ class Dbt
 
     def expanded_filters
       filters = []
-      if add_import_assert_filters?
+      if import_assert_filters?
         filters << Proc.new do |sql|
           sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (SELECT COUNT(*) FROM @@SOURCE@@.@@TABLE@@)
@@ -97,7 +93,7 @@ SQL
         end
       end
 
-      if add_database_environment_filter?
+      if database_environment_filter?
         filters << Proc.new do |sql|
           sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s)
         end
@@ -110,7 +106,11 @@ SQL
           end
         elsif filter.is_a?(DatabaseNameFilter)
           filters << Proc.new do |sql|
-            Dbt.runtime.filter_database_name(sql, filter.pattern, Dbt.runtime.config_key(filter.database_key), filter.optional)
+            Dbt.runtime.filter_database_name(sql,
+                                             filter.pattern,
+                                             filter.database_key,
+                                             Dbt::Config.environment,
+                                             filter.optional)
           end
         else
           filters << filter
@@ -126,7 +126,7 @@ SQL
 
     def initialize(database, key, options, &block)
       @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs =
-        @add_database_environment_filter = @add_import_assert_filters = nil
+        @database_environment_filter = @import_assert_filters = nil
       super(database, key, options, &block)
     end
 
@@ -229,7 +229,7 @@ SQL
           @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
             @rake_integration = @separate_import_task = @import_task_as_part_of_create =
               @schema_overrides = @datasets_dir_name = @fixture_dir_name =
-                @add_database_environment_filter = @add_import_assert_filters = nil
+                @database_environment_filter = @import_assert_filters = nil
 
       raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
       raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
@@ -650,7 +650,8 @@ SQL
       perform_package_database_data(database, package_dir)
     end
 
-    def filter_database_name(sql, pattern, config_key, optional = true)
+    def filter_database_name(sql, pattern, database_key, environment = Dbt::Config.environment, optional = true)
+      config_key = config_key(database_key, environment)
       return sql if optional && !Dbt.repository.configuration_for_key?(config_key)
       sql.gsub(pattern, Dbt.repository.configuration_for_key(config_key).catalog_name)
     end
@@ -1024,8 +1025,8 @@ SQL
     def run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
       sql = filter_sql(sql, database.expanded_filters)
       sql = sql.gsub(/@@TABLE@@/, table) if table
-      sql = filter_database_name(sql, /@@SOURCE@@/, config_key(database.key, "import"))
-      sql = filter_database_name(sql, /@@TARGET@@/, config_key(database.key))
+      sql = filter_database_name(sql, /@@SOURCE@@/, database.key, "import")
+      sql = filter_database_name(sql, /@@TARGET@@/, database.key, Dbt::Config.environment)
       run_sql_batch(sql, script_file_name, print_dot, true)
     end
 
@@ -1595,14 +1596,9 @@ database = Dbt.add_database(:#{database.key}) do |database|
   database.pre_create_dirs = %w(#{database.pre_create_dirs.join(' ')})
   database.post_create_dirs = %w(#{database.post_create_dirs.join(' ')})
   database.datasets = %w(#{database.datasets.join(' ')})
+  database.import_assert_filters = #{database.import_assert_filters?}
+  database.database_environment_filter = #{database.database_environment_filter?}
 TXT
-      if database.add_import_assert_filters?
-        f << "  database.add_import_assert_filters\n"
-      end
-
-      if database.add_database_environment_filter?
-        f << "  database.add_database_environment_filter\n"
-      end
 
       database.filters.each do |filter|
         if filter.is_a?(PropertyFilter)
