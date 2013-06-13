@@ -630,8 +630,6 @@ class TestRuntimeBasic < Dbt::TestCase
 
     db_scripts = create_dir("databases")
     module_name = 'MyModule'
-    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyOtherModule].[baz]']
-    dataset_name = 'mydataset'
 
     database = create_db_definition(db_scripts,
                                     'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
@@ -651,7 +649,7 @@ class TestRuntimeBasic < Dbt::TestCase
     expect_fixture(mock, 'MyOtherModule', 'baz')
     mock.expects(:close).with().in_sequence(@s)
 
-    Dbt.runtime.load_dataset(database, dataset_name)
+    Dbt.runtime.load_dataset(database, 'mydataset')
   end
 
   def test_import_with_module_group
@@ -661,7 +659,6 @@ class TestRuntimeBasic < Dbt::TestCase
     config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
 
     db_scripts = create_dir("databases")
-    module_name = 'MyModule'
     database = create_db_definition(db_scripts,
                                     'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
                                     'MyOtherModule' => ['[MyOtherModule].[baz]'],
@@ -694,7 +691,6 @@ class TestRuntimeBasic < Dbt::TestCase
     config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
 
     db_scripts = create_dir("databases")
-    module_name = 'MyModule'
     database = create_db_definition(db_scripts,
                                     'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
                                     'MyOtherModule' => ['[MyOtherModule].[baz]'],
@@ -724,7 +720,6 @@ class TestRuntimeBasic < Dbt::TestCase
     config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
 
     db_scripts = create_dir("databases")
-    module_name = 'MyModule'
     database = create_db_definition(db_scripts,
                                     'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
                                     'MyOtherModule' => ['[MyOtherModule].[baz]', '[MyOtherModule].[bark]'],
