@@ -687,8 +687,70 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.database_import(database.import_by_name(:default), database.module_group_by_name('zz'))
   end
 
-  # TODO: test up module group
-  # TODO: test down module group
+  def test_module_group_up
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    database = create_db_definition(db_scripts,
+                                    'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
+                                    'MyOtherModule' => ['[MyOtherModule].[baz]'],
+                                    'MyThirdModule' => ['[MyThirdModule].[biz]'])
+    module_group = database.add_module_group('zz', :modules => ['MyOtherModule','MyThirdModule'])
+    assert_equal module_group.modules, ['MyOtherModule', 'MyThirdModule']
+
+    Dbt::Config.default_up_dirs = ['.']
+
+    create_table_sql('MyOtherModule', 'a')
+    create_table_sql('MyThirdModule', 'b')
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    mock.expects(:create_schema).with('MyOtherModule').in_sequence(@s)
+    expect_create_table(mock, 'MyOtherModule', '', 'a')
+    mock.expects(:create_schema).with('MyThirdModule').in_sequence(@s)
+    expect_create_table(mock, 'MyThirdModule', '', 'b')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.up_module_group(database.module_group_by_name('zz'))
+  end
+
+  def test_module_group_down
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config({}, 'import' => base_postgres_config().merge('database' => 'IMPORT_DB'))
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    database = create_db_definition(db_scripts,
+                                    'MyModule' => ['[MyModule].[foo]', '[MyModule].[bar]'],
+                                    'MyOtherModule' => ['[MyOtherModule].[baz]', '[MyOtherModule].[bark]'],
+                                    'MyThirdModule' => ['[MyThirdModule].[biz]'])
+    module_group = database.add_module_group('zz', :modules => ['MyOtherModule', 'MyThirdModule'])
+    database.schema_overrides['MyThirdModule'] = 'My3rdSchema'
+    assert_equal module_group.modules, ['MyOtherModule', 'MyThirdModule']
+
+    Dbt::Config.default_up_dirs = ['.']
+    Dbt::Config.default_down_dirs = ['Down2', 'Down3']
+
+    create_table_sql('MyOtherModule/Down2', 'a')
+    create_table_sql('MyThirdModule/Down3', 'b')
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+
+    expect_create_table(mock, 'MyThirdModule', 'Down3/', 'b')
+    mock.expects(:drop_schema).with('My3rdSchema', ['[MyThirdModule].[biz]']).in_sequence(@s)
+
+    expect_create_table(mock, 'MyOtherModule', 'Down2/', 'a')
+    mock.expects(:drop_schema).with('MyOtherModule', ['[MyOtherModule].[bark]','[MyOtherModule].[baz]']).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.down_module_group(database.module_group_by_name('zz'))
+  end
+
   # TODO: test dump_tables_to_fixtures
   # TODO: test filters ??
 
