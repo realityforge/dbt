@@ -240,7 +240,7 @@ SQL
     end
 
     def add_module_group(module_group_key, module_group_config)
-      @module_groups[module_group_key] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
+      @module_groups[module_group_key.to_s] = ModuleGroupDefinition.new(self, module_group_key, module_group_config)
     end
 
     def validate
@@ -262,6 +262,12 @@ SQL
 
     # List of module_groups configs
     attr_reader :module_groups
+
+    def module_group_by_name(module_group_key)
+      module_group = @module_groups[module_group_key.to_s]
+      raise "Unable to locate module group definition by key '#{module_group_key}'" unless module_group
+      module_group
+    end
 
     attr_writer :migrations
 
