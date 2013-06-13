@@ -26,6 +26,7 @@ require 'dbt/runtime'
 require 'dbt/doc'
 require 'dbt/core'
 require 'dbt/packaged'
+require 'dbt/rake_integration'
 
 require 'dbt/drivers/base'
 require 'dbt/drivers/abstract_db_config'
