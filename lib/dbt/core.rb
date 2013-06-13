@@ -125,7 +125,8 @@ SQL
     include FilterContainer
 
     def initialize(database, key, options, &block)
-      @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs = nil
+      @modules = @dir = @reindex = @shrink = @pre_import_dirs = @post_import_dirs =
+        @add_database_environment_filter = @add_import_assert_filters = nil
       super(database, key, options, &block)
     end
 
@@ -227,7 +228,8 @@ SQL
         @up_dirs = @down_dirs = @finalize_dirs = @pre_create_dirs = @post_create_dirs =
           @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
             @rake_integration = @separate_import_task = @import_task_as_part_of_create =
-              @schema_overrides = @datasets_dir_name = @fixture_dir_name = nil
+              @schema_overrides = @datasets_dir_name = @fixture_dir_name =
+                @add_database_environment_filter = @add_import_assert_filters = nil
 
       raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
       raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
