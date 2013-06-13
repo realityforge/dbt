@@ -360,6 +360,8 @@ database = Dbt.add_database(:#{database.key}) do |database|
   database.datasets = %w(#{database.datasets.join(' ')})
   database.import_assert_filters = #{database.import_assert_filters?}
   database.database_environment_filter = #{database.database_environment_filter?}
+  database.rake_integration = false
+  database.migrations = #{database.enable_migrations?}
 TXT
 
       database.filters.each do |filter|
@@ -385,8 +387,6 @@ TXT
       end
 
       f << <<TXT
-  database.rake_integration = false
-  database.migrations = #{database.enable_migrations?}
 end
 
 puts "Environment: \#{Dbt::Config.environment}"
