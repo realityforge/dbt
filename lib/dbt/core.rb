@@ -619,8 +619,17 @@ SQL
 
     def load_dataset(database, dataset_name)
       init_database(database.key) do
+        subdir = "#{database.datasets_dir_name}/#{dataset_name}"
+        fixtures = {}
         database.modules.each do |module_name|
-          load_dataset_for_module(database, module_name, dataset_name)
+          collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
+        end
+
+        database.modules.reverse.each do |module_name|
+          down_fixtures(database, module_name, fixtures)
+        end
+        database.modules.each do |module_name|
+          up_fixtures(database, module_name, fixtures)
         end
       end
     end
@@ -1067,19 +1076,13 @@ SQL
       load_fixtures_from_dirs(database, module_name, database.fixture_dir_name)
     end
 
-    def load_dataset_for_module(database, module_name, dataset_name)
-      load_fixtures_from_dirs(database, module_name, "#{database.datasets_dir_name}/#{dataset_name}")
-    end
-
     def db
       @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
     end
 
     def down_fixtures(database, module_name, fixtures)
-      database.table_ordering(module_name).reverse.each do |table_name|
-        if fixtures[table_name]
-          run_sql_batch("DELETE FROM #{table_name}")
-        end
+      database.table_ordering(module_name).reverse.select {|table_name| !!fixtures[table_name] }.each do |table_name|
+        run_sql_batch("DELETE FROM #{table_name}")
       end
     end
 
