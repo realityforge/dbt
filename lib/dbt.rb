@@ -20,6 +20,7 @@ require 'dbt/config'
 require 'dbt/filter_container'
 require 'dbt/import_definition'
 require 'dbt/module_group_definition'
+require 'dbt/database_definition'
 
 require 'dbt/doc'
 require 'dbt/core'
