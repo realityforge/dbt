@@ -133,7 +133,7 @@ ORDER BY t.Ordinal, t.Name
         database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
         database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
         database_objects("VIEW", schema_name).each { |name| execute("DROP VIEW #{name}") }
-        tables.reverse.each do |table|
+        tables.each do |table|
           execute("DROP TABLE #{table}")
         end
         execute("DROP SCHEMA #{schema_name}")

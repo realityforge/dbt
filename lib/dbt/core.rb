@@ -616,7 +616,7 @@ SQL
         database.modules.reverse.each do |module_name|
           next unless module_group.modules.include?(module_name)
           process_module(database, module_name, :down)
-          tables = database.table_ordering(module_name)
+          tables = database.table_ordering(module_name).reverse
           schema_name = database.schema_name_for_module(module_name)
           db.drop_schema(schema_name, tables)
         end
