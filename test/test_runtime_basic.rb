@@ -747,7 +747,6 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   # TODO: test dump_tables_to_fixtures
-  # TODO: test filters ??
 
   def setup
     super
