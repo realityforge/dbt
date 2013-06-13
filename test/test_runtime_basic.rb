@@ -602,6 +602,15 @@ class TestRuntimeBasic < Dbt::TestCase
     end
   end
 
+  def create_db_definition(db_scripts, table_map)
+    Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.modules = table_map.keys
+      db.table_map = table_map
+      db.search_dirs = [db_scripts]
+    end
+  end
+
   def create_postgres_config(config = {}, top_level_config = {})
     Dbt::Config.driver = 'Pg'
     Dbt.repository.configuration_data = {
