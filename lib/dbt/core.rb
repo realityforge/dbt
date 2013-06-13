@@ -28,63 +28,6 @@
 
 class Dbt
 
-  class Repository
-
-    def initialize
-      @databases = {}
-      @configurations = {}
-      @configuration_data = {}
-    end
-
-    def database_keys
-      @databases.keys
-    end
-
-    def database_for_key(database_key)
-      database = @databases[database_key]
-      raise "Missing database for key #{database_key}" unless database
-      database
-    end
-
-    def add_database(database_key, options = {}, &block)
-      raise "Database with key #{database_key} already defined." if @databases.has_key?(database_key)
-
-      database = DatabaseDefinition.new(database_key, options, &block)
-      @databases[database_key] = database
-
-      database
-    end
-
-    def remove_database(database_key)
-      raise "Database with key #{database_key} not defined." unless @databases.has_key?(database_key)
-      @databases.delete(database_key)
-    end
-
-    def configuration_for_key?(config_key)
-      !!@configuration_data[config_key.to_s]
-    end
-
-    def configuration_for_key(config_key)
-      existing = @configurations[config_key.to_s]
-      return existing if existing
-      c = @configuration_data[config_key.to_s]
-      raise "Missing config for #{config_key}" unless c
-      configuration = Dbt.const_get("#{Dbt::Config.driver}DbConfig").new(c)
-      @configurations[config_key.to_s] = configuration
-    end
-
-    def load_configuration_data(filename)
-      require 'yaml'
-      require 'erb'
-      self.configuration_data = YAML::load(ERB.new(IO.read(filename)).result)
-    end
-
-    def configuration_data=(configuration_data)
-      @configurations = {}
-      @configuration_data = configuration_data.nil? ? {} : configuration_data
-    end
-  end
-
   class Runtime
     def create(database)
       create_database(database)
