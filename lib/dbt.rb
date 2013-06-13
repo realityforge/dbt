@@ -23,9 +23,9 @@ require 'dbt/module_group_definition'
 require 'dbt/database_definition'
 require 'dbt/repository'
 require 'dbt/runtime'
-
 require 'dbt/doc'
 require 'dbt/core'
+require 'dbt/packaged'
 
 require 'dbt/drivers/base'
 require 'dbt/drivers/abstract_db_config'
