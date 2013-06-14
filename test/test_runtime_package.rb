@@ -59,7 +59,24 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyOtherModule/base.sql")
   end
 
-  # TODO: test multiple search dirs
+  def test_multiple_search_dirs
+    create_file("databases/MyModule/base.sql", "")
+    create_file("databases/generated/MyModule/base2.sql", "")
+
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.modules = ['MyModule']
+      db.table_map = {'MyModule' => ['foo','bar','baz']}
+      db.search_dirs = [create_dir("databases"), create_dir("databases/generated")]
+    end
+
+    output_dir = create_dir("pkg/out")
+    Dbt.runtime.package_database_data(database, output_dir)
+
+    assert_file_exist("#{output_dir}/MyModule/base.sql")
+    assert_file_exist("#{output_dir}/MyModule/base2.sql")
+  end
+
   # TODO: test extra fixtures skipped
   # TODO: test order appears in index is correct
   # TODO: test order appears in index is correct when partial order supplied
