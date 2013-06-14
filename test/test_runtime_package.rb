@@ -12,6 +12,7 @@ class TestRuntimePackage < Dbt::TestCase
     create_file("databases/generated/MyModule/misc/spA.sql", "")
     create_file("databases/generated/MyModule/fixtures/foo.yml", "")
     create_file("databases/generated/MyModule/fixtures/bar.sql", "")
+    create_file("databases/generated/MyModule/fixtures/fooShouldNotCopy.yml", "")
     create_file("databases/generated/MyModule/triggers/trgA.sql", "")
     create_file("databases/generated/MyModule/finalize/finA.sql", "")
     create_file("databases/generated/MyModule/down/downA.sql", "")
@@ -33,6 +34,7 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyModule/stored-procedures/spA.sql")
     assert_file_exist("#{output_dir}/MyModule/misc/spA.sql")
     assert_file_exist("#{output_dir}/MyModule/fixtures/foo.yml")
+    assert_file_not_exist("#{output_dir}/MyModule/fixtures/fooShouldNotCopy.yml")
     assert_file_not_exist("#{output_dir}/MyModule/fixtures/bar.sql")
     assert_file_exist("#{output_dir}/MyModule/triggers/trgA.sql")
     assert_file_exist("#{output_dir}/MyModule/finalize/finA.sql")
@@ -168,5 +170,4 @@ class TestRuntimePackage < Dbt::TestCase
     assert_equal index[2].strip, "base2.sql"
   end
 
-  # TODO: test extra fixtures skipped
 end
