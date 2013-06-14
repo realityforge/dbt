@@ -106,7 +106,40 @@ class TestRuntimePackage < Dbt::TestCase
     assert_equal index[2].strip, "base3.sql"
   end
 
+
+  def test_ordering_in_index_with_partial_index_supplied
+    Dbt::Config.index_file_name = "myindex.txt"
+
+    create_file("databases/MyModule/myindex.txt", "base3.sql\nbase2.sql\n")
+    create_file("databases/MyModule/base1.sql", "")
+    create_file("databases/MyModule/base2.sql", "")
+    create_file("databases/MyModule/base3.sql", "")
+    create_file("databases/MyModule/base4.sql", "")
+
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.modules = ['MyModule']
+      db.table_map = {'MyModule' => []}
+      db.search_dirs = [create_dir("databases")]
+    end
+
+    output_dir = create_dir("pkg/out")
+    Dbt.runtime.package_database_data(database, output_dir)
+
+    assert_file_exist("#{output_dir}/MyModule/base1.sql")
+    assert_file_exist("#{output_dir}/MyModule/base2.sql")
+    assert_file_exist("#{output_dir}/MyModule/base3.sql")
+    assert_file_exist("#{output_dir}/MyModule/base4.sql")
+
+    assert_file_exist("#{output_dir}/MyModule/myindex.txt")
+    index = IO.readlines("#{output_dir}/MyModule/myindex.txt")
+    assert_equal index.size, 4
+    assert_equal index[0].strip, "base3.sql"
+    assert_equal index[1].strip, "base2.sql"
+    assert_equal index[2].strip, "base1.sql"
+    assert_equal index[3].strip, "base4.sql"
+  end
+
   # TODO: test extra fixtures skipped
-  # TODO: test order appears in index is correct when partial order supplied
   # TODO: test order appears in index is correct when full order supplied
 end
