@@ -746,7 +746,7 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.down_module_group(database.module_group_by_name('zz'))
   end
 
-  def test_dump_tables_to_fixtures
+  def test_dump_database_to_fixtures
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
 
