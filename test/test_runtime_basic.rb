@@ -781,6 +781,32 @@ class TestRuntimeBasic < Dbt::TestCase
     end
   end
 
+  def test_dump_database_to_fixtures_with_filter
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    fixture_dir = create_dir("output_fixtures")
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    table_names = ['[MyModule].[tblTable1]', '[MyModule].[tblTable2]']
+    module_name = 'MyModule'
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    filter = Proc.new {|t| t == '[MyModule].[tblTable1]'}
+
+    Dbt::Config.default_fixture_dir_name = 'fixturesXX'
+
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    Dbt.runtime.expects(:info).with("Dumping [MyModule].[tblTable1]").in_sequence(@s)
+    mock.expects(:query).with("SELECT * FROM [MyModule].[tblTable1]").returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.dump_database_to_fixtures(database, fixture_dir, :filter => filter)
+
+    assert_file_exist("#{fixture_dir}/MyModule/fixturesXX/MyModule.tblTable1.yml")
+  end
+
   def setup
     super
     @s = sequence('main')
