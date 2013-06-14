@@ -178,6 +178,7 @@ database = Dbt.add_database(:#{database.key}) do |database|
   database.database_environment_filter = #{database.database_environment_filter?}
   database.rake_integration = false
   database.migrations = #{database.enable_migrations?}
+  database.version = #{database.version.inspect}
 TXT
 
       database.filters.each do |filter|
