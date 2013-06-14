@@ -124,17 +124,20 @@ class Dbt
       sql.gsub(pattern, Dbt.repository.configuration_for_key(config_key).catalog_name)
     end
 
-    def dump_tables_to_fixtures(database, tables, fixture_dir)
+    def dump_database_to_fixtures(database, base_fixture_dir, options = {})
+      filter = options[:filter]
+      data_set = options[:data_set]
       init_database(database.key) do
-        tables.each do |table_name|
-          info("Dumping #{table_name}")
-          records = YAML::Omap.new
-          i = 0
-          db.query(dump_table_sql(table_name)).each do |record|
-            records["r#{i += 1}"] = record
-          end
-          File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
-            file.write records.to_yaml
+        database.modules.each do |module_name|
+          database.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
+            info("Dumping #{table_name}")
+            records = load_query_into_yaml(dump_table_sql(table_name))
+
+            fixture_filename =
+              data_set ?
+                "#{base_fixture_dir}/#{module_name}/#{database.datasets_dir_name}/#{data_set}/#{clean_table_name(table_name)}.yml" :
+                "#{base_fixture_dir}/#{module_name}/#{database.fixture_dir_name}/#{clean_table_name(table_name)}.yml"
+            emit_fixture(fixture_filename, records)
           end
         end
       end
@@ -157,6 +160,22 @@ class Dbt
         return Object.const_get(const_name)
       else
         return "SELECT * FROM #{table_name}"
+      end
+    end
+
+    def load_query_into_yaml(sql)
+      records = YAML::Omap.new
+      i = 0
+      db.query(sql).each do |record|
+        records["r#{i += 1}"] = record
+      end
+      records
+    end
+
+    def emit_fixture(fixture_filename, records)
+      FileUtils.mkdir_p File.dirname(fixture_filename)
+      File.open(fixture_filename, 'wb') do |file|
+        file.write records.to_yaml
       end
     end
 

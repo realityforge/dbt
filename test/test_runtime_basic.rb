@@ -759,6 +759,8 @@ class TestRuntimeBasic < Dbt::TestCase
     module_name = 'MyModule'
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
+    Dbt::Config.default_fixture_dir_name = 'fixturesXX'
+
     expected_table2_sql = "SELECT * FROM [MyModule].[tblTable2] ORDER BY ID"
     Object.const_set(:DUMP_SQL_FOR_MyModule_tblTable2, expected_table2_sql)
 
@@ -770,10 +772,10 @@ class TestRuntimeBasic < Dbt::TestCase
       mock.expects(:query).with(expected_table2_sql).returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
       mock.expects(:close).with().in_sequence(@s)
 
-      Dbt.runtime.dump_tables_to_fixtures(database, table_names, fixture_dir)
+      Dbt.runtime.dump_database_to_fixtures(database, fixture_dir)
 
-      assert_file_exist("#{fixture_dir}/MyModule.tblTable1.yml")
-      assert_file_exist("#{fixture_dir}/MyModule.tblTable2.yml")
+      assert_file_exist("#{fixture_dir}/MyModule/fixturesXX/MyModule.tblTable1.yml")
+      assert_file_exist("#{fixture_dir}/MyModule/fixturesXX/MyModule.tblTable2.yml")
     ensure
       Object.send(:remove_const, :DUMP_SQL_FOR_MyModule_tblTable2)
     end
