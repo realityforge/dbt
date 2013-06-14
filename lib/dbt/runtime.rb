@@ -124,24 +124,18 @@ class Dbt
       sql.gsub(pattern, Dbt.repository.configuration_for_key(config_key).catalog_name)
     end
 
-    def dump_tables_to_fixtures(tables, fixture_dir)
-      tables.each do |table_name|
-        File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
-          puts("Dumping #{table_name}\n")
-          const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
-          if Object.const_defined?(const_name)
-            sql = Object.const_get(const_name)
-          else
-            sql = "SELECT * FROM #{table_name}"
-          end
-
+    def dump_tables_to_fixtures(database, tables, fixture_dir)
+      init_database(database.key) do
+        tables.each do |table_name|
+          info("Dumping #{table_name}")
           records = YAML::Omap.new
           i = 0
-          db.query(sql).each do |record|
+          db.query(dump_table_sql(table_name)).each do |record|
             records["r#{i += 1}"] = record
           end
-
-          file.write records.to_yaml
+          File.open(table_name_to_fixture_filename(fixture_dir, table_name), 'wb') do |file|
+            file.write records.to_yaml
+          end
         end
       end
     end
@@ -155,6 +149,16 @@ class Dbt
     end
 
     private
+
+    def dump_table_sql(table_name)
+      const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
+
+      if Object.const_defined?(const_name)
+        return Object.const_get(const_name)
+      else
+        return "SELECT * FROM #{table_name}"
+      end
+    end
 
     IMPORT_RESUME_AT_ENV_KEY = "IMPORT_RESUME_AT"
 
