@@ -170,4 +170,6 @@ class TestRuntimePackage < Dbt::TestCase
     assert_equal index[2].strip, "base2.sql"
   end
 
+  # TODO: test imports copied correctly
+  # TODO: test data sets copied correctly
 end
