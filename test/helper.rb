@@ -74,4 +74,8 @@ class Dbt::TestCase < Minitest::Test
   def assert_file_exist(filename)
     assert File.exist?(filename), "File.exist?(#{filename})"
   end
+
+  def assert_file_not_exist(filename)
+    assert !File.exist?(filename), "!File.exist?(#{filename})"
+  end
 end
