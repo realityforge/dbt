@@ -20,7 +20,7 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.modules = ['MyModule']
-      db.table_map = {'MyModule' => ['foo','bar','baz']}
+      db.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
       db.search_dirs = [db_scripts]
     end
 
@@ -48,7 +48,7 @@ class TestRuntimePackage < Dbt::TestCase
 
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
-      db.modules = ['MyModule','MyOtherModule']
+      db.modules = ['MyModule', 'MyOtherModule']
       db.table_map = {'MyModule' => [], 'MyOtherModule' => []}
       db.search_dirs = [db_scripts]
     end
@@ -67,7 +67,7 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.modules = ['MyModule']
-      db.table_map = {'MyModule' => ['foo','bar','baz']}
+      db.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
       db.search_dirs = [create_dir("databases"), create_dir("databases/generated")]
     end
 
@@ -170,14 +170,14 @@ class TestRuntimePackage < Dbt::TestCase
     assert_equal index[2].strip, "base2.sql"
   end
 
-   def test_data_sets_copied
+  def test_data_sets_copied
     db_scripts = create_dir("databases/generated")
     create_file("databases/generated/MyModule/zang/bing/foo.yml", "")
 
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.modules = ['MyModule']
-      db.table_map = {'MyModule' => ['foo','bar','baz']}
+      db.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
       db.search_dirs = [db_scripts]
       db.datasets = ['bing']
     end
