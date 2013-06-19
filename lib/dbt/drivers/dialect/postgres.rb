@@ -25,8 +25,7 @@ class Dbt
       end
 
       def drop_schema(schema_name, tables)
-        # TODO: Drop dependents
-        execute("DROP SCHEMA #{quote_table_name(schema_name)}")
+        execute("DROP SCHEMA #{quote_table_name(schema_name)} CASCADE")
       end
 
       def create_database(database, configuration)
