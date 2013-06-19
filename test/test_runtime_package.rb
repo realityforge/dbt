@@ -170,6 +170,25 @@ class TestRuntimePackage < Dbt::TestCase
     assert_equal index[2].strip, "base2.sql"
   end
 
+   def test_data_sets_copied
+    db_scripts = create_dir("databases/generated")
+    create_file("databases/generated/MyModule/zang/bing/foo.yml", "")
+
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.modules = ['MyModule']
+      db.table_map = {'MyModule' => ['foo','bar','baz']}
+      db.search_dirs = [db_scripts]
+      db.datasets = ['bing']
+    end
+
+    Dbt::Config.default_datasets_dir_name = 'zang'
+
+    output_dir = create_dir("pkg/out")
+    Dbt.runtime.package_database_data(database, output_dir)
+
+    assert_file_exist("#{output_dir}/MyModule/zang/bing/foo.yml")
+  end
+
   # TODO: test imports copied correctly
-  # TODO: test data sets copied correctly
 end
