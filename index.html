@@ -4,14 +4,81 @@ title: Dbt
 ---
 
 <p>
-    The dbt plugin is designed to simplify the creation, migration and deletion of databases. Each database contains a
-    number of <em>modules</em> that are loaded and migrated in a specific order. Each <em>module</em> is stored in a
-    directory with the same name as the <em>module</em> key used when defining the database.
+    Dbt is a ruby library that helps you to automate the <a href="#database-creation">creation</a>,
+    <a href="#database-import">importing</a> and <a href="#database-migration">migration</a> of databases.
+    Dbt uses convention over configuration and is designed to be a composable component of a larger automation
+    tool chain. Dbt has existing drivers for SQL Server and Postgres.
+</p>
+<p>
+    A simple database configuration that explicitly defined the schema and the set of tables part of the schema follows;
+</p>
+{% highlight ruby %}
+Dbt::Config.config_filename = 'config/database.yml'
+
+Dbt.add_database(:default) do |db|
+  db.search_dirs = ["databases"]
+  db.modules = ['MyModule']
+  db.table_map = {'MyModule' => ['MyModule.tblFoo']}
+end
+{% endhighlight %}
+<p>
+    If this was declared within a <code>Rakefile</code>, it would then define the tasks <code>dbt:create</code> and
+    <code>dbt:drop</code> that would create and drop the database respectively. The create task would create the
+    schema <code>MyModule</code>, scan the <code>search_dirs</code> based on a rules and load any sql files found.
+    The task would also fixture data for the <code>MyModule.tblFoo</code> table if a yaml file was found in the correct
+    location. The drop task would just delete the database. The configuration required to connect to the database is
+    read from the file <code>config/database.yml</code>.
+</p>
+<p>
+    The above example gives a basic feel of the library but it is not representative of how the library is used in
+    practice. In most cases, Dbt is integrated into external tools such as Domgen and will not have to define the
+    <code>modules</code> or <code>table_map</code>. It is also typical to define;
+</p>
+<ul>
+    <li><b>imports</b>: i.e. how to import a previous version of the database into the current format.</li>
+    <li><b>migrations</b>: i.e. how to modify the current version of the database.</li>
+    <li><b>data sets</b>: data used to populate the database for specific scenarios.</li>
+</ul>
+
+<h2>
+<a name="overview" class="anchor" href="#overview"><span class="octicon octicon-link"></span></a>Overview
+</h2>
+
+<h4>Convention over Configuration</h4>
+<p>
+    The library adopts a series of conventions aimed to simplify large, complex, legacy projects but without adding
+    burden to smaller, early stage projects. In particular it grew out of several complex projects that made extensive
+    use of schemas, functions, constraints, stored-procedures, triggers, views and custom types. Most of these projects
+    had in excess 5000 database artifacts. The library is also used in projects where the database is little more than
+    a persistence mechanism with all the complex business logic outside the database.
+</p>
+
+<h4>Composable Component</h4>
+<p>
+    The library is just one part of the automation tool chain and is easily integrated into other tools. It is used
+    extensively with tools such as <a href="">Rake</a>,
+    <a href="http://buildr.apache.org">Buildr</a> and <a href="https://github.com/realityforge/domgen">Domgen</a>.
 </p>
 
 <h2>
 <a name="database-creation" class="anchor" href="#database-creation"><span class="octicon octicon-link"></span></a>Database Creation
 </h2>
+
+<h2>
+<a name="database-import" class="anchor" href="#database-import"><span class="octicon octicon-link"></span></a>Import a Database
+</h2>
+
+<h2>
+<a name="database-migration" class="anchor" href="#database-migration"><span class="octicon octicon-link"></span></a>Migrate a Database
+</h2>
+
+<h2>Old Doco</h2>
+
+<p>
+    The dbt plugin is designed to simplify the creation, migration and deletion of databases. Each database contains a
+    number of <em>modules</em> that are loaded and migrated in a specific order. Each <em>module</em> is stored in a
+    directory with the same name as the <em>module</em> key used when defining the database.
+</p>
 
 <p>
     When a <em>module</em> is loaded the plugin will attempt to load SQL scripts from a number of sub-directories of
