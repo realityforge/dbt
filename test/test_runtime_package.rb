@@ -190,5 +190,23 @@ class TestRuntimePackage < Dbt::TestCase
     assert_file_exist("#{output_dir}/MyModule/zang/bing/foo.yml")
   end
 
-  # TODO: test imports copied correctly
+  def test_imports_copied
+    db_scripts = create_dir("databases/generated")
+    create_file("databases/generated/MyModule/import1/foo.yml", "")
+
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.modules = ['MyModule']
+      db.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
+      db.search_dirs = [db_scripts]
+      db.add_import(:default, {})
+    end
+
+    Dbt::Config.default_import_dir = 'import1'
+
+    output_dir = create_dir("pkg/out")
+    Dbt.runtime.package_database_data(database, output_dir)
+
+    assert_file_exist("#{output_dir}/MyModule/import1/foo.yml")
+  end
 end
