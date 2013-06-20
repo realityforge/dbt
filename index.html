@@ -26,8 +26,8 @@ end
     <code>dbt:drop</code> that would create and drop the database respectively. The create task would create the
     schema <code>MyModule</code>, scan the <code>search_dirs</code> based on a rules and load any sql files found.
     The task would also fixture data for the <code>MyModule.tblFoo</code> table if a yaml file was found in the correct
-    location. The drop task would just delete the database. The configuration required to connect to the database is
-    read from the file <code>config/database.yml</code>.
+    location. The drop task would just delete the database. The runtime configuration required to connect to the
+    database is read from the file <code>config/database.yml</code>.
 </p>
 <p>
     The above example gives a basic feel of the library but it is not representative of how the library is used in
