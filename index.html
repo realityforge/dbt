@@ -9,6 +9,32 @@ title: Dbt
     Dbt uses convention over configuration and is designed to be a composable component of a larger automation
     tool chain. Dbt has existing drivers for SQL Server and Postgres.
 </p>
+
+<h4>Create, Import, Migrate</h4>
+<p>
+    Dbt expects you to define the database using SQL scripts or via a tool that generates SQL scripts (i.e.
+    Domgen). Dbt is responsible for executing the scripts in a defined order. Dbt can also load fixture data
+    from yaml files as part of the database creation. Dbt also defines a mechanism for importing one version of
+    the database into a newer version. Sometimes modifying an existing database, in easier to manage and Dbt
+    offers migrations for use in this scenario.
+</p>
+
+<h4>Convention over Configuration</h4>
+<p>
+    The library adopts a series of conventions aimed to simplify large, complex, legacy projects but without adding
+    burden to smaller, early stage projects. In particular it grew out of several complex projects that made extensive
+    use of schemas, functions, constraints, stored-procedures, triggers, views and custom types. Most of these projects
+    had in excess 5000 database artifacts. The library is also used in projects where the database is little more than
+    a persistence mechanism with all the complex business logic outside the database.
+</p>
+
+<h4>Composable Component</h4>
+<p>
+    The library is just one part of the automation tool chain and is easily integrated into other tools. It is used
+    extensively with tools such as <a href="">Rake</a>,
+    <a href="http://buildr.apache.org">Buildr</a> and <a href="https://github.com/realityforge/domgen">Domgen</a>.
+</p>
+
 <h2>
     <a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>
     Getting Started
@@ -38,26 +64,6 @@ end
     The above example gives a basic feel of the library but it is not representative of how the library is used in
     practice. In most cases, Dbt is integrated into external tools such as Domgen and will not have to define the
     <code>modules</code> or <code>table_map</code>. Nor does the example define any imports, migrations or datasets.
-</p>
-
-<h2>
-<a name="overview" class="anchor" href="#overview"><span class="octicon octicon-link"></span></a>Overview
-</h2>
-
-<h4>Convention over Configuration</h4>
-<p>
-    The library adopts a series of conventions aimed to simplify large, complex, legacy projects but without adding
-    burden to smaller, early stage projects. In particular it grew out of several complex projects that made extensive
-    use of schemas, functions, constraints, stored-procedures, triggers, views and custom types. Most of these projects
-    had in excess 5000 database artifacts. The library is also used in projects where the database is little more than
-    a persistence mechanism with all the complex business logic outside the database.
-</p>
-
-<h4>Composable Component</h4>
-<p>
-    The library is just one part of the automation tool chain and is easily integrated into other tools. It is used
-    extensively with tools such as <a href="">Rake</a>,
-    <a href="http://buildr.apache.org">Buildr</a> and <a href="https://github.com/realityforge/domgen">Domgen</a>.
 </p>
 
 <h2>
