@@ -67,47 +67,160 @@ end
 </p>
 
 <h2>
-    <a name="database-creation" class="anchor" href="#database-creation"><span class="octicon octicon-link"></span></a>
-    Database Creation
+    <a name="semantic-model" class="anchor" href="#semantic-model"><span class="octicon octicon-link"></span></a>
+    Semantic Model
 </h2>
+
+<p>
+    Conceptually, each Dbt database is composed of 0 or more modules. Each module maps to a schema in the database
+    and by convention the schema is the same name as the module. Each database has a search path form which Dbt
+    collects files used to create the database. Each module is mapped to a sub-directory of each element of the
+    search path.
+</p>
+
+<p>
+    Thus if a database definition defined a search path of <code>["database", "database/generated"]</code>, then
+    the module "MyModule" would load data from the directories <code>"database/MyModule"</code> and
+    <code>"database/generated/MyModule"</code>
+</p>
+
+<p>
+    Each module has a number of sub directories that contain database entities such as triggers, views,
+    stored-procedures etc. A module may also contain a sub-directory that contains fixtures. Fixtures define the
+    contents of specific tables at creation time. The module may also include 0 or more directories defining
+    import scripts or migration scripts.
+</p>
+
+<p>
+    The order in which the sub-directories are processed is dependent on the configuration in the database
+    definition but follows a specific convention based on the activity. Within a directory, the order of the sql
+    files is determined by an index file (named <code>index.txt</code> by default) that lists one sql file per
+    line. If the index file is not present or does not include all the sql files, then the sql files are loaded
+    in alphanumeric ordering.
+</p>
+
+<h3>
+    <a name="database-creation" class="anchor" href="#database-creation"><span class="octicon octicon-link"></span></a>
+    Database Creation Workflow
+</h3>
+
+<h5>Create the database.</h5>
+
+<p>
+    During this step the database is created. Both of the existing database drivers will use a control database
+    (<code>master</code> for SQL Server and <code>postgres</code> for PostgreSQL) to create the new database. The
+    driver will then change to the created database for the remainder of the database creation steps. In some
+    environments, it is not possible to access the control database so Dbt allows you to disable database creation
+    by setting the <code>no_create</code> flag to false in the runtime configuration file (i.e.
+    <code>database.yml</code>). In this scenario it is expected that a system administrator has already set up the
+    database.
+</p>
+
+<h5>Process the <code>pre_create_dirs</code>.</h5>
+
+<p>
+    Load any sql files that need to be loaded prior to processing any modules. The <code>pre_create_dirs</code>
+    setting defaults to <code>["db-hooks/pre"]</code>.
+</p>
+
+<h5>Process the <em>up</em> phase for each module in order.</h5>
+
+<p>
+    The purpose of the up phase is to setup the database but without enabling or creating any runtime checks.
+    i.e The tables should be created as part of this phase and populated with any initial fixture data but
+    may not yet have constraints or triggers created or if created, left disabled.
+</p>
+
+<h6>Create the database schema for the module.</h6>
+
+<p>
+    Unless overridden the schema name is the same as the module name. Dbt will create the schema if it
+    does not already exist. This allows multiple modules to map to the same database schema or for a module
+    to map to a predefined schema. (i.e. <code>dbo</code> under SQL Server or <code>public</code> in postgres).
+</p>
+
+<h6>Process the <code>up_dirs</code> for the module.</h6>
+
+<p>
+    The <code>up_dirs</code> are used to define the artifacts in the database. They are separated into
+    separate directories purely as a mechanism to simplify the ordering of database creation scripts.
+    The <code>up_dirs</code> setting defaults to
+    <code>['.', 'types', 'views', 'functions', 'stored-procedures', 'misc']</code>.
+</p>
+
+<h6>Load any fixtures tables in the module.</h6>
+
+<p>
+    The database definition includes a list of tables in each module. Dbt will look for a yaml file
+    in the <code>fixture_dir_name</code> that matches the name of the table. This will then be as a
+    yaml file and inserted into the database. To ensure the order of the rows, the top level element
+    of the yaml file can be encoded as an omap. The <code>fixture_dir_name</code> setting defaults to
+    <code>'fixtures'</code>.
+</p>
+
+<h5>Process the <em>import</em> phase for each module.</h5>
+
+<p>
+    If the creation is a "create_by_import" create, then the import of the module occurs at this step.
+    See the <a href="#database-import">import</a> section for further details on importing.
+</p>
+
+<h5>Process the <em>finalize</em> phase for each module.</h5>
+
+<p>
+    The finalize phase prepares the database for operation. This typically involves enabling triggers,
+    rebuilding indexes and applying any final security grants.
+</p>
+
+<h6>Process the <code>finalize_dirs</code> for the module.</h6>
+
+<p>
+    The finalize dirs are configurable by the <code>finalize_dirs</code> dirs setting which
+    defaults to <code>['triggers', 'finalize']</code>.
+</p>
+
+<h5>Process the <code>post_create_dirs</code> for the database.</h5>
+
+<p>
+    Process the dirs defined by the <code>post_create_dirs</code> setting. The setting defaults to
+    <code>["db-hooks/post"]</code>.
+</p>
+
+<h5>Setup migrations infrastructure.</h5>
+
+<p>
+    The last thing that occurs when creating the database is to setup migrations if migrations are enabled.
+    The <a href="#database-migration">migrations</a> section goes into further details about how migrations
+    proceeds. During database creation the table that records the migrations is created. By default the
+    creation will assume that there is no need to apply the database migrations and will mark all migrations
+    present as having being applied. This can be overriden by setting the <code>migrations_applied_at_create</code>
+    setting on the database definition in which case the migrations will be applied during database creation.
+</p>
 
 <h2>
     <a name="database-import" class="anchor" href="#database-import"><span class="octicon octicon-link"></span></a>
     Import a Database
 </h2>
 
+<p>TODO: Document me.</p>
+
 <h2>
     <a name="database-migration" class="anchor" href="#database-migration"><span class="octicon octicon-link"></span></a>
     Migrate a Database
 </h2>
 
-<h2>Old Doco</h2>
+<p>TODO: Document me.</p>
 
-<p>
-    The dbt plugin is designed to simplify the creation, migration and deletion of databases. Each database contains a
-    number of <em>modules</em> that are loaded and migrated in a specific order. Each <em>module</em> is stored in a
-    directory with the same name as the <em>module</em> key used when defining the database.
-</p>
+<h2>
+    <a name="database-datasets" class="anchor" href="#database-datasets"><span class="octicon octicon-link"></span></a>
+    Defining Datasets
+</h2>
 
-<p>
-    When a <em>module</em> is loaded the plugin will attempt to load SQL scripts from a number of sub-directories of
-    the <em>module</em> dir. The SQL scripts in each directory are sorted alpha-numerically before being executed. The
-    order in which directories are processed is configurable by Dbt::Configure.sql_dirs setting but defaults to:
-</p>
+<p>TODO: Document me.</p>
 
-<ul>
-    <li>.</li>
-    <li>types</li>
-    <li>views</li>
-    <li>functions</li>
-    <li>stored-procedures</li>
-    <li>triggers</li>
-    <li>misc</li>
-</ul>
+<h2>
+    <a name="database-module-groups" class="anchor" href="#database-module-groups"><span class="octicon octicon-link"></span></a>
+    Module Groups
+</h2>
 
-<p>
-    After loading the SQL scripts the plugin will attempt to load fixture data from the 'fixtures' sub-directory of
-    the <em>module</em> dir. The fixture data must be in a YAML formatted file that matches the table named with .yml
-    appended. The order that the fixture data is loaded in is fixed and described in the "Table Ordering" section
-    below.
-</p>
+<p>TODO: Document me.</p>
