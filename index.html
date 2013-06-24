@@ -47,7 +47,7 @@ title: Dbt
 Dbt::Config.config_filename = 'config/database.yml'
 
 Dbt.add_database(:default) do |db|
-  db.search_dirs = ["databases"]
+  db.search_dirs = ["database"]
   db.modules = ['MyModule']
   db.table_map = {'MyModule' => ['MyModule.tblFoo']}
 end
