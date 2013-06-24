@@ -66,6 +66,44 @@ end
     <code>modules</code> or <code>table_map</code>. Nor does the example define any imports, migrations or datasets.
 </p>
 
+<p>
+    A more realistic example is given below. It configures a single database, and integrates with domgen to define
+    the modules, tables and expects domgen to generate sql into <code>database/generated</code> directory.
+</p>
+{% highlight ruby %}
+Dbt::Config.config_filename = 'config/database.yml'
+# Explicitly configure the database driver
+Dbt::Config.driver = 'Mssql'
+
+Dbt.add_database(:default,
+                 :imports =>
+                    {
+                      # Standard import config
+                      :default => {:modules => [:Audit, :Core, :Coordination, :Payroll]},
+                      # Customized import for a particular client, no reindex on complete
+                      :client2 => {:modules => [:Audit, :Core],
+                                   :reindex => false, ,
+                                   :dir => "client2-imports"},
+                      # Customized import with alternative hook actions
+                      :client3 => {:modules => [:Audit, :Core],
+                                  :post_import_dirs => %w(client3-import-hooks/post),
+                                  :dir => "client3-imports"},
+                    },
+                 # define two datasets that can be loaded into database
+                 :datasets => [:sample, :minimal],
+                 :migrations => true, # Enable migrations
+                 :backup => true,
+                 :restore => true) do |database|
+  database.search_dirs = ["database/generated", "database"]
+  # Integrate with domgen
+  database.enable_domgen(:MyApplication, 'domgen:load', 'domgen:sql')
+  # Import configurations
+  database.import_assert_filters = true
+  database.import_task_as_part_of_create = true
+  database.separate_import_task = false
+end
+{% endhighlight %}
+
 <h2>
     <a name="semantic-model" class="anchor" href="#semantic-model"><span class="octicon octicon-link"></span></a>
     Semantic Model
