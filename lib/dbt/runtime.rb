@@ -256,10 +256,25 @@ class Dbt
         else
           collect_files(database.dirs_for_database(database.migrations_dir_name))
         end
-      files.each do |filename|
+      version_index = nil
+      if database.version
+        files.each_with_index do |filename, i|
+          migration_name = File.basename(filename, '.sql')
+          sep_index = migration_name.index('_')
+          if sep_index
+            migration_key = migration_name[sep_index + 1,migration_name.size]
+            if migration_key == "Release-#{database.version}"
+              version_index = i
+              break
+            end
+          end
+        end
+      end
+      files.each_with_index do |filename, i|
         migration_name = File.basename(filename, '.sql')
         if [:record, :force].include?(action) || db.should_migrate?(database.key.to_s, migration_name)
-          run_sql_file(database, "Migration: ", filename, false) unless :record == action
+          should_run = (:record != action && !(version_index && version_index >= i))
+          run_sql_file(database, "Migration: ", filename, false) if should_run
           db.mark_migration_as_run(database.key.to_s, migration_name)
         end
       end
