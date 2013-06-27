@@ -521,11 +521,11 @@ class TestRuntimeBasic < Dbt::TestCase
     create_file("databases/migrate22/003_x.sql", migrate_sql_3)
 
     mock.expects(:open).with(config, false).in_sequence(@s)
-    mock.expects(:"should_migrate?").with('default', '001_x').returns(true).in_sequence(@s)
+    expect_should_migrate(mock, 'default', '001_x', true)
     expect_migrate(mock, 'default', "001_x", migrate_sql_1)
-    mock.expects(:"should_migrate?").with('default', '002_x').returns(true).in_sequence(@s)
+    expect_should_migrate(mock, 'default', '002_x', true)
     expect_migrate(mock, 'default', "002_x", migrate_sql_2)
-    mock.expects(:"should_migrate?").with('default', '003_x').returns(true).in_sequence(@s)
+    expect_should_migrate(mock, 'default', '003_x', true)
     expect_migrate(mock, 'default', "003_x", migrate_sql_3)
     mock.expects(:close).with().in_sequence(@s)
 
@@ -553,9 +553,9 @@ class TestRuntimeBasic < Dbt::TestCase
     create_file("databases/migrate22/003_x.sql", migrate_sql_3)
 
     mock.expects(:open).with(config, false).in_sequence(@s)
-    mock.expects(:"should_migrate?").with('default', '001_x').returns(false).in_sequence(@s)
-    mock.expects(:"should_migrate?").with('default', '002_x').returns(false).in_sequence(@s)
-    mock.expects(:"should_migrate?").with('default', '003_x').returns(true).in_sequence(@s)
+    expect_should_migrate(mock, 'default',  '001_x', false)
+    expect_should_migrate(mock, 'default',  '002_x', false)
+    expect_should_migrate(mock, 'default',  '003_x', true)
     expect_migrate(mock, 'default', "003_x", migrate_sql_3)
     mock.expects(:close).with().in_sequence(@s)
 
@@ -866,6 +866,10 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.expects(:info).with("Migration: #{migration_name}.sql").in_sequence(@s)
     mock.expects(:execute).with(sql, false).in_sequence(@s)
     expect_mark_migration_as_run(mock, database_key, migration_name)
+  end
+
+  def expect_should_migrate(mock, database_key, migration_name, result)
+    mock.expects(:"should_migrate?").with(database_key, migration_name).returns(result).in_sequence(@s)
   end
 
   def expect_mark_migration_as_run(mock, database_key, migration_name)
