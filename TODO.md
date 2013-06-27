@@ -3,7 +3,6 @@ TODO
 
 This document lists the work that needs to be done.
 
-* Support an environment variable to indicate where migrations should start
 * Support migrations running from a specific major version onwards.
   i.e. If database.version = 1.2.3 and there exists a migration named
   "Release-1.2.3" then start running migrations from there on and just
