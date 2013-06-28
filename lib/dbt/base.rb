@@ -14,12 +14,10 @@
 
 class Dbt #nodoc
 
-  # Base Class used for named elements configurable via options
-  class BaseElement
-    attr_reader :key
+  # Base class used for elements configurable via options
+  class ConfigElement
 
-    def initialize(key, options, &block)
-      @key = key
+    def initialize(options, &block)
       self.options = options
       yield self if block_given?
     end
@@ -33,6 +31,16 @@ class Dbt #nodoc
         end
         target.send "#{keys.last}=", v
       end
+    end
+  end
+
+  # Base class used for named elements configurable via options
+  class BaseElement < ConfigElement
+    attr_reader :key
+
+    def initialize(key, options, &block)
+      @key = key
+      super(options)
     end
   end
 
