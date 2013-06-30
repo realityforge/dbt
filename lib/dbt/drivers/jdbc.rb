@@ -27,7 +27,7 @@ class Dbt
     end
   end
 
-  class JdbcDbDriver < Dbt::DbDriver
+  class JdbcDbDriver < Dbt::BaseDbDriver
     def execute(sql, execute_in_control_database = false)
       raise "Can not execute statement when database connection is not open." unless open?
       current_database = nil
@@ -45,12 +45,6 @@ class Dbt
         statement.close
         select_database(current_database) if execute_in_control_database
       end
-    end
-
-    def insert(table_name, row)
-      column_names = row.keys.collect { |column_name| quote_column_name(column_name) }
-      value_list = row.values.collect { |value| quote_value(value) }
-      execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
 
     def query(sql)

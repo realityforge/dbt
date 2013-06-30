@@ -24,7 +24,7 @@ class Dbt
     end
   end
 
-  class PgDbDriver < Dbt::DbDriver
+  class PgDbDriver < Dbt::BaseDbDriver
     include Dbt::Dialect::Postgres
 
     def open(config, use_control_database)

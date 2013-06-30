@@ -15,7 +15,7 @@
 class Dbt #nodoc
 
   # Abstract class representing database configuration
-  class DbConfig
+  class DbConfig < Dbt::ConfigElement
     def initialize(configuration)
       raise NotImplementedError
     end
@@ -113,6 +113,14 @@ class Dbt #nodoc
 
     def post_database_import(imp)
       raise NotImplementedError
+    end
+  end
+
+  class BaseDbDriver < DbDriver
+    def insert(table_name, row)
+      column_names = row.keys.collect { |column_name| quote_column_name(column_name) }
+      value_list = row.values.collect { |value| quote_value(value) }
+      execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
   end
 end
