@@ -89,9 +89,5 @@ class Dbt
     def open?
       !@connection.nil?
     end
-
-    def quote_table_name(name)
-      PG::Connection.quote_ident(name)
-    end
   end
 end
