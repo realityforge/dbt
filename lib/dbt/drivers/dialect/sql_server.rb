@@ -19,39 +19,20 @@ class Dbt
     end
 
     def port
-      config_value("port", true) || 1433
+      @port || 1433
     end
 
-    def instance
-      config_value("instance", true)
-    end
-
-    def appname
-      config_value("appname", true)
-    end
+    attr_accessor :instance
+    attr_accessor :appname
+    attr_accessor :data_path
+    attr_accessor :log_path
+    attr_accessor :restore_from
+    attr_accessor :backup_location
+    attr_accessor :instance_registry_key
+    attr_writer :force_drop
 
     def force_drop?
-      true == config_value("force_drop", true)
-    end
-
-    def data_path
-      config_value("data_path", true)
-    end
-
-    def log_path
-      config_value("log_path", true)
-    end
-
-    def restore_from
-      config_value("restore_from", false)
-    end
-
-    def backup_location
-      config_value("backup_location", true)
-    end
-
-    def instance_registry_key
-      config_value("instance_registry_key", false)
+      !!@force_drop
     end
   end
   module Dialect

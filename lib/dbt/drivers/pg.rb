@@ -20,7 +20,7 @@ class Dbt
     end
 
     def port
-      config_value("port", true) || "5432"
+      @port || 5432
     end
   end
 
@@ -29,7 +29,6 @@ class Dbt
 
     def open(config, use_control_database)
       raise "Can not open database connection. Connection already open." if open?
-      raise "Expected adapter = 'postgresql' but got '#{config.configuration["adapter"]}'." unless config.configuration["adapter"].eql?('postgresql')
 
       database = use_control_database ? CONTROL_DATABASE : config.catalog_name
 

@@ -16,10 +16,6 @@ class Dbt #nodoc
 
   # Abstract class representing database configuration
   class DbConfig < Dbt::ConfigElement
-    def initialize(configuration)
-      raise NotImplementedError
-    end
-
     def catalog_name
       raise NotImplementedError
     end

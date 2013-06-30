@@ -15,40 +15,35 @@
 class Dbt
   class AbstractDbConfig < Dbt::DbConfig
 
-    def initialize(configuration)
-      @configuration = configuration
+    def initialize(options)
+      ignore_elements = options.delete('ignore_elements') || []
+      ignore_elements.each do |element|
+        options.delete(element)
+      end
+      super(options)
     end
 
-    attr_reader :configuration
-
-    def no_create?
-      no_create = config_value("no_create", true)
-      return Dbt::Config.default_no_create? if no_create.nil?
-      return true == no_create
-    end
+    attr_accessor :database
+    attr_accessor :host
+    attr_writer :port
+    attr_accessor :username
+    attr_accessor :password
 
     def catalog_name
-      config_value("database", false)
+      self.database
     end
 
-    def host
-      config_value("host", false)
+    def no_create=(no_create)
+      if no_create.nil?
+        @no_create = nil
+      else
+        raise "no_create must be true or false" unless ['true', 'false'].include?(no_create.to_s)
+        @no_create = no_create.to_s == 'true'
+      end
     end
 
-    def username
-      config_value("username", true)
-    end
-
-    def password
-      config_value("password", true)
-    end
-
-    protected
-
-    def config_value(config_param_name, allow_nil)
-      value = self.configuration[config_param_name]
-      raise "Unable to locate configuration value named #{config_param_name}" if !allow_nil && value.nil?
-      value
+    def no_create?
+      @no_create.nil? ? Dbt::Config.default_no_create? : @no_create
     end
   end
 end
