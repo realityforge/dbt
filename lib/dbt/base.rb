@@ -29,7 +29,11 @@ class Dbt #nodoc
         keys[0, keys.length - 1].each do |target_accessor_key|
           target = target.send target_accessor_key.to_sym
         end
-        target.send "#{keys.last}=", v
+        begin
+          target.send "#{keys.last}=", v
+        rescue NoMethodError
+          raise "Attempted to configure property #{keys.last} on #{self.class} but property does not exist."
+        end
       end
     end
   end
