@@ -240,6 +240,21 @@ SQL
 SQL
       end
 
+      def setup_migrations
+        if query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'tblMigration'").empty?
+          execute("CREATE TABLE #{quote_table_name('dbo')}.#{quote_table_name('tblMigration')}(#{quote_column_name('Namespace')} varchar(50),#{quote_column_name('Migration')} varchar(255),#{quote_column_name('AppliedAt')} timestamp)")
+        end
+      end
+
+      def should_migrate?(namespace, migration_name)
+        setup_migrations
+        query("SELECT * FROM #{quote_table_name('dbo')}.#{quote_table_name('tblMigration')} WHERE #{quote_column_name('Namespace')} = #{quote_value(namespace)} AND #{quote_column_name('Migration')} = #{quote_value(migration_name)}").empty?
+      end
+
+      def mark_migration_as_run(namespace, migration_name)
+        execute("INSERT INTO #{quote_table_name('dbo')}.#{quote_table_name('tblMigration')}(#{quote_column_name('Namespace')},#{quote_column_name('Migration')},#{quote_column_name('AppliedAt')}) VALUES (#{quote_value(namespace)}, #{quote_value(migration_name)}, GETDATE()")
+      end
+
       def pre_fixture_import(table)
         identity_insert_sql = get_identity_insert_sql(table, true)
         execute(identity_insert_sql) if identity_insert_sql
