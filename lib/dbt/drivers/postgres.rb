@@ -40,7 +40,7 @@ class Dbt
     end
 
     def port
-      config_value("port", true) || 5432
+      @port || 5432
     end
   end
 
