@@ -2,6 +2,8 @@ require File.expand_path('../helper', __FILE__)
 
 class TestRuntimeBasic < Dbt::TestCase
 
+  # TODO: Test query method
+
   def test_create
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)

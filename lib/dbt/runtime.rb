@@ -51,6 +51,12 @@ class Dbt
       end
     end
 
+    def query(database, sql)
+      init_database(database.key) do
+        return db.query(sql)
+      end
+    end
+
     def backup(database)
       init_control_database(database.key) do
         db.backup(database, configuration_for_database(database))
