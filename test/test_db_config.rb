@@ -45,6 +45,8 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.instance_registry_key, instance_registry_key
     assert_equal config.force_drop?, force_drop
 
+    assert_equal config.control_catalog_name, 'msdb'
+
     config.force_drop = nil
     assert_equal config.force_drop?, false
     config
