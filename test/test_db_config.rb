@@ -2,6 +2,17 @@ require File.expand_path('../helper', __FILE__)
 
 class TestDbConfig < Dbt::TestCase
 
+  def test_pg_config
+    run_postgres_test(Dbt::PgDbConfig)
+  end
+
+  def test_postgres_config
+    config = run_postgres_test(Dbt::PostgresDbConfig)
+    assert_equal config.jdbc_driver, 'org.postgresql.Driver'
+    assert_equal config.jdbc_url(true), "jdbc:postgresql://example.com:5432/postgres"
+    assert_equal config.jdbc_url(false), "jdbc:postgresql://example.com:5432/DB"
+  end
+
   def test_tiny_tds_config
     run_sql_server_test(Dbt::TinyTdsDbConfig)
   end
@@ -11,6 +22,15 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.jdbc_driver, 'net.sourceforge.jtds.jdbc.Driver'
     assert_equal config.jdbc_url(true), "jdbc:jtds:sqlserver://example.com:1433/msdb;instance=myinstance;appname=app-ick"
     assert_equal config.jdbc_url(false), "jdbc:jtds:sqlserver://example.com:1433/DB;instance=myinstance;appname=app-ick"
+  end
+
+  def run_postgres_test(config_class)
+    config = new_base_config
+    config = config_class.new(config)
+    assert_base_config(config, 5432)
+
+    assert_equal config.control_catalog_name, 'postgres'
+    config
   end
 
   def run_sql_server_test(config_class)
