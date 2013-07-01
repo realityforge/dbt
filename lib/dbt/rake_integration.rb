@@ -27,17 +27,16 @@ class Dbt #nodoc
       desc "Verify constraints on database."
       task "#{task_prefix}:verify_constraints" => ["#{task_prefix}:load_config"] do
         Dbt.banner("Verifying database", key)
-        Dbt.init_database(key) do
-          failed_constraints = []
-          Domgen.repository_by_name(repository_key).data_modules.select { |data_module| data_module.sql? }.each do |data_module|
-            failed_constraints += Dbt.db.query("EXEC #{data_module.sql.schema}.spCheckConstraints")
-          end
-          if failed_constraints.size > 0
-            error_message = "Failed Constraints:\n#{failed_constraints.collect do |row|
-              "\t#{row['ConstraintName']} on #{row['SchemaName']}.#{row['TableName']}"
-            end.join("\n")}"
-            raise error_message
-          end
+        failed_constraints = []
+
+        Domgen.repository_by_name(repository_key).data_modules.select { |data_module| data_module.sql? }.each do |data_module|
+          failed_constraints += Dbt.runtime.query(self, "EXEC #{data_module.sql.schema}.spCheckConstraints")
+        end
+        if failed_constraints.size > 0
+          error_message = "Failed Constraints:\n#{failed_constraints.collect do |row|
+            "\t#{row['ConstraintName']} on #{row['SchemaName']}.#{row['TableName']}"
+          end.join("\n")}"
+          raise error_message
         end
         Dbt.banner("Database verified", key)
       end
