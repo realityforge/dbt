@@ -151,6 +151,10 @@ class Dbt
       @db = nil
     end
 
+    def configuration_for_database(database)
+      configuration_for_key(config_key(database.key))
+    end
+
     private
 
     def dump_table_sql(table_name)
@@ -215,10 +219,6 @@ class Dbt
 
     def configuration_for_key(config_key)
       Dbt.repository.configuration_for_key(config_key)
-    end
-
-    def configuration_for_database(database)
-      configuration_for_key(config_key(database.key))
     end
 
     def init_database(database_key, &block)
