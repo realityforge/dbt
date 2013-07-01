@@ -272,7 +272,7 @@ SQL
       def post_table_import(imp, table)
         post_fixture_import(table)
         if imp.reindex?
-          Dbt.info("Reindexing #{Dbt.clean_table_name(table)}")
+          Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
           execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
         end
       end
@@ -283,14 +283,14 @@ SQL
           # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
           # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
           # we reindex otherwise the indexes will be highly fragmented.
-          Dbt.info("Shrinking database")
+          Dbt.runtime.info("Shrinking database")
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
         end
 
         if imp.reindex?
           imp.database.table_ordering(module_name).each do |table|
-            Dbt.info("Reindexing #{Dbt.clean_table_name(table)}")
+            Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
             execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
           end
         end
@@ -300,11 +300,11 @@ SQL
         if imp.reindex?
           sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
 
-          Dbt.info("Updating statistics")
+          Dbt.runtime.info("Updating statistics")
           execute("EXEC dbo.sp_updatestats")
 
           # This updates the usage details for the database. i.e. how much space is take for each index/table
-          Dbt.info("Updating usage statistics")
+          Dbt.runtime.info("Updating usage statistics")
           execute("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
         end
       end
@@ -360,6 +360,10 @@ SQL
 
       def quote_table_name(name)
         "[#{name}]"
+      end
+
+      def clean_table_name(table_name)
+        table_name.tr('[]"' '', '')
       end
 
       def quote_value(value)
