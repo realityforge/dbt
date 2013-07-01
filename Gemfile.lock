@@ -10,6 +10,7 @@ GEM
     minitest (5.0.2)
     mocha (0.14.0)
       metaclass (~> 0.0.1)
+    pg (0.15.1)
     rake (10.0.4)
 
 PLATFORMS
@@ -20,4 +21,5 @@ DEPENDENCIES
   dbt!
   minitest (= 5.0.2)
   mocha (= 0.14.0)
+  pg (= 0.15.1)
   rake
