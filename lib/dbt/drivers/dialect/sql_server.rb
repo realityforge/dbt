@@ -35,6 +35,7 @@ class Dbt
       !!@force_drop
     end
   end
+
   module Dialect
     module SqlServer
 
