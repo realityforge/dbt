@@ -14,14 +14,7 @@
 
 class Dbt
   class PgDbConfig < AbstractDbConfig
-
-    def control_catalog_name
-      'postgres'
-    end
-
-    def port
-      @port || 5432
-    end
+    include Dbt::PostgresConfig
   end
 
   class PgDbDriver < Dbt::BaseDbDriver

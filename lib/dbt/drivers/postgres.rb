@@ -14,6 +14,8 @@
 
 class Dbt
   class PostgresDbConfig < JdbcDbConfig
+    include Dbt::PostgresConfig
+
     def self.jdbc_driver_dependencies
       %w{postgresql:postgresql:jar:9.1-901.jdbc4}
     end
@@ -33,14 +35,6 @@ class Dbt
       info.put('user', username) if username
       info.put('password', password) if password
       info
-    end
-
-    def control_catalog_name
-      'postgres'
-    end
-
-    def port
-      @port || 5432
     end
   end
 

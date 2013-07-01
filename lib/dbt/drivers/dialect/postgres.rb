@@ -13,6 +13,16 @@
 #
 
 class Dbt
+  module PostgresConfig
+    def control_catalog_name
+      'postgres'
+    end
+
+    def port
+      @port || 5432
+    end
+  end
+
   module Dialect
     module Postgres
 
