@@ -103,15 +103,6 @@ class Dbt
 
     protected
 
-    # Returns a single value from a record
-    def select_value(sql)
-      result = query(sql)
-      return nil unless result
-      result = result.first
-      return nil unless result
-      result.values.first
-    end
-
     def open?
       !@connection.nil?
     end

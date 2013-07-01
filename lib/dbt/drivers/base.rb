@@ -118,5 +118,14 @@ class Dbt #nodoc
       value_list = row.values.collect { |value| quote_value(value) }
       execute("INSERT INTO #{table_name} (#{column_names.join(', ')}) VALUES (#{value_list.join(', ')})")
     end
+
+    # Returns a single value from a record
+    def select_value(sql)
+      result = query(sql)
+      return nil unless result
+      result = result.first
+      return nil unless result
+      result.values.first
+    end
   end
 end
