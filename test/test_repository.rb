@@ -71,6 +71,25 @@ class TestRepository < Dbt::TestCase
     end
   end
 
+  def test_top_level_configuration_for_key
+    Dbt.repository.configuration_data = {
+      'development' =>
+        {
+          'database' => 'DBT_TEST',
+          'username' => 'postgres',
+          'password' => 'mypass',
+          'host' => '127.0.0.1',
+          'port' => 5432
+        }
+    }
+
+    Dbt.add_database(:default, :rake_integration => false)
+
+    assert_equal Dbt.repository.configuration_for_key?(:development), true
+
+    assert_not_nil Dbt.configuration_for_key(:default)
+  end
+
   def test_database_configuration_load
     repository = Dbt::Repository.new
 

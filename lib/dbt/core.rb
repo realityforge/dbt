@@ -40,11 +40,15 @@ class Dbt
   end
 
   def self.database_for_key(database_key)
-    @@repository.database_for_key(database_key)
+    self.repository.database_for_key(database_key)
+  end
+
+  def self.configuration_for_key(database_key)
+    self.runtime.configuration_for_database(database_for_key(database_key))
   end
 
   def self.database_keys
-    @@repository.database_keys
+    self.repository.database_keys
   end
 
   def self.add_database(database_key, options = {}, &block)
@@ -56,12 +60,6 @@ class Dbt
   end
 
   def self.remove_database(database_key)
-    @@repository.remove_database(database_key)
-  end
-
-  private
-
-  def self.configuration_for_key(config_key)
-    @@repository.configuration_for_key(config_key)
+    self.repository.remove_database(database_key)
   end
 end
