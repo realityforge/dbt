@@ -200,7 +200,7 @@ class Dbt #nodoc
     attr_writer :import_task_as_part_of_create
 
     def enable_import_task_as_part_of_create?
-      @import_task_as_part_of_create.nil? ? false : @import_task_as_part_of_create
+      @import_task_as_part_of_create.nil? ? (self.imports.size > 0) : @import_task_as_part_of_create
     end
 
     attr_writer :backup

@@ -31,6 +31,12 @@ class TestDatabaseDefinition < Dbt::TestCase
     assert_equal definition.migrations_dir_name, Dbt::Config.default_migrations_dir_name
   end
 
+  def test_defaults_import
+    definition = Dbt::DatabaseDefinition.new(:default, {})
+    definition.add_import(:default, {})
+    assert_equal definition.assume_migrations_applied_at_create?, false
+  end
+
   def test_dirs_for_database
     Dbt::Config.default_search_dirs = ['a', 'b']
     definition = Dbt::DatabaseDefinition.new(:default, {})
