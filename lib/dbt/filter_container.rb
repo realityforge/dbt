@@ -41,7 +41,8 @@ class Dbt #nodoc
     attr_writer :import_assert_filters
 
     def import_assert_filters?
-      @import_assert_filters.nil? ? false : @import_assert_filters
+      return @import_assert_filters unless @import_assert_filters.nil?
+      !self.respond_to?(:imports) || self.imports.size > 0
     end
 
     attr_writer :database_environment_filter

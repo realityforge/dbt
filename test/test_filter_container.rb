@@ -61,7 +61,7 @@ class TestFilterContainer < Dbt::TestCase
   def test_import_assert_filters
     c = TestFilterContainer.new
 
-    assert_equal c.import_assert_filters?, false
+    assert_equal c.import_assert_filters?, true
 
     c.import_assert_filters = true
 
