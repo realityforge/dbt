@@ -27,12 +27,13 @@ class Dbt
 
       require 'tiny_tds'
 
-      @connection = TinyTds::Client.new(:host => config.host,
-                                 :port => config.port,
-                                 :appname => config.appname,
-                                 :database => database,
-                                 :username => config.username,
-                                 :password => config.password)
+      @connection =
+        TinyTds::Client.new(:host => config.host,
+                            :port => config.port,
+                            :appname => config.appname,
+                            :database => database,
+                            :username => config.username,
+                            :password => config.password)
     end
 
     def execute(sql, execute_in_control_database = false)
