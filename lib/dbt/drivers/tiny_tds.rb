@@ -41,6 +41,19 @@ class Dbt
                             :timeout => config.timeout,
                             :username => config.username,
                             :password => config.password)
+      # Configure the conenction so it is more ANSI-like
+      [
+        'SET CURSOR_CLOSE_ON_COMMIT ON',
+        'SET ANSI_NULLS ON',
+        'SET ANSI_PADDING ON',
+        'SET ANSI_WARNINGS ON',
+        'SET ARITHABORT ON',
+        'SET CONCAT_NULL_YIELDS_NULL ON',
+        'SET QUOTED_IDENTIFIER ON',
+        'SET NUMERIC_ROUNDABORT OFF'
+      ].each do |sql|
+        execute(sql, false)
+      end
     end
 
     def execute(sql, execute_in_control_database = false)
