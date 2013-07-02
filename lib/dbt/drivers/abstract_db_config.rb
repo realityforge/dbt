@@ -20,6 +20,7 @@ class Dbt
       ignore_elements.each do |element|
         options.delete(element)
       end
+      @no_create = nil
       super(options)
     end
 
