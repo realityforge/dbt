@@ -15,6 +15,12 @@
 class Dbt
   class TinyTdsDbConfig < AbstractDbConfig
     include Dbt::SqlServerConfig
+
+    attr_writer :timeout
+
+    def timeout
+      @timeout || (60 * 5)
+    end
   end
 
   class TinyTdsDbDriver < Dbt::BaseDbDriver
@@ -32,6 +38,7 @@ class Dbt
                             :port => config.port,
                             :appname => config.appname,
                             :database => database,
+                            :timeout => config.timeout,
                             :username => config.username,
                             :password => config.password)
     end

@@ -14,7 +14,10 @@ class TestDbConfig < Dbt::TestCase
   end
 
   def test_tiny_tds_config
-    run_sql_server_test(Dbt::TinyTdsDbConfig)
+    config = run_sql_server_test(Dbt::TinyTdsDbConfig, :timeout => 44)
+    assert_equal config.timeout, 44
+    config.timeout = nil
+    assert_equal config.timeout, 300
   end
 
   def test_mssql_config
@@ -33,7 +36,7 @@ class TestDbConfig < Dbt::TestCase
     config
   end
 
-  def run_sql_server_test(config_class)
+  def run_sql_server_test(config_class, options = {})
     instance = 'myinstance'
     appname = 'app-ick'
     data_path = 'C:\\someDir'
@@ -52,7 +55,7 @@ class TestDbConfig < Dbt::TestCase
       :backup_location => backup_location,
       :instance_registry_key => instance_registry_key,
       :force_drop => force_drop
-    )
+    ).merge(options)
     config = config_class.new(config)
     assert_base_config(config, 1433)
 
