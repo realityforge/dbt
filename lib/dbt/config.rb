@@ -61,6 +61,28 @@ class Dbt # nodoc
         @driver || 'sql_server'
       end
 
+      def driver_class
+        d = driver
+        is_jruby = defined?(JRUBY_VERSION)
+
+        if d == 'sql_server'
+          is_jruby ? Dbt::MssqlDbDriver : Dbt::TinyTdsDbDriver
+        else #d == 'postgres'
+          is_jruby ? Dbt::PostgresDbDriver : Dbt::PgDbDriver
+        end
+      end
+
+      def driver_config_class(options = {})
+        d = options[:driver] || driver
+        is_jruby = options[:jruby].nil? ? defined?(JRUBY_VERSION) : options[:jruby]
+
+        if d == 'sql_server'
+          is_jruby ? Dbt::MssqlDbConfig : Dbt::TinyTdsDbConfig
+        else #d == 'postgres'
+          is_jruby ? Dbt::PostgresDbConfig : Dbt::PgDbConfig
+        end
+      end
+
       attr_writer :default_no_create
 
       def default_no_create?

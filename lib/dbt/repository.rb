@@ -55,7 +55,7 @@ class Dbt #nodoc
       return existing if existing
       c = @configuration_data[config_key.to_s]
       raise "Missing config for #{config_key}" unless c
-      configuration = Dbt.const_get("#{Dbt::Config.driver}DbConfig").new(c)
+      configuration = Dbt::Config.driver_config_class.new(c)
       @configurations[config_key.to_s] = configuration
     end
 

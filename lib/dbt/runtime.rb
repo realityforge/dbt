@@ -601,7 +601,7 @@ class Dbt
     end
 
     def db
-      @db ||= Dbt.const_get("#{Dbt::Config.driver}DbDriver").new
+      @db ||= Dbt::Config.driver_class.new
     end
 
     def down_fixtures(database, module_name, fixtures)
