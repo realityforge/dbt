@@ -969,7 +969,7 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   def create_postgres_config(config = {}, top_level_config = {})
-    Dbt::Config.driver = 'Pg'
+    Dbt::Config.driver = 'postgres'
     Dbt.repository.configuration_data = {
       Dbt::Config.environment => base_postgres_config(config)
     }.merge(top_level_config)

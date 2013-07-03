@@ -19,7 +19,7 @@ class TestConfig < Dbt::TestCase
     [:default_fixture_dir_name, 'fixtures', 'myfixtures'],
     [:index_file_name, 'index.txt', 'import-lite'],
     [:task_prefix, 'dbt', 'db'],
-    [:driver, 'Mssql', 'Postgres'],
+    [:driver, 'sql_server', 'postgres'],
     [:environment, 'development', 'production']
   ].each do |config_name, default_value, new_value|
     define_method(:"test_#{config_name}") do

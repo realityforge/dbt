@@ -48,7 +48,7 @@ class TestRepository < Dbt::TestCase
     }
     assert_equal repository.configuration_for_key?(:development), true
 
-    Dbt::Config.driver = 'Pg'
+    Dbt::Config.driver = 'postgres'
 
     config = repository.configuration_for_key(:development)
 
@@ -105,7 +105,7 @@ development:
     repository.load_configuration_data(database_yml)
 
     assert_equal repository.configuration_for_key?(:development), true
-    Dbt::Config.driver = 'Pg'
+    Dbt::Config.driver = 'postgres'
 
     config = repository.configuration_for_key(:development)
     assert_equal config.host, '127.0.0.1'

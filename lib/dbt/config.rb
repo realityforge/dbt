@@ -51,8 +51,14 @@ class Dbt # nodoc
 
       attr_writer :driver
 
+      def driver=(driver)
+        valid_drivers = ['sql_server', 'postgres']
+        raise "Unknown driver specified '#{driver}'. Valid drivers include: #{valid_drivers.inspect}" if driver && !valid_drivers.include?(driver)
+        @driver = driver
+      end
+
       def driver
-        @driver || 'Mssql'
+        @driver || 'sql_server'
       end
 
       attr_writer :default_no_create
