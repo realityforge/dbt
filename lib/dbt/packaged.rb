@@ -15,20 +15,21 @@
 class Dbt #nodoc
 
   def self.define_database_package(database_key, buildr_project, options = {})
-    database = @@repository.database_for_key(database_key)
+    database = self.repository.database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
+    jruby_version = options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
 
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
       banner("Packaging Database Scripts", database.key)
-      package_database(database, package_dir)
+      package_database(database, package_dir, options.dup)
     end
     buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
     buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
     jar = buildr_project.package(:jar) do |j|
     end
     dependencies =
-      ["org.jruby:jruby-complete:jar:#{JRUBY_VERSION}"] +
-        Dbt.const_get("#{Dbt::Config.driver}DbConfig").jdbc_driver_dependencies
+      ["org.jruby:jruby-complete:jar:#{jruby_version}"] +
+        Dbt::Config.driver_config_class(:jruby => true).jdbc_driver_dependencies
 
     dependencies.each do |spec|
       jar.merge(Buildr.artifact(spec))
@@ -79,13 +80,13 @@ class Dbt #nodoc
     end
   end
 
-  def self.package_database(database, package_dir)
+  def self.package_database(database, package_dir, options)
     rm_rf package_dir
-    package_database_code(database, "#{package_dir}/code")
-    @@runtime.package_database_data(database, "#{package_dir}/data")
+    package_database_code(database, "#{package_dir}/code", options)
+    self.runtime.package_database_data(database, "#{package_dir}/data")
   end
 
-  def self.package_database_code(database, package_dir)
+  def self.package_database_code(database, package_dir, options)
     FileUtils.mkdir_p package_dir
     valid_commands = ["create", "drop"]
     valid_commands << "restore" if database.restore?
@@ -218,7 +219,8 @@ ARGV.each do |command|
 end
 TXT
     end
-    sh "jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
+    prefix = options[:jruby_version] ? "RBENV_VERSION=jruby-#{options[:jruby_version]} RUBYOPT= rbenv exec " : ''
+    sh "#{prefix}jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}/org/realityforge/dbt/dbtcli.rb"
     FileUtils.cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
 end
