@@ -52,7 +52,7 @@ class TestRepository < Dbt::TestCase
 
     config = repository.configuration_for_key(:development)
 
-    assert config.is_a?(Dbt::PgDbConfig)
+    assert config.is_a?(Dbt::PgDbConfig) || config.is_a?(Dbt::PostgresDbConfig)
 
     assert_equal config.host, '127.0.0.1'
     assert_equal config.port, 5432
