@@ -213,7 +213,7 @@ end
 <h6>Process the <code>finalize_dirs</code> for the module.</h6>
 
 <p>
-    The finalize dirs are configurable by the <code>finalize_dirs</code> dirs setting which
+    The finalize dirs are configurable by the <code>finalize_dirs</code> setting which
     defaults to <code>['triggers', 'finalize']</code>.
 </p>
 
@@ -240,7 +240,74 @@ end
     Import a Database
 </h2>
 
-<p>TODO: Document me.</p>
+<p>
+    Importing is typically used to upgrade from the old version of the database to the new version of the
+    database. Conceptually it selects data form the old database and inserts it into the new database.
+    However, like the other components of Dbt it can be overriden by the user. It is not uncommon to use
+    the import facility to import from several databases.
+</p>
+
+<p>
+    The import process can be integrated into the database creation process and/or it can be a
+    standalone task. Import that is integrated into the database creation process is much easier to
+    manage, primarily as it occurs prior to the database <em>finalize</em> phase and thus triggers
+    and constraints are not yet enabled. The standalone import process must also assume that the
+    database has already been used and thus must delete data from the tables as part of the import
+    process.
+</p>
+
+<p>
+    It should be noted that the import process will only import data for "importable" tables.
+    These constitute any table which does not have a fixture in the fixtures directory.
+</p>
+
+<h5>Process the <code>pre_import_dirs</code>.</h5>
+
+<p>
+    The pre_import_dirs dirs are configurable by the <code>pre_import_dirs</code> setting which
+    defaults to <code>['import-hooks/pre']</code>.
+</p>
+
+<h5>Process the <em>delete</em> phase for each module in reverse order.</h5>
+
+<p>
+    If the import process is a standalone then the import process will delete data
+    from all the importable tables. The delete will delete data from importable tables in
+    the reverse order. Each module will also be processed in reverse order.
+</p>
+
+<h5>Process the <em>import</em> phase for each module.</h5>
+<p>
+    Each module will be processed according to the order in which it is declared.
+</p>
+
+<h6>Import each table.</h6>
+
+<p>
+    Each importable table will be imported in order. Import files are loaded from a directory
+    defined in the import definition that defaults to <code>import</code>. If a <code>.yml</code>
+    file with the same name as the table is present it is loaded into the table. If a <code>.sql</code>
+    file with the same name as the table is present it is processed to import the table. If neither
+    a <code>.yml</code> nor a <code>.sql</code> file is present then the import process will attempt
+    to import data from the old database using a table name and set of columns that matches the new
+    database.
+</p>
+
+<h6>Process the <em>post_data_module_import</em> at the end of the import phase for each module.</h6>
+
+<p>
+    At the end of importing each module,the database driver is given the option to optimise the
+    module using the post_data_module_import hook. The sql server driver will attempt to shrink
+    any tables to remove unused space and then re-index the table. Both steps can be disabled
+    in the runtime configuration.
+</p>
+
+<h5>Process the <code>post_import_dirs</code>.</h5>
+
+<p>
+    The <code>pre_import_dirs</code> setting controls the directories processed in this phase and
+    it defaults to <code>['import-hooks/pre']</code>.
+</p>
 
 <h2>
     <a name="database-migration" class="anchor" href="#database-migration"><span class="octicon octicon-link"></span></a>
