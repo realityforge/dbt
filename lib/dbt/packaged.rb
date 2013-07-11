@@ -164,7 +164,6 @@ if ARGV.length == 0
 end
 
 database = Dbt.add_database(:#{database.key}) do |database|
-  database.version = #{database.version.inspect}
   database.resource_prefix = "data"
   database.fixture_dir_name = "#{database.fixture_dir_name}"
   database.datasets_dir_name = "#{database.datasets_dir_name}"
