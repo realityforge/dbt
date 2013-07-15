@@ -210,7 +210,7 @@ puts "Environment: \#{Dbt::Config.environment}"
 puts "Config File: \#{Dbt::Config.config_filename}"
 puts "Commands: \#{ARGV.join(' ')}"
 
-Dbt.runtime.load_configuration_data(Dbt::Config.config_filename)
+Dbt.repository.load_configuration_data(Dbt::Config.config_filename)
 Dbt.runtime.load_database_config(database)
 
 ARGV.each do |command|
