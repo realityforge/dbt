@@ -21,7 +21,9 @@ class Dbt #nodoc
 
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
       banner("Packaging Database Scripts", database.key)
-      package_database(database, package_dir, options.dup)
+      params = options.dup
+      params[:jruby_version] = jruby_version
+      package_database(database, package_dir, params)
     end
     buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
     buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
