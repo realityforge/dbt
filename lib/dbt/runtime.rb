@@ -57,6 +57,12 @@ class Dbt
       end
     end
 
+    def execute(database, sql)
+      init_database(database.key) do
+        db.execute(sql)
+      end
+    end
+
     def backup(database)
       init_control_database(database.key) do
         db.backup(database, configuration_for_database(database))
