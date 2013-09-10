@@ -220,7 +220,8 @@ ARGV.each do |command|
 end
 TXT
     end
-    prefix = ENV['RBENV_ROOT'] ? "RBENV_VERSION=jruby-#{options[:jruby_version]} RUBYOPT= rbenv exec " : ''
+    jruby_version = options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
+    prefix = jruby_version ? "RBENV_VERSION=jruby-#{options[:jruby_version]} RUBYOPT= rbenv exec " : ''
     sh "#{prefix}jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}"
     FileUtils.cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
   end
