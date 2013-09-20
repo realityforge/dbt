@@ -15,6 +15,13 @@
 class Dbt
 
   class Runtime
+    def status(database)
+      return <<TXT
+Database Version: #{database.version}
+Migration Support: #{database.enable_migrations? ? 'Yes' : 'No'}
+TXT
+    end
+
     def create(database)
       create_database(database)
       init_database(database.key) do
