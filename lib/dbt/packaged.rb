@@ -44,7 +44,9 @@ class Dbt #nodoc
   private
 
   def self.execute_command(database, command)
-    if "create" == command
+    if "status" == command
+      @@runtime.status(database)
+    elsif "create" == command
       @@runtime.create(database)
     elsif "drop" == command
       @@runtime.drop(database)
@@ -90,7 +92,7 @@ class Dbt #nodoc
 
   def self.package_database_code(database, package_dir, options)
     FileUtils.mkdir_p package_dir
-    valid_commands = ["create", "drop"]
+    valid_commands = ["status", "create", "drop"]
     valid_commands << "restore" if database.restore?
     valid_commands << "backup" if database.backup?
     if database.enable_separate_import_task?
