@@ -45,7 +45,7 @@ class Dbt #nodoc
 
   def self.execute_command(database, command)
     if "status" == command
-      @@runtime.status(database)
+      puts @@runtime.status(database)
     elsif "create" == command
       @@runtime.create(database)
     elsif "drop" == command
