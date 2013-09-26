@@ -745,7 +745,7 @@ TXT
 
     def load_resource(database, resource_path)
       require 'java'
-      stream = java.lang.ClassLoader.getCallerClassLoader().getResourceAsStream("#{database.resource_prefix}/#{resource_path}")
+      stream = java.lang.ClassLoader.getSystemResourceAsStream("#{database.resource_prefix}/#{resource_path}")
       raise "Missing resource #{resource_path}" unless stream
       content = ""
       while stream.available() > 0
@@ -776,7 +776,7 @@ TXT
 
     def resource_present?(database, resource_path)
       require 'java'
-      !!java.lang.ClassLoader.getCallerClassLoader().getResource("#{database.resource_prefix}/#{resource_path}")
+      !!java.lang.ClassLoader.getSystemResourceAsStream("#{database.resource_prefix}/#{resource_path}")
     end
 
     def try_find_file_in_module(database, module_name, subdir, table, extension)
