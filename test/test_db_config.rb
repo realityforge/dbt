@@ -9,8 +9,8 @@ class TestDbConfig < Dbt::TestCase
   def test_postgres_config
     config = run_postgres_test(Dbt::PostgresDbConfig)
     assert_equal config.jdbc_driver, 'org.postgresql.Driver'
-    assert_equal config.jdbc_url(true), "jdbc:postgresql://example.com:5432/postgres"
-    assert_equal config.jdbc_url(false), "jdbc:postgresql://example.com:5432/DB"
+    assert_equal config.build_jdbc_url(:use_control_catalog => true), "jdbc:postgresql://example.com:5432/postgres"
+    assert_equal config.build_jdbc_url(:use_control_catalog => false), "jdbc:postgresql://example.com:5432/DB"
   end
 
   def test_tiny_tds_config
@@ -20,11 +20,18 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.timeout, 300
   end
 
+  def test_pg_config
+    config = Dbt::PostgresDbConfig.new(:host => 'example.com', :port => 123, :database => 'mydb')
+    assert_equal config.jdbc_driver, 'org.postgresql.Driver'
+    assert_equal config.build_jdbc_url(:use_control_catalog => true), "jdbc:postgresql://example.com:123/postgres"
+    assert_equal config.build_jdbc_url(:use_control_catalog => false), "jdbc:postgresql://example.com:123/mydb"
+  end
+
   def test_mssql_config
     config = run_sql_server_test(Dbt::MssqlDbConfig)
     assert_equal config.jdbc_driver, 'net.sourceforge.jtds.jdbc.Driver'
-    assert_equal config.jdbc_url(true), "jdbc:jtds:sqlserver://example.com:1433/msdb;instance=myinstance;appname=app-ick"
-    assert_equal config.jdbc_url(false), "jdbc:jtds:sqlserver://example.com:1433/DB;instance=myinstance;appname=app-ick"
+    assert_equal config.build_jdbc_url(:use_control_catalog => true), "jdbc:jtds:sqlserver://example.com:1433/msdb;instance=myinstance;appname=app-ick"
+    assert_equal config.build_jdbc_url(:use_control_catalog => false), "jdbc:jtds:sqlserver://example.com:1433/DB;instance=myinstance;appname=app-ick"
   end
 
   def run_postgres_test(config_class)

@@ -14,6 +14,22 @@
 
 class Dbt
   module SqlServerConfig
+
+    def build_jdbc_url(options = {})
+      credentials_inline = options[:credentials_inline].nil? ? false : options[:credentials_inline]
+      use_control_catalog = options[:use_control_catalog].nil? ? false : options[:use_control_catalog]
+
+      url = "jdbc:jtds:sqlserver://#{host}:#{port}/"
+      url += use_control_catalog ? control_catalog_name : catalog_name
+      url += ";instance=#{instance}" if instance
+      url += ";appname=#{appname}" if appname
+      if credentials_inline
+        url += ";user=#{username}"
+        url += ";password=#{password}"
+      end
+      url
+    end
+
     def control_catalog_name
       'msdb'
     end
