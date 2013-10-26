@@ -20,7 +20,7 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.timeout, 300
   end
 
-  def test_pg_config
+  def test_pg_config_build_jdbc_url
     config = Dbt::PostgresDbConfig.new(:host => 'example.com', :port => 123, :database => 'mydb')
     assert_equal config.jdbc_driver, 'org.postgresql.Driver'
     assert_equal config.build_jdbc_url(:use_control_catalog => true), "jdbc:postgresql://example.com:123/postgres"
