@@ -170,8 +170,8 @@ TXT
       @db = nil
     end
 
-    def configuration_for_database(database)
-      configuration_for_key(config_key(database.key))
+    def configuration_for_database(database, env = Dbt::Config.environment)
+      configuration_for_key(config_key(database.key, env))
     end
 
     private
