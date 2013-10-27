@@ -34,7 +34,7 @@ class Dbt #nodoc
         Dbt::Config.driver_config_class(:jruby => true).jdbc_driver_dependencies
 
     dependencies.each do |spec|
-      jar.merge(Buildr.artifact(spec))
+      jar.merge(::Buildr.artifact(spec))
     end
     jar.include "#{package_dir}/code", :as => '.'
     jar.include "#{package_dir}/data"
