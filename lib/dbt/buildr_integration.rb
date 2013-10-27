@@ -23,8 +23,8 @@ class Dbt #nodoc
         begin
           Dbt.repository.load_configuration_data
         rescue => e
-          Dbt.info("Unable to load configuration data from #{Dbt::Config.config_filename}, " +
-                     "skipping addition of data source #{database_key} to idea. Cause: #{e}")
+          info("Unable to load configuration data from #{Dbt::Config.config_filename}, " +
+                 "skipping addition of data source #{database_key} to idea. Cause: #{e}")
           return
         end
       end
@@ -33,8 +33,8 @@ class Dbt #nodoc
         begin
           Dbt.configuration_for_key(database_key, environment_key)
         rescue => e
-          Dbt.info("Missing configuration #{database_key} in environment #{environment_key}, " +
-                     "skipping addition of data source #{database_key} to idea. Cause: #{e}")
+          info("Missing configuration #{database_key} in environment #{environment_key}, " +
+                 "skipping addition of data source #{database_key} to idea. Cause: #{e}")
           return
         end
 
