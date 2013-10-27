@@ -21,7 +21,7 @@ class TestDbConfig < Dbt::TestCase
   end
 
   def test_pg_config_build_jdbc_url
-    config = Dbt::PostgresDbConfig.new(:host => 'example.com', :port => 123, :database => 'mydb')
+    config = Dbt::PostgresDbConfig.new('postgres_test', :host => 'example.com', :port => 123, :database => 'mydb')
     assert_equal config.jdbc_driver, 'org.postgresql.Driver'
     assert_equal config.build_jdbc_url(:use_control_catalog => true), "jdbc:postgresql://example.com:123/postgres"
     assert_equal config.build_jdbc_url(:use_control_catalog => false), "jdbc:postgresql://example.com:123/mydb"
@@ -36,10 +36,11 @@ class TestDbConfig < Dbt::TestCase
 
   def run_postgres_test(config_class)
     config = new_base_config
-    config = config_class.new(config)
+    config = config_class.new('postgres_test', config)
     assert_base_config(config, 5432)
 
     assert_equal config.control_catalog_name, 'postgres'
+    assert_equal config.key, 'postgres_test'
     config
   end
 
@@ -63,9 +64,10 @@ class TestDbConfig < Dbt::TestCase
       :instance_registry_key => instance_registry_key,
       :force_drop => force_drop
     ).merge(options)
-    config = config_class.new(config)
+    config = config_class.new('sqlserver_test',config)
     assert_base_config(config, 1433)
 
+    assert_equal config.key, 'sqlserver_test'
     assert_equal config.instance, instance
     assert_equal config.appname, appname
     assert_equal config.data_path, data_path
