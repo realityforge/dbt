@@ -59,6 +59,10 @@ class Dbt #nodoc
       @configurations[config_key.to_s] = configuration
     end
 
+    def is_configuration_data_loaded?
+      !@configuration_data.empty?
+    end
+
     def load_configuration_data(filename = Dbt::Config.config_filename)
       require 'yaml'
       require 'erb'
