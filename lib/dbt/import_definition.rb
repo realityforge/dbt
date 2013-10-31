@@ -39,20 +39,6 @@ class Dbt #nodoc
       @dir || Dbt::Config.default_import_dir
     end
 
-    # TODO: Move to specific DbConfig
-    attr_writer :reindex
-
-    def reindex?
-      @reindex.nil? ? true : @reindex
-    end
-
-    # TODO: Move to specific DbConfig
-    attr_writer :shrink
-
-    def shrink?
-      @shrink.nil? ? false : @shrink
-    end
-
     attr_writer :pre_import_dirs
 
     def pre_import_dirs

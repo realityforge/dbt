@@ -52,6 +52,8 @@ class TestDbConfig < Dbt::TestCase
     restore_from = 'C:\\someDir\\foo.bak'
     backup_location = 'C:\\someDir\\bar.bak'
     instance_registry_key = 'MSQL10.05'
+    shrink_on_import = true
+    reindex_on_import = true
     force_drop = true
 
     config = new_base_config.merge(
@@ -62,6 +64,8 @@ class TestDbConfig < Dbt::TestCase
       :restore_from => restore_from,
       :backup_location => backup_location,
       :instance_registry_key => instance_registry_key,
+      :shrink_on_import => shrink_on_import,
+      :reindex_on_import => reindex_on_import,
       :force_drop => force_drop
     ).merge(options)
     config = config_class.new('sqlserver_test',config)
@@ -75,6 +79,8 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.restore_from, restore_from
     assert_equal config.backup_location, backup_location
     assert_equal config.instance_registry_key, instance_registry_key
+    assert_equal config.shrink_on_import?, shrink_on_import
+    assert_equal config.reindex_on_import?, reindex_on_import
     assert_equal config.force_drop?, force_drop
 
     assert_equal config.control_catalog_name, 'msdb'

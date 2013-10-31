@@ -199,8 +199,6 @@ TXT
         import_config = {
           :modules => definition.modules,
           :dir => definition.dir,
-          :reindex => definition.reindex?,
-          :shrink => definition.shrink?,
           :pre_import_dirs => definition.pre_import_dirs,
           :post_import_dirs => definition.post_import_dirs
         }

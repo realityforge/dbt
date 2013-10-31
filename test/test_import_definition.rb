@@ -19,8 +19,6 @@ class TestImportDefinition < Dbt::TestCase
     assert_equal imp.modules, ['Bar', 'Baz']
     Dbt::Config.default_import_dir = 'foo'
     assert_equal imp.dir, 'foo'
-    assert_equal imp.reindex?, true
-    assert_equal imp.shrink?, false
     Dbt::Config.default_pre_import_dirs = ['zang']
     assert_equal imp.pre_import_dirs, ['zang']
 
