@@ -300,7 +300,7 @@ SQL
 
       def post_table_import(imp, table)
         post_fixture_import(table)
-        if Dbt.runtime.reindex_on_import?
+        if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
           Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
           execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
         end
@@ -308,7 +308,7 @@ SQL
 
       def post_data_module_import(imp, module_name)
         sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
-        if Dbt.runtime.shrink_on_import?
+        if Dbt.configuration_for_key(imp.database.key).shrink_on_import?
           # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
           # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
           # we reindex otherwise the indexes will be highly fragmented.
@@ -317,7 +317,7 @@ SQL
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
         end
 
-        if Dbt.runtime.reindex_on_import?
+        if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
           imp.database.table_ordering(module_name).each do |table|
             Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
             execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
@@ -326,7 +326,7 @@ SQL
       end
 
       def post_database_import(imp)
-        if Dbt.runtime.reindex_on_import?
+        if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
           sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
 
           Dbt.runtime.info("Updating statistics")
