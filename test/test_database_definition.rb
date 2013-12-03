@@ -121,9 +121,9 @@ class TestDatabaseDefinition < Dbt::TestCase
     end
   end
 
-  def test_parse_repository_config
+  def test_load_repository_config
     definition = Dbt::DatabaseDefinition.new(:default, {})
-    definition.parse_repository_config(<<-CONFIG)
+    definition.load_repository_config(<<-CONFIG)
 ---
 modules: !omap
 - CodeMetrics:

@@ -212,7 +212,7 @@ TXT
       unless database.modules
         if database.load_from_classloader?
           content = load_resource(database, Dbt::Config.repository_config_file)
-          database.parse_repository_config(content)
+          database.load_repository_config(content)
         else
           database.dirs_for_database('.').each do |dir|
             repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
@@ -221,7 +221,7 @@ TXT
                 raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
               else
                 File.open(repository_config_file, 'r') do |f|
-                  database.parse_repository_config(f)
+                  database.load_repository_config(f)
                 end
               end
             end

@@ -241,10 +241,14 @@ class Dbt #nodoc
       tables
     end
 
+    def load_repository_config(content)
+      self.modules, self.schema_overrides, self.table_map = parse_repository_config(content)
+    end
+
     def parse_repository_config(content)
       require 'yaml'
       repository_config = YAML::load(content)
-      self.modules = repository_config['modules'].collect { |m| m[0] }
+      modules = repository_config['modules'].collect { |m| m[0] }
       schema_overrides = {}
       table_map = {}
       repository_config['modules'].each do |module_config|
@@ -254,8 +258,7 @@ class Dbt #nodoc
         table_map[name] = tables
         schema_overrides[name] = schema if name != schema
       end
-      self.schema_overrides = schema_overrides
-      self.table_map = table_map
+      return modules, schema_overrides, table_map
     end
   end
 end
