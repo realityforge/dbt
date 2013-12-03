@@ -214,12 +214,14 @@ TXT
           content = load_resource(database, Dbt::Config.repository_config_file)
           database.load_repository_config(content)
         else
+          processed_config_file = false
           database.dirs_for_database('.').each do |dir|
             repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
             if File.exist?(repository_config_file)
-              if database.modules
+              if processed_config_file
                 raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
               else
+                processed_config_file = true
                 File.open(repository_config_file, 'r') do |f|
                   database.load_repository_config(f)
                 end
