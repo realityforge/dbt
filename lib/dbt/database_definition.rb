@@ -39,6 +39,9 @@ class Dbt #nodoc
               @schema_overrides = @datasets_dir_name = @fixture_dir_name =
                 @database_environment_filter = @import_assert_filters = nil
 
+      @pre_db_artifacts = []
+      @post_db_artifacts = []
+
       raise "schema_overrides should be derived from repository.yml and not directly specified." if options[:schema_overrides]
       raise "modules should be derived from repository.yml and not directly specified." if options[:modules]
 
@@ -123,6 +126,14 @@ class Dbt #nodoc
 
     def fixture_dir_name
       @fixture_dir_name || Dbt::Config.default_fixture_dir_name
+    end
+
+    def pre_db_artifacts
+      @pre_db_artifacts
+    end
+
+    def post_db_artifacts
+      @post_db_artifacts
     end
 
     attr_writer :pre_create_dirs

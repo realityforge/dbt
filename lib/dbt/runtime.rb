@@ -214,6 +214,18 @@ TXT
           content = load_resource(database, Dbt::Config.repository_config_file)
           database.load_repository_config(content)
         else
+          modules = []
+          schema_overrides = {}
+          table_map = {}
+
+          database.pre_db_artifacts.each do |artifact|
+            content = read_repository_xml_from_artifact(artifact)
+            a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
+            merge_database_config("Database artifact #{artifact}",
+                                  modules, schema_overrides, table_map,
+                                  a_modules, a_schema_overrides, a_table_map)
+          end
+
           processed_config_file = false
           database.dirs_for_database('.').each do |dir|
             repository_config_file = "#{dir}/#{Dbt::Config.repository_config_file}"
@@ -222,17 +234,50 @@ TXT
                 raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
               else
                 processed_config_file = true
-                File.open(repository_config_file, 'r') do |f|
-                  database.load_repository_config(f)
+                File.open(repository_config_file, 'r') do |content|
+                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
+                  merge_database_config("Main configuration",
+                                        modules, schema_overrides, table_map,
+                                        a_modules, a_schema_overrides, a_table_map)
                 end
               end
             end
           end
-          raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" if database.modules.nil?
+
+          database.post_db_artifacts.each do |artifact|
+            content = read_repository_xml_from_artifact(artifact)
+            a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
+            merge_database_config("Database artifact #{artifact}",
+                                  modules, schema_overrides, table_map,
+                                  a_modules, a_schema_overrides, a_table_map)
+          end
+
+          raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" unless processed_config_file
+
+          database.modules, database.schema_overrides, database.table_map = modules, schema_overrides, table_map
         end
       end
       database.validate
     end
+
+    def read_repository_xml_from_artifact(artifact)
+      raise "Unable to locate database artifact #{artifact}" unless File.exist?(artifact)
+      Zip::ZipFile.open(artifact) do |zip|
+        filename = 'data/repository.yml'
+        unless zip.file.exist?(filename)
+          raise "Database artifact #{artifact} does not contain a #{filename} and thus is not in the correct format."
+        end
+        return zip.file.read(filename)
+      end
+    end
+
+    def merge_database_config(key, modules, schema_overrides, table_map, a_modules, a_schema_overrides, a_table_map)
+       a_modules.each do |m|
+         modules.push(m)
+       end
+       schema_overrides.merge!(a_schema_overrides)
+       table_map.merge!(a_table_map)
+     end
 
     def config_key(database_key, env = Dbt::Config.environment)
       Dbt::Config.default_database?(database_key) ? env : "#{database_key}_#{env}"
