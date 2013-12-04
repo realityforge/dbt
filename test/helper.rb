@@ -10,6 +10,7 @@ class Dbt::TestCase < Minitest::Test
   include Test::Unit::Assertions
 
   def setup
+    Dbt.cache.reset
     Dbt::Config.default_search_dirs = nil
     Dbt::Config.default_no_create = nil
     Dbt::Config.config_filename = nil

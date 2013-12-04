@@ -14,8 +14,13 @@
 
 class Dbt
 
+  @@cache = Cache.new
   @@repository = Repository.new
   @@runtime = Runtime.new
+
+  def self.cache
+    @@cache
+  end
 
   def self.repository
     @@repository
