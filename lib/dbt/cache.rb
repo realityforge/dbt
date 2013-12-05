@@ -24,6 +24,13 @@ class Dbt #nodoc
         @files << entry.name[5, entry.name.length - 5] if entry.file? && entry.name =~ /^data\/.*$/
       end
     end
+
+    def contents(filename)
+      raise "Unknown filename #{filename} for package #{self.filename}" unless self.files.include?(filename)
+      Zip::ZipFile.open(self.filename) do |zipfile|
+        return zipfile.read "data/#{filename}"
+      end
+    end
   end
 
   class Cache
