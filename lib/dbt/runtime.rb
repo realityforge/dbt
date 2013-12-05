@@ -320,7 +320,7 @@ TXT
         if database.load_from_classloader?
           collect_resources(database, database.migrations_dir_name)
         else
-          collect_files(database.dirs_for_database(database.migrations_dir_name))
+          collect_files(database, database.migrations_dir_name)
         end
       version_index = nil
       if database.version
@@ -429,13 +429,13 @@ TXT
       value.gsub(/\/\.\//, '/')
     end
 
-    def collect_files(directories)
+    def collect_files(database, relative_dir)
+      directories = database.dirs_for_database(relative_dir)
 
       index = []
       files = []
 
       directories.each do |dir|
-
         index_file = File.join(dir, Dbt::Config.index_file_name)
         index_entries =
           File.exists?(index_file) ? File.new(index_file).readlines.collect { |filename| filename.strip } : []
@@ -455,7 +455,37 @@ TXT
         if File.exists?(dir)
           files += Dir["#{dir}/*.sql"]
         end
+      end
 
+      prefix = normalize_path("#{relative_dir}")
+      index_filename = normalize_path("#{prefix}#{Dbt::Config.index_file_name}")
+      database.post_db_artifacts.each do |artifact|
+        pkg = Dbt.cache.package(artifact)
+        if pkg.files.include?(index_filename)
+          content = pkg.contents(index_filename)
+          index += content.readlines.collect { |filename| filename.strip }
+        end
+        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.sql/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions.each do |f|
+          b = File.basename(f)
+          unless files.any? {|other| b == File.basename(other)}
+            files << f
+          end
+        end
+      end
+      database.pre_db_artifacts.each do |artifact|
+        pkg = Dbt.cache.package(artifact)
+        if pkg.files.include?(index_filename)
+          content = pkg.contents(index_filename)
+          index += content.split.collect { |filename| filename.strip }
+        end
+        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.sql/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions.each do |f|
+          b = File.basename(f)
+          unless files.any? {|other| b == File.basename(other)}
+            files << f
+          end
+        end
       end
 
       file_map = {}
@@ -471,10 +501,12 @@ TXT
       end
 
       files.sort! do |x, y|
-        x_index = index.index(File.basename(x))
-        y_index = index.index(File.basename(y))
+        x_basename = File.basename(x)
+        y_basename = File.basename(y)
+        x_index = index.index(x_basename)
+        y_index = index.index(y_basename)
         if x_index.nil? && y_index.nil?
-          File.basename(x) <=> File.basename(y)
+          x_basename <=> y_basename
         elsif x_index.nil? && !y_index.nil?
           1
         elsif y_index.nil? && !x_index.nil?
@@ -485,6 +517,10 @@ TXT
       end
 
       files
+    end
+
+    def normalize_path(path)
+      path.gsub("/./","/")
     end
 
     def perform_import_action(imp, should_perform_delete, module_group)
@@ -514,7 +550,7 @@ TXT
         if database.load_from_classloader?
           collect_resources(database, dir)
         else
-          collect_files(database.dirs_for_database(dir))
+          collect_files(database, dir)
         end
       run_sql_files(database, label, files, is_import)
     end
@@ -536,7 +572,7 @@ TXT
           is_import_dir = import_dirs.include?(relative_dir_name)
 
           if !is_fixture_style_dir && !is_import_dir
-            files = collect_files(actual_dirs)
+            files = collect_files(database, relative_module_dir)
             cp_files_to_dir(files, target_dir)
             generate_index(target_dir, files)
           end
@@ -561,8 +597,7 @@ TXT
       database_wide_dirs = create_hooks + import_hooks
       database_wide_dirs.flatten.compact.each do |relative_dir_name|
         target_dir = "#{package_dir}/#{relative_dir_name}"
-        actual_dirs = database.dirs_for_database(relative_dir_name)
-        files = collect_files(actual_dirs)
+        files = collect_files(database, relative_dir_name)
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files)
       end
@@ -572,8 +607,7 @@ TXT
       end
       if database.enable_migrations?
         target_dir = "#{package_dir}/#{database.migrations_dir_name}"
-        actual_dirs = database.dirs_for_database(database.migrations_dir_name)
-        files = collect_files(actual_dirs)
+        files = collect_files(database, database.migrations_dir_name)
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files)
       end
@@ -708,6 +742,17 @@ TXT
               fixtures[table_name] = filename
             end
           end
+          filename = module_filename(module_name, subdir, table_name, 'yml')
+          database.post_db_artifacts.each do |artifact|
+            if Dbt.cache.package(artifact).files.include?(filename)
+              fixtures[table_name] = "zip:#{artifact}:#{filename}"
+            end
+          end unless fixtures[table_name]
+          database.pre_db_artifacts.each do |artifact|
+            if Dbt.cache.package(artifact).files.include?(filename)
+              fixtures[table_name] = "zip:#{artifact}:#{filename}"
+            end
+          end unless fixtures[table_name]
         end
       end
 
@@ -776,7 +821,12 @@ TXT
       if database.load_from_classloader?
         load_resource(database, filename)
       else
-        IO.readlines(filename).join
+        if /^zip:.*/ =~ filename
+          parts = filename.split(':')
+          Dbt.cache.package(parts[1]).contents(parts[2])
+        else
+          IO.readlines(filename).join
+        end
       end
     end
 
@@ -835,6 +885,12 @@ TXT
         database.search_dirs.map do |d|
           file = "#{d}/#{filename}"
           return file if File.exist?(file)
+        end
+        database.post_db_artifacts.each do |artifact|
+          return "zip:#{artifact}:#{filename}" if Dbt.cache.package(artifact).files.include?(filename)
+        end
+        database.pre_db_artifacts.each do |artifact|
+          return "zip:#{artifact}:#{filename}" if Dbt.cache.package(artifact).files.include?(filename)
         end
         return nil
       end
