@@ -616,7 +616,13 @@ TXT
     def cp_files_to_dir(files, target_dir)
       return if files.empty?
       FileUtils.mkdir_p target_dir
-      FileUtils.cp_r files, target_dir
+      FileUtils.cp_r files.select{|f| !(f =~ /^zip:/)}, target_dir
+      files.select{|f| (f =~ /^zip:/)}.each do |f|
+        parts = f.split(':')
+        File.open("#{target_dir}/#{File.basename(parts[2])}","w") do |f|
+          f.write Dbt.cache.package(parts[1]).contents(parts[2])
+        end
+      end
     end
 
     def generate_index(target_dir, files)
