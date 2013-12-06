@@ -578,8 +578,10 @@ TXT
           elsif is_import_dir
             files = collect_files(database, relative_module_dir, 'yml')
             tables = database.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
-            files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.yml'))}
-            files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.sql'))}
+            files.delete_if do |fixture|
+              !(tables.include?(File.basename(fixture, '.yml')) ||
+                tables.include?(File.basename(fixture, '.sql')))
+            end
             cp_files_to_dir(files, target_dir)
           else
             files = collect_files(database, relative_module_dir)
