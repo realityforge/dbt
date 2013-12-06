@@ -565,30 +565,26 @@ TXT
         dirs.each do |relative_dir_name|
           relative_module_dir = "#{module_name}/#{relative_dir_name}"
           target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
-          actual_dirs = database.dirs_for_database(relative_module_dir)
 
           is_fixture_style_dir =
             database.fixture_dir_name == relative_dir_name || dataset_dirs.include?(relative_dir_name)
           is_import_dir = import_dirs.include?(relative_dir_name)
 
-          if !is_fixture_style_dir && !is_import_dir
+          if is_fixture_style_dir
+            files = collect_files(database, relative_module_dir, 'yml')
+            tables = database.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
+            files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.yml'))}
+            cp_files_to_dir(files, target_dir)
+          elsif is_import_dir
+            files = collect_files(database, relative_module_dir, 'yml')
+            tables = database.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
+            files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.yml'))}
+            files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.sql'))}
+            cp_files_to_dir(files, target_dir)
+          else
             files = collect_files(database, relative_module_dir)
             cp_files_to_dir(files, target_dir)
             generate_index(target_dir, files)
-          end
-          actual_dirs.each do |dir|
-            if File.exist?(dir)
-              if is_fixture_style_dir
-                database.table_ordering(module_name).each do |table_name|
-                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
-                end
-              elsif is_import_dir
-                database.table_ordering(module_name).each do |table_name|
-                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.yml"), target_dir)
-                  cp_files_to_dir(Dir.glob("#{dir}/#{clean_table_name(table_name)}.sql"), target_dir)
-                end
-              end
-            end
           end
         end
       end
