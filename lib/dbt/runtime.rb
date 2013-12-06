@@ -429,7 +429,7 @@ TXT
       value.gsub(/\/\.\//, '/')
     end
 
-    def collect_files(database, relative_dir)
+    def collect_files(database, relative_dir, extension = 'sql')
       directories = database.dirs_for_database(relative_dir)
 
       index = []
@@ -453,7 +453,7 @@ TXT
         index += index_entries
 
         if File.exists?(dir)
-          files += Dir["#{dir}/*.sql"]
+          files += Dir["#{dir}/*.#{extension}"]
         end
       end
 
@@ -465,7 +465,7 @@ TXT
           content = pkg.contents(index_filename)
           index += content.readlines.collect { |filename| filename.strip }
         end
-        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.sql/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.#{extension}/ }.collect { |f| "zip:#{artifact}:#{f}" }
         file_additions.each do |f|
           b = File.basename(f)
           unless files.any? {|other| b == File.basename(other)}
@@ -479,7 +479,7 @@ TXT
           content = pkg.contents(index_filename)
           index += content.split.collect { |filename| filename.strip }
         end
-        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.sql/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.#{extension}/ }.collect { |f| "zip:#{artifact}:#{f}" }
         file_additions.each do |f|
           b = File.basename(f)
           unless files.any? {|other| b == File.basename(other)}
