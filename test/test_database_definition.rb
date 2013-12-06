@@ -15,6 +15,8 @@ class TestDatabaseDefinition < Dbt::TestCase
     assert_equal definition.backup?, false
     assert_equal definition.restore?, false
     assert_equal definition.schema_overrides, {}
+    assert_equal definition.pre_db_artifacts, []
+    assert_equal definition.post_db_artifacts, []
 
     assert_equal definition.load_from_classloader?, false
     assert_equal definition.datasets, []
