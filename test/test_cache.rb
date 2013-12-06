@@ -1,7 +1,5 @@
 require File.expand_path('../helper', __FILE__)
 require 'tempfile'
-require 'zip/zip'
-require 'zip/zipfilesystem'
 
 class TestCache < Dbt::TestCase
 
