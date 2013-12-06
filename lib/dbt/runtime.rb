@@ -601,6 +601,17 @@ TXT
         repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
         cp repository_file, package_dir if File.exist?(repository_file)
       end
+      File.open("#{package_dir}/#{Dbt::Config.repository_config_file}","w") do |f|
+        modules = YAML::Omap.new
+        database.modules.each do |module_name|
+          module_config = {}
+          module_config['schema'] = database.schema_name_for_module(module_name)
+          module_config['tables'] = database.table_ordering(module_name)
+          modules[module_name.to_s] = module_config
+        end
+        config = {'modules' => modules}
+        f.write config.to_yaml
+      end
       if database.enable_migrations?
         target_dir = "#{package_dir}/#{database.migrations_dir_name}"
         files = collect_files(database, database.migrations_dir_name)
