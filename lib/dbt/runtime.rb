@@ -597,10 +597,6 @@ TXT
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files)
       end
-      database.dirs_for_database('.').each do |dir|
-        repository_file = "#{dir}/#{Dbt::Config.repository_config_file}"
-        cp repository_file, package_dir if File.exist?(repository_file)
-      end
       File.open("#{package_dir}/#{Dbt::Config.repository_config_file}","w") do |f|
         modules = YAML::Omap.new
         database.modules.each do |module_name|
