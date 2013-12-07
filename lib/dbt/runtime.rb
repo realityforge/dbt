@@ -234,8 +234,8 @@ TXT
                 raise "Duplicate copies of #{Dbt::Config.repository_config_file} found in database search path"
               else
                 processed_config_file = true
-                File.open(repository_config_file, 'r') do |content|
-                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
+                File.open(repository_config_file, 'r') do |input|
+                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(input)
                   merge_database_config("Main configuration",
                                         modules, schema_overrides, table_map,
                                         a_modules, a_schema_overrides, a_table_map)
@@ -624,8 +624,8 @@ TXT
       FileUtils.cp_r files.select{|f| !(f =~ /^zip:/)}, target_dir
       files.select{|f| (f =~ /^zip:/)}.each do |f|
         parts = f.split(':')
-        File.open("#{target_dir}/#{File.basename(parts[2])}","w") do |f|
-          f.write Dbt.cache.package(parts[1]).contents(parts[2])
+        File.open("#{target_dir}/#{File.basename(parts[2])}","w") do |out|
+          out.write Dbt.cache.package(parts[1]).contents(parts[2])
         end
       end
     end
