@@ -68,6 +68,13 @@ modules: !omap
     assert_equal definition.table_ordering('Geo'), ['[Geo].[tblMobilePOI]', '[Geo].[tblPOITrack]', '[Geo].[tblSector]', '[Geo].[tblOtherGeom]']
   end
 
+  def test_schema_name_for_module
+    definition = Dbt::RepositoryDefinition.new
+    definition.schema_overrides = {'bar' => 'baz'}
+    definition.modules = ['foo','bar']
+    assert_equal definition.schema_name_for_module('foo'), 'foo'
+    assert_equal definition.schema_name_for_module('bar'), 'baz'
+  end
 
   def test_modules
     definition = Dbt::RepositoryDefinition.new
