@@ -18,7 +18,6 @@ class Dbt #nodoc
     include FilterContainer
 
     def initialize(key, options, &block)
-      @key = key
       options = options.dup
       imports_config = options.delete(:imports)
       module_groups_config = options.delete(:module_groups)
@@ -60,9 +59,6 @@ class Dbt #nodoc
       @imports.values.each { |d| d.validate }
       @module_groups.values.each { |d| d.validate }
     end
-
-    # symbolic name of database
-    attr_reader :key
 
     # List of modules to import
     attr_reader :imports
