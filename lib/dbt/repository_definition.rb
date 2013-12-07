@@ -76,6 +76,7 @@ class Dbt #nodoc
       self.modules = modules
       self.schema_overrides = schema_overrides
       self.table_map = table_map
+      self
     end
 
     def to_yaml
