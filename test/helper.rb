@@ -79,4 +79,17 @@ class Dbt::TestCase < Minitest::Test
   def assert_file_not_exist(filename)
     assert !File.exist?(filename), "!File.exist?(#{filename})"
   end
+
+  def create_zip(contents = {})
+    tf = Tempfile.open('dbtpackage')
+    zip_filename = tf.path
+    tf.close
+    Zip::ZipOutputStream.open(zip_filename) do |zip|
+      contents.each_pair do |filename, file_content|
+        zip.put_next_entry(filename)
+        zip << file_content
+      end
+    end
+    zip_filename
+  end
 end
