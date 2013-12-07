@@ -10,6 +10,15 @@ class TestRepositoryDefinition < Dbt::TestCase
     assert_equal definition.to_yaml, "---\nmodules: !omap []\n"
   end
 
+  def test_table_ordering
+    definition = Dbt::RepositoryDefinition.new
+    definition.table_map = {'mySchema' => ['tblOne', 'tblTwo']}
+    assert_equal definition.table_ordering('mySchema'), ['tblOne', 'tblTwo']
+    assert_raises(RuntimeError) do
+      definition.table_ordering('NoSchemaHere')
+    end
+  end
+
   def test_merge
     definition = Dbt::RepositoryDefinition.new
     definition.schema_overrides = {"Core" => "C"}
