@@ -6,10 +6,7 @@ class TestRuntimeBasic < Dbt::TestCase
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
 
-    db_scripts = create_dir("databases")
-    module_name = 'MyModule'
-    table_names = ['[MyModule].[foo]', '[MyModule].[bar]', '[MyModule].[baz]']
-    database = create_simple_db_definition(db_scripts, module_name, table_names)
+    database = create_simple_db_definition(create_dir("databases"), 'MyModule', [])
 
     database.version = 2
     database.migrations = false
