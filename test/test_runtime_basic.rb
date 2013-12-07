@@ -21,6 +21,43 @@ class TestRuntimeBasic < Dbt::TestCase
     assert_match 'Database Version: 1', status
   end
 
+  def test_pre_db_artifacts_loads_repository_xml
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    base_dir = create_dir("database")
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.search_dirs = [base_dir]
+    end
+    File.open("#{base_dir}/repository.yml", "w") do |f|
+      f.write <<YAML
+---
+modules: !omap
+- Core:
+    schema: Core
+    tables: []
+YAML
+    end
+
+    repository_yml = <<YML
+---
+modules: !omap
+- CodeMetrics:
+    schema: CodeMetrics
+    tables:
+    - ! '"CodeMetrics"."tblCollection"'
+    - ! '"CodeMetrics"."tblMethodMetric"'
+YML
+
+    database.pre_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+
+    Dbt.runtime.load_database_config(database)
+
+    assert_equal ['CodeMetrics','Core'], database.modules
+    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.table_ordering('CodeMetrics')
+  end
+
   def test_query
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
