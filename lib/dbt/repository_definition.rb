@@ -15,7 +15,7 @@
 class Dbt #nodoc
 
   class RepositoryDefinition < ConfigElement
-    attr_accessor :modules, :schema_overrides, :table_map
+    attr_accessor :schema_overrides, :table_map
 
     def initialize(options = {}, &block)
       @table_map = {}
@@ -24,6 +24,13 @@ class Dbt #nodoc
       super(options, &block)
     end
 
+    attr_writer :modules
+
+    # List of modules to process for database
+    def modules
+      @modules = @modules.call if !@modules.nil? && @modules.is_a?(Proc)
+      @modules
+    end
 
     def schema_name_for_module(module_name)
       override = schema_overrides[module_name]

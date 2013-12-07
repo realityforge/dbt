@@ -68,6 +68,18 @@ modules: !omap
     assert_equal definition.table_ordering('Geo'), ['[Geo].[tblMobilePOI]', '[Geo].[tblPOITrack]', '[Geo].[tblSector]', '[Geo].[tblOtherGeom]']
   end
 
+
+  def test_modules
+    definition = Dbt::RepositoryDefinition.new
+    modules = ['a', 'b']
+    definition.modules = modules
+    assert_equal definition.modules, modules
+
+    modules = ['a', 'b', 'c']
+    definition.modules = Proc.new { modules }
+    assert_equal definition.modules, modules
+  end
+
   def test_to_yaml
     definition = Dbt::RepositoryDefinition.new
     definition.modules = ['CodeMetrics', 'Geo', 'TestModule']
