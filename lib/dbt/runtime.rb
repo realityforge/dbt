@@ -235,7 +235,7 @@ TXT
               else
                 processed_config_file = true
                 File.open(repository_config_file, 'r') do |input|
-                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(input)
+                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(input.read)
                   merge_database_config("Main configuration",
                                         modules, schema_overrides, table_map,
                                         a_modules, a_schema_overrides, a_table_map)
