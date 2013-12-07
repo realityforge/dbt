@@ -38,6 +38,20 @@ class Dbt #nodoc
       tables
     end
 
+    def merge!(other)
+      other.modules.each do |m|
+        if self.modules.include?(m)
+          raise "Attempting to merge repository that has duplicate module definition #{m} (Existing = #{self.modules.inspect})"
+        end
+      end
+      other.modules.each do |m|
+        self.modules.push(m)
+      end
+      self.schema_overrides.merge!(other.schema_overrides)
+      self.table_map.merge!(other.table_map)
+      self
+    end
+
     def from_yaml(content)
       require 'yaml'
       repository_config = YAML::load(content)

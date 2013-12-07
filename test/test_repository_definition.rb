@@ -10,6 +10,33 @@ class TestRepositoryDefinition < Dbt::TestCase
     assert_equal definition.to_yaml, "---\nmodules: !omap []\n"
   end
 
+  def test_merge
+    definition = Dbt::RepositoryDefinition.new
+    definition.schema_overrides = {"Core" => "C"}
+    definition.table_map = {'Core' => '"C"."tblA"'}
+    definition.modules = ['Core']
+
+    definition2 = Dbt::RepositoryDefinition.new
+    definition2.schema_overrides = {"Other" => "O"}
+    definition2.table_map = {'Other' => '"O"."tblB"'}
+    definition2.modules = ['Other']
+
+    merged = false
+    begin
+      definition.merge!(definition)
+      merged = true
+    rescue
+      # Ignored
+    end
+    raise "Succeeded in merging self - error!" if merged
+
+    definition.merge!(definition2)
+
+    assert_equal definition.schema_overrides, {"Core" => "C","Other" => "O"}
+    assert_equal definition.table_map, {'Core' => '"C"."tblA"', 'Other' => '"O"."tblB"'}
+    assert_equal definition.modules, ['Core','Other']
+  end
+
   def test_from_yaml
     definition = Dbt::RepositoryDefinition.new
     definition.from_yaml(<<-CONFIG)
