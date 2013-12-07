@@ -277,7 +277,7 @@ TXT
        end
        schema_overrides.merge!(a_schema_overrides)
        table_map.merge!(a_table_map)
-     end
+    end
 
     def config_key(database_key, env = Dbt::Config.environment)
       Dbt::Config.default_database?(database_key) ? env : "#{database_key}_#{env}"
