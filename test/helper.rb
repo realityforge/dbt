@@ -4,7 +4,7 @@ require 'minitest/autorun'
 require 'test/unit/assertions'
 require 'mocha/setup'
 require 'dbt'
-require 'tmpdir'
+require 'securerandom'
 
 class Dbt::TestCase < Minitest::Test
   include Test::Unit::Assertions
@@ -68,6 +68,10 @@ class Dbt::TestCase < Minitest::Test
     expanded_filename
   end
 
+  def create_filename
+    "#{working_dir}/#{SecureRandom.hex}"
+  end
+
   def working_dir
     @temp_dir
   end
@@ -81,9 +85,7 @@ class Dbt::TestCase < Minitest::Test
   end
 
   def create_zip(contents = {})
-    tf = Tempfile.open('dbtpackage')
-    zip_filename = tf.path
-    tf.close
+    zip_filename = create_filename
     Zip::ZipOutputStream.open(zip_filename) do |zip|
       contents.each_pair do |filename, file_content|
         zip.put_next_entry(filename)
