@@ -396,6 +396,72 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.create(database)
   end
 
+  def psn(dir,table_name)
+    "data/#{dir}/#{table_name}.sql"
+  end
+
+  def test_create_with_sql_from_package_import
+    Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
+    Dbt::Config.default_finalize_dirs = ['Dir3', 'Dir4']
+    Dbt::Config.default_fixture_dir_name = 'foo'
+    Dbt::Config.default_pre_create_dirs = ['db-pre-create']
+    Dbt::Config.default_post_create_dirs = ['db-post-create']
+
+    mock = Dbt::DbDriver.new
+    Dbt.runtime.instance_variable_set("@db", mock)
+
+    config = create_postgres_config()
+
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    packaged_definition = Dbt::RepositoryDefinition.new(:modules => [module_name],
+                                                        :table_map => {module_name => ['[MyModule].[foo]']})
+    zipfile = create_zip("data/repository.yml" => packaged_definition.to_yaml,
+                         psn("db-pre-create", 'preCreate') => ct('preCreate'),
+                         "data/#{module_name}/#{Dbt::Config.default_fixture_dir_name}/#{module_name}.foo.yml" => "1:\n  ID: 1\n",
+                         psn("#{module_name}", 'a') => ct('a'),
+                         psn("#{module_name}", 'b') => ct('b'),
+                         psn("#{module_name}/Dir1", 'd') => ct('d'),
+                         psn("#{module_name}/Dir1", 'c') => ct('c'),
+                         psn("#{module_name}/Dir2", 'e') => ct('e'),
+                         psn("#{module_name}/Dir2", 'f') => ct('f'),
+                         psn("#{module_name}/Dir3", 'g') => ct('g'),
+                         psn("#{module_name}/Dir4", 'h') => ct('h'),
+                         psn("db-post-create", 'postCreate') => ct('postCreate') )
+    definition = Dbt::RepositoryDefinition.new(:modules => [], :table_map => {})
+    File.open("#{db_scripts}/repository.yml","w") do |f|
+      f.write definition.to_yaml
+    end
+    database = Dbt.add_database(:default) do |db|
+      db.rake_integration = false
+      db.post_db_artifacts << zipfile
+      db.search_dirs = [db_scripts]
+    end
+    Dbt.runtime.send(:perform_load_database_config, database)
+
+    mock.expects(:open).with(config, true).in_sequence(@s)
+    mock.expects(:drop).with(database, config).in_sequence(@s)
+    mock.expects(:create_database).with(database, config).in_sequence(@s)
+    mock.expects(:close).with().in_sequence(@s)
+    mock.expects(:open).with(config, false).in_sequence(@s)
+    expect_create_table(mock, '', 'db-pre-create/', 'preCreate')
+    mock.expects(:create_schema).with(module_name).in_sequence(@s)
+    expect_create_table(mock, module_name, '', 'a')
+    expect_create_table(mock, module_name, '', 'b')
+    expect_create_table(mock, module_name, 'Dir1/', 'c')
+    expect_create_table(mock, module_name, 'Dir1/', 'd')
+    expect_create_table(mock, module_name, 'Dir2/', 'e')
+    expect_create_table(mock, module_name, 'Dir2/', 'f')
+    expect_delete(mock, module_name, 'foo')
+    expect_fixture(mock, module_name, 'foo')
+    expect_create_table(mock, module_name, 'Dir3/', 'g')
+    expect_create_table(mock, module_name, 'Dir4/', 'h')
+    expect_create_table(mock, '', 'db-post-create/', 'postCreate')
+    mock.expects(:close).with().in_sequence(@s)
+
+    Dbt.runtime.create(database)
+  end
+
   def test_create_with_sql_and_index_covering_partial
     mock = Dbt::DbDriver.new
     Dbt.runtime.instance_variable_set("@db", mock)
@@ -1040,7 +1106,11 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   def create_table_sql(dir, table_name)
-    create_file("databases/#{dir}/#{table_name}.sql", "CREATE TABLE [#{table_name}]")
+    create_file("databases/#{dir}/#{table_name}.sql", ct(table_name))
+  end
+
+  def ct(table_name)
+    "CREATE TABLE [#{table_name}]"
   end
 
   def create_fixture(module_name, table_name)
