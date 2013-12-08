@@ -318,7 +318,7 @@ SQL
         end
 
         if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
-          imp.database.table_ordering(module_name).each do |table|
+          imp.database.repository.table_ordering(module_name).each do |table|
             Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
             execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
           end

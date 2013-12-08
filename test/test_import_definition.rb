@@ -8,7 +8,7 @@ class TestImportDefinition < Dbt::TestCase
                                                {
                                                  :foo => {}
                                                }) do |d|
-      d.modules = ['Bar', 'Baz']
+      d.repository.modules = ['Bar', 'Baz']
     end
     imports = definition.imports
     assert_equal imports.size, 1
@@ -31,7 +31,7 @@ class TestImportDefinition < Dbt::TestCase
 
   def test_invalid
     definition = Dbt::DatabaseDefinition.new(:default, :imports => {:foo => {:modules => ['Foo']}}) do |d|
-      d.modules = ['Bar', 'Baz']
+      d.repository.modules = ['Bar', 'Baz']
     end
 
     assert_raises RuntimeError do

@@ -54,8 +54,8 @@ YML
 
     Dbt.runtime.load_database_config(database)
 
-    assert_equal ['CodeMetrics','Core'], database.modules
-    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.table_ordering('CodeMetrics')
+    assert_equal ['CodeMetrics','Core'], database.repository.modules
+    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.repository.table_ordering('CodeMetrics')
   end
 
   def test_multiple_pre_db_artifacts_loads_repository_xml
@@ -101,9 +101,9 @@ YML
 
     Dbt.runtime.load_database_config(database)
 
-    assert_equal ['CodeMetrics','Second','Core'], database.modules
-    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.table_ordering('CodeMetrics')
-    assert_equal ['"Second"."tblA"','"Second"."tblB"'], database.table_ordering('Second')
+    assert_equal ['CodeMetrics','Second','Core'], database.repository.modules
+    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.repository.table_ordering('CodeMetrics')
+    assert_equal ['"Second"."tblA"','"Second"."tblB"'], database.repository.table_ordering('Second')
   end
 
   def test_post_db_artifacts_loads_repository_xml
@@ -139,8 +139,8 @@ YML
 
     Dbt.runtime.load_database_config(database)
 
-    assert_equal ['Core','CodeMetrics'], database.modules
-    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.table_ordering('CodeMetrics')
+    assert_equal ['Core','CodeMetrics'], database.repository.modules
+    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.repository.table_ordering('CodeMetrics')
   end
 
   def test_multiple_post_db_artifacts_loads_repository_xml
@@ -186,9 +186,9 @@ YML
 
     Dbt.runtime.load_database_config(database)
 
-    assert_equal ['Core', 'CodeMetrics','Second'], database.modules
-    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.table_ordering('CodeMetrics')
-    assert_equal ['"Second"."tblA"','"Second"."tblB"'], database.table_ordering('Second')
+    assert_equal ['Core', 'CodeMetrics','Second'], database.repository.modules
+    assert_equal ['"CodeMetrics"."tblCollection"','"CodeMetrics"."tblMethodMetric"'], database.repository.table_ordering('CodeMetrics')
+    assert_equal ['"Second"."tblA"','"Second"."tblB"'], database.repository.table_ordering('Second')
   end
 
   def test_pre_and_post_db_artifacts_loads_repository_xml
@@ -230,7 +230,7 @@ YML
 
     Dbt.runtime.load_database_config(database)
 
-    assert_equal ['CodeMetrics', 'Core', 'Second'], database.modules
+    assert_equal ['CodeMetrics', 'Core', 'Second'], database.repository.modules
   end
 
   def test_query
@@ -1009,7 +1009,7 @@ YML
                                     'MyOtherModule' => ['[MyOtherModule].[baz]', '[MyOtherModule].[bark]'],
                                     'MyThirdModule' => ['[MyThirdModule].[biz]'])
     module_group = database.add_module_group('zz', :modules => ['MyOtherModule', 'MyThirdModule'])
-    database.schema_overrides['MyThirdModule'] = 'My3rdSchema'
+    database.repository.schema_overrides['MyThirdModule'] = 'My3rdSchema'
     assert_equal module_group.modules, ['MyOtherModule', 'MyThirdModule']
 
     Dbt::Config.default_up_dirs = ['.']
@@ -1184,8 +1184,8 @@ YML
   def create_simple_db_definition(db_scripts, module_name, table_names)
     Dbt.add_database(:default) do |db|
       db.rake_integration = false
-      db.modules = [module_name]
-      db.table_map = {module_name => table_names}
+      db.repository.modules = [module_name]
+      db.repository.table_map = {module_name => table_names}
       db.search_dirs = [db_scripts]
     end
   end
@@ -1193,8 +1193,8 @@ YML
   def create_db_definition(db_scripts, table_map)
     Dbt.add_database(:default) do |db|
       db.rake_integration = false
-      db.modules = table_map.keys
-      db.table_map = table_map
+      db.repository.modules = table_map.keys
+      db.repository.table_map = table_map
       db.search_dirs = [db_scripts]
     end
   end

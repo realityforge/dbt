@@ -91,7 +91,7 @@ TXT
     def up_module_group(module_group)
       database = module_group.database
       init_database(database.key) do
-        database.modules.each do |module_name|
+        database.repository.modules.each do |module_name|
           next unless module_group.modules.include?(module_name)
           create_module(database, module_name, :up)
           create_module(database, module_name, :finalize)
@@ -102,11 +102,11 @@ TXT
     def down_module_group(module_group)
       database = module_group.database
       init_database(database.key) do
-        database.modules.reverse.each do |module_name|
+        database.repository.modules.reverse.each do |module_name|
           next unless module_group.modules.include?(module_name)
           process_module(database, module_name, :down)
-          tables = database.table_ordering(module_name).reverse
-          schema_name = database.schema_name_for_module(module_name)
+          tables = database.repository.table_ordering(module_name).reverse
+          schema_name = database.repository.schema_name_for_module(module_name)
           db.drop_schema(schema_name, tables)
         end
       end
@@ -116,14 +116,14 @@ TXT
       init_database(database.key) do
         subdir = "#{database.datasets_dir_name}/#{dataset_name}"
         fixtures = {}
-        database.modules.each do |module_name|
+        database.repository.modules.each do |module_name|
           collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
         end
 
-        database.modules.reverse.each do |module_name|
+        database.repository.modules.reverse.each do |module_name|
           down_fixtures(database, module_name, fixtures)
         end
-        database.modules.each do |module_name|
+        database.repository.modules.each do |module_name|
           up_fixtures(database, module_name, fixtures)
         end
       end
@@ -147,8 +147,8 @@ TXT
       filter = options[:filter]
       data_set = options[:data_set]
       init_database(database.key) do
-        database.modules.each do |module_name|
-          database.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
+        database.repository.modules.each do |module_name|
+          database.repository.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
             info("Dumping #{table_name}")
             records = load_query_into_yaml(dump_table_sql(table_name))
 
@@ -209,21 +209,16 @@ TXT
     end
 
     def perform_load_database_config(database)
-      unless database.modules
+      unless database.repository.modules && database.repository.modules.size > 0
         if database.load_from_classloader?
           content = load_resource(database, Dbt::Config.repository_config_file)
-          database.load_repository_config(content)
+          database.repository.from_yaml(content)
         else
-          modules = []
-          schema_overrides = {}
-          table_map = {}
+          definition = RepositoryDefinition.new
 
           database.pre_db_artifacts.each do |artifact|
             content = read_repository_xml_from_artifact(artifact)
-            a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
-            merge_database_config("Database artifact #{artifact}",
-                                  modules, schema_overrides, table_map,
-                                  a_modules, a_schema_overrides, a_table_map)
+            definition.merge!(RepositoryDefinition.new.from_yaml(content))
           end
 
           processed_config_file = false
@@ -235,10 +230,7 @@ TXT
               else
                 processed_config_file = true
                 File.open(repository_config_file, 'r') do |input|
-                  a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(input.read)
-                  merge_database_config("Main configuration",
-                                        modules, schema_overrides, table_map,
-                                        a_modules, a_schema_overrides, a_table_map)
+                  definition.merge!(RepositoryDefinition.new.from_yaml(input.read))
                 end
               end
             end
@@ -246,15 +238,12 @@ TXT
 
           database.post_db_artifacts.each do |artifact|
             content = read_repository_xml_from_artifact(artifact)
-            a_modules, a_schema_overrides, a_table_map = database.parse_repository_config(content)
-            merge_database_config("Database artifact #{artifact}",
-                                  modules, schema_overrides, table_map,
-                                  a_modules, a_schema_overrides, a_table_map)
+            definition.merge!(RepositoryDefinition.new.from_yaml(content))
           end
 
           raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" unless processed_config_file
 
-          database.modules, database.schema_overrides, database.table_map = modules, schema_overrides, table_map
+          database.repository.merge!(definition)
         end
       end
       database.validate
@@ -269,14 +258,6 @@ TXT
         end
         return zip.file.read(filename)
       end
-    end
-
-    def merge_database_config(key, modules, schema_overrides, table_map, a_modules, a_schema_overrides, a_table_map)
-       a_modules.each do |m|
-         modules.push(m)
-       end
-       schema_overrides.merge!(a_schema_overrides)
-       table_map.merge!(a_table_map)
     end
 
     def config_key(database_key, env = Dbt::Config.environment)
@@ -359,7 +340,7 @@ TXT
     end
 
     def import(imp, module_name, should_perform_delete)
-      ordered_tables = imp.database.table_ordering(module_name)
+      ordered_tables = imp.database.repository.table_ordering(module_name)
 
       # check the import configuration is set
       configuration_for_key(config_key(imp.database.key, "import"))
@@ -408,13 +389,13 @@ TXT
     end
 
     def create_module(database, module_name, mode)
-      schema_name = database.schema_name_for_module(module_name)
+      schema_name = database.repository.schema_name_for_module(module_name)
       db.create_schema(schema_name) if :up == mode
       process_module(database, module_name, mode)
     end
 
     def perform_create_action(database, mode)
-      database.modules.each do |module_name|
+      database.repository.modules.each do |module_name|
         create_module(database, module_name, mode)
       end
     end
@@ -561,7 +542,7 @@ TXT
       import_dirs = database.imports.values.collect { |i| i.dir }.sort.uniq
       dataset_dirs = database.datasets.collect { |dataset| "#{database.datasets_dir_name}/#{dataset}" }
       dirs = database.up_dirs + database.down_dirs + database.finalize_dirs + [database.fixture_dir_name] + import_dirs + dataset_dirs
-      database.modules.each do |module_name|
+      database.repository.modules.each do |module_name|
         dirs.each do |relative_dir_name|
           relative_module_dir = "#{module_name}/#{relative_dir_name}"
           target_dir = "#{package_dir}/#{module_name}/#{relative_dir_name}"
@@ -572,12 +553,12 @@ TXT
 
           if is_fixture_style_dir
             files = collect_files(database, relative_module_dir, 'yml')
-            tables = database.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
+            tables = database.repository.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
             files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.yml'))}
             cp_files_to_dir(files, target_dir)
           elsif is_import_dir
             files = collect_files(database, relative_module_dir, 'yml')
-            tables = database.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
+            tables = database.repository.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
             files.delete_if do |fixture|
               !(tables.include?(File.basename(fixture, '.yml')) ||
                 tables.include?(File.basename(fixture, '.sql')))
@@ -600,15 +581,7 @@ TXT
         generate_index(target_dir, files)
       end
       File.open("#{package_dir}/#{Dbt::Config.repository_config_file}","w") do |f|
-        modules = YAML::Omap.new
-        database.modules.each do |module_name|
-          module_config = {}
-          module_config['schema'] = database.schema_name_for_module(module_name)
-          module_config['tables'] = database.table_ordering(module_name)
-          modules[module_name.to_s] = module_config
-        end
-        config = {'modules' => modules}
-        f.write config.to_yaml
+        f.write database.repository.to_yaml
       end
       if database.enable_migrations?
         target_dir = "#{package_dir}/#{database.migrations_dir_name}"
@@ -710,13 +683,13 @@ TXT
     end
 
     def down_fixtures(database, module_name, fixtures)
-      database.table_ordering(module_name).reverse.select {|table_name| !!fixtures[table_name] }.each do |table_name|
+      database.repository.table_ordering(module_name).reverse.select {|table_name| !!fixtures[table_name] }.each do |table_name|
         run_sql_batch("DELETE FROM #{table_name}")
       end
     end
 
     def up_fixtures(database, module_name, fixtures)
-      database.table_ordering(module_name).each do |table_name|
+      database.repository.table_ordering(module_name).each do |table_name|
         filename = fixtures[table_name]
         next unless filename
         info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
@@ -738,7 +711,7 @@ TXT
         filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
         filesystem_sql_files = dirs.collect { |d| Dir["#{d}/*.sql"] }.flatten.compact
       end
-      database.table_ordering(module_name).each do |table_name|
+      database.repository.table_ordering(module_name).each do |table_name|
         if database.load_from_classloader?
           filename = module_filename(module_name, subdir, table_name, 'yml')
           if resource_present?(database, filename)
