@@ -31,26 +31,13 @@ class TestRuntimeBasic < Dbt::TestCase
       db.search_dirs = [base_dir]
     end
     File.open("#{base_dir}/repository.yml", "w") do |f|
-      f.write <<YAML
----
-modules: !omap
-- Core:
-    schema: Core
-    tables: []
-YAML
+      f.write Dbt::RepositoryDefinition.new(:modules => ['Core'], :table_map => {'Core' => []}).to_yaml
     end
 
-    repository_yml = <<YML
----
-modules: !omap
-- CodeMetrics:
-    schema: CodeMetrics
-    tables:
-    - ! '"CodeMetrics"."tblCollection"'
-    - ! '"CodeMetrics"."tblMethodMetric"'
-YML
-
-    database.pre_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['CodeMetrics'],
+                                               :table_map => {'CodeMetrics' => ['"CodeMetrics"."tblCollection"',
+                                                                                '"CodeMetrics"."tblMethodMetric"']})
+    database.pre_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
     Dbt.runtime.load_database_config(database)
 
@@ -68,36 +55,17 @@ YML
       db.search_dirs = [base_dir]
     end
     File.open("#{base_dir}/repository.yml", "w") do |f|
-      f.write <<YAML
----
-modules: !omap
-- Core:
-    schema: Core
-    tables: []
-YAML
+      f.write Dbt::RepositoryDefinition.new(:modules => ['Core'], :table_map => {'Core' => []}).to_yaml
     end
 
-    repository_yml = <<YML
----
-modules: !omap
-- CodeMetrics:
-    schema: CodeMetrics
-    tables:
-    - ! '"CodeMetrics"."tblCollection"'
-    - ! '"CodeMetrics"."tblMethodMetric"'
-YML
-    database.pre_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['CodeMetrics'],
+                                               :table_map => {'CodeMetrics' => ['"CodeMetrics"."tblCollection"',
+                                                                                '"CodeMetrics"."tblMethodMetric"']})
+    database.pre_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
-    repository_yml = <<YML
----
-modules: !omap
-- Second:
-    schema: Second
-    tables:
-    - ! '"Second"."tblA"'
-    - ! '"Second"."tblB"'
-YML
-    database.pre_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['Second'],
+                                               :table_map => {'Second' => ['"Second"."tblA"', '"Second"."tblB"']})
+    database.pre_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
     Dbt.runtime.load_database_config(database)
 
@@ -116,26 +84,13 @@ YML
       db.search_dirs = [base_dir]
     end
     File.open("#{base_dir}/repository.yml", "w") do |f|
-      f.write <<YAML
----
-modules: !omap
-- Core:
-    schema: Core
-    tables: []
-YAML
+      f.write Dbt::RepositoryDefinition.new(:modules => ['Core'], :table_map => {'Core' => []}).to_yaml
     end
 
-    repository_yml = <<YML
----
-modules: !omap
-- CodeMetrics:
-    schema: CodeMetrics
-    tables:
-    - ! '"CodeMetrics"."tblCollection"'
-    - ! '"CodeMetrics"."tblMethodMetric"'
-YML
-
-    database.post_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['CodeMetrics'],
+                                               :table_map => {'CodeMetrics' => ['"CodeMetrics"."tblCollection"',
+                                                                                '"CodeMetrics"."tblMethodMetric"']})
+    database.post_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
     Dbt.runtime.load_database_config(database)
 
@@ -153,36 +108,17 @@ YML
       db.search_dirs = [base_dir]
     end
     File.open("#{base_dir}/repository.yml", "w") do |f|
-      f.write <<YAML
----
-modules: !omap
-- Core:
-    schema: Core
-    tables: []
-YAML
+      f.write Dbt::RepositoryDefinition.new(:modules => ['Core'], :table_map => {'Core' => []}).to_yaml
     end
 
-    repository_yml = <<YML
----
-modules: !omap
-- CodeMetrics:
-    schema: CodeMetrics
-    tables:
-    - ! '"CodeMetrics"."tblCollection"'
-    - ! '"CodeMetrics"."tblMethodMetric"'
-YML
-    database.post_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['CodeMetrics'],
+                                               :table_map => {'CodeMetrics' => ['"CodeMetrics"."tblCollection"',
+                                                                                '"CodeMetrics"."tblMethodMetric"']})
+    database.post_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
-    repository_yml = <<YML
----
-modules: !omap
-- Second:
-    schema: Second
-    tables:
-    - ! '"Second"."tblA"'
-    - ! '"Second"."tblB"'
-YML
-    database.post_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['Second'],
+                                               :table_map => {'Second' => ['"Second"."tblA"', '"Second"."tblB"']})
+    database.post_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
     Dbt.runtime.load_database_config(database)
 
@@ -201,32 +137,13 @@ YML
       db.search_dirs = [base_dir]
     end
     File.open("#{base_dir}/repository.yml", "w") do |f|
-      f.write <<YAML
----
-modules: !omap
-- Core:
-    schema: Core
-    tables: []
-YAML
+      f.write Dbt::RepositoryDefinition.new(:modules => ['Core'], :table_map => {'Core' => []}).to_yaml
     end
 
-    repository_yml = <<YML
----
-modules: !omap
-- CodeMetrics:
-    schema: CodeMetrics
-    tables: []
-YML
-    database.pre_db_artifacts << create_zip('data/repository.yml' => repository_yml)
-
-    repository_yml = <<YML
----
-modules: !omap
-- Second:
-    schema: Second
-    tables: []
-YML
-    database.post_db_artifacts << create_zip('data/repository.yml' => repository_yml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['CodeMetrics'], :table_map => {'CodeMetrics' => []})
+    database.pre_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
+    repository = Dbt::RepositoryDefinition.new(:modules => ['Second'], :table_map => {'Second' => []})
+    database.post_db_artifacts << create_zip('data/repository.yml' => repository.to_yaml)
 
     Dbt.runtime.load_database_config(database)
 
