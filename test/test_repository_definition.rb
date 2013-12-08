@@ -105,7 +105,7 @@ modules: !omap
       'Geo' => ['[Geo].[tblMobilePOI]', '[Geo].[tblPOITrack]', '[Geo].[tblSector]', '[Geo].[tblOtherGeom]'],
       'CodeMetrics' => ['[CodeMetrics].[tblCollection]', '[CodeMetrics].[tblMethodMetric]']
     }
-    assert_equal definition.to_yaml, <<YAML
+    assert_equal definition.to_yaml, YAML::load(<<YAML).to_yaml
 ---
 modules: !omap
 - CodeMetrics:
