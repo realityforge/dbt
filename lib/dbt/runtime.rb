@@ -438,15 +438,16 @@ TXT
         end
       end
 
-      prefix = normalize_path("#{relative_dir}")
-      index_filename = normalize_path("#{prefix}#{Dbt::Config.index_file_name}")
+      prefix = relative_dir.gsub("/./","").gsub(/\/\.$/,"")
+      matcher = /^#{prefix}\/[^\/]*\.#{extension}$/
+      index_filename = "#{prefix}#{Dbt::Config.index_file_name}"
       database.post_db_artifacts.each do |artifact|
         pkg = Dbt.cache.package(artifact)
         if pkg.files.include?(index_filename)
           content = pkg.contents(index_filename)
           index += content.readlines.collect { |filename| filename.strip }
         end
-        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.#{extension}/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions = pkg.files.select { |f| f =~ matcher }.collect { |f| "zip:#{artifact}:#{f}" }
         file_additions.each do |f|
           b = File.basename(f)
           unless files.any? {|other| b == File.basename(other)}
@@ -460,7 +461,7 @@ TXT
           content = pkg.contents(index_filename)
           index += content.split.collect { |filename| filename.strip }
         end
-        file_additions = pkg.files.select { |f| f =~ /^#{prefix}.*\.#{extension}/ }.collect { |f| "zip:#{artifact}:#{f}" }
+        file_additions = pkg.files.select { |f| f =~ matcher }.collect { |f| "zip:#{artifact}:#{f}" }
         file_additions.each do |f|
           b = File.basename(f)
           unless files.any? {|other| b == File.basename(other)}
@@ -498,10 +499,6 @@ TXT
       end
 
       files
-    end
-
-    def normalize_path(path)
-      path.gsub("/./","/")
     end
 
     def perform_import_action(imp, should_perform_delete, module_group)
