@@ -20,6 +20,8 @@ class Dbt #nodoc
     def initialize(filename)
       @filename = filename
       @files = []
+      require 'zip/zip'
+      require 'zip/zipfilesystem'
       Zip::ZipFile.foreach(filename) do |entry|
         @files << entry.name[5, entry.name.length - 5] if entry.file? && entry.name =~ /^data\/.*$/
       end
