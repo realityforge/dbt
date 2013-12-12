@@ -554,7 +554,7 @@ TXT
             files.delete_if {|fixture| !tables.include?(File.basename(fixture,'.yml'))}
             cp_files_to_dir(files, target_dir)
           elsif is_import_dir
-            files = collect_files(database, relative_module_dir, 'yml')
+            files = collect_files(database, relative_module_dir, 'yml') + collect_files(database, relative_module_dir, 'sql')
             tables = database.repository.table_ordering(module_name).collect{|table_name| clean_table_name(table_name)}
             files.delete_if do |fixture|
               !(tables.include?(File.basename(fixture, '.yml')) ||
