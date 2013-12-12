@@ -5,6 +5,9 @@ require 'test/unit/assertions'
 require 'mocha/setup'
 require 'dbt'
 require 'securerandom'
+require 'zip/zip'
+require 'zip/zipfilesystem'
+require 'fileutils'
 
 class Dbt::TestCase < Minitest::Test
   include Test::Unit::Assertions
