@@ -80,10 +80,8 @@ Dbt.add_database(:default,
                     {
                       # Standard import config
                       :default => {:modules => [:Audit, :Core, :Coordination, :Payroll]},
-                      # Customized import for a particular client, no reindex on complete
-                      :client2 => {:modules => [:Audit, :Core],
-                                   :reindex => false, ,
-                                   :dir => "client2-imports"},
+                      # Customized import for a particular client
+                      :client2 => {:modules => [:Audit, :Core], :dir => "client2-imports"},
                       # Customized import with alternative hook actions
                       :client3 => {:modules => [:Audit, :Core],
                                   :post_import_dirs => %w(client3-import-hooks/post),
