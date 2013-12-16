@@ -73,7 +73,7 @@ end
 {% highlight ruby %}
 Dbt::Config.config_filename = 'config/database.yml'
 # Explicitly configure the database driver
-Dbt::Config.driver = 'Mssql'
+Dbt::Config.driver = 'sql_server'
 
 Dbt.add_database(:default,
                  :imports =>
