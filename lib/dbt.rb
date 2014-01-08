@@ -12,8 +12,6 @@
 # limitations under the License.
 #
 require 'rexml/document'
-require 'zip/zip'
-require 'zip/zipfilesystem'
 
 require 'dbt/orderedhash'
 

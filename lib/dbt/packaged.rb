@@ -200,7 +200,7 @@ TXT
 
       database.imports.each_pair do |import_key, definition|
         import_config = {
-          :modules => definition.repository.modules,
+          :modules => definition.modules,
           :dir => definition.dir,
           :pre_import_dirs => definition.pre_import_dirs,
           :post_import_dirs => definition.post_import_dirs
