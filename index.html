@@ -312,7 +312,20 @@ end
     Migrate a Database
 </h2>
 
-<p>TODO: Document me.</p>
+<p>
+    Migrations are used to incrementally modify a database without recreating or re-importing the database
+    from scratch. The <code>migrations_dir_name</code> setting controls the directory from which the migration
+    scripts are sourced and defaults to 'migrations'.
+</p>
+
+<p>
+    The migrations scripts are ordered using the same mechanism as per standard directories using an
+    <code>index.txt</code> file or alphanumeric ordering based on the name of the script. When the scripts are
+    applied, a record of the application is recorded in a per-database migrations table. The name of the
+    migration table differs between databases and is <code>[dbo].[tblMigrations]</code> under sql server and
+    <code>"public"."tblMigration"</code> under postgres.
+</p>
+  <p>TODO: Document "release" migrations and how migrations are handled at database creation.</p>
 
 <h2>
     <a name="database-datasets" class="anchor" href="#database-datasets"><span class="octicon octicon-link"></span></a>
