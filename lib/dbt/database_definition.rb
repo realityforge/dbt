@@ -104,6 +104,14 @@ class Dbt #nodoc
     # Database version. Stuffed as an extended property and used when creating filename.
     attr_accessor :version
 
+    # Hash of database version. Stuffed as an extended property and used when determining whether content of version
+    # has changed.
+    attr_accessor :version_hash
+
+    def version_hash
+      @version_hash || cache_version_hash
+    end
+
     attr_writer :datasets_dir_name
 
     def datasets_dir_name
@@ -214,6 +222,66 @@ class Dbt #nodoc
     # Should the a restore task be defined for database?
     def restore?
       @restore.nil? ? false : @restore
+    end
+
+    private
+    def cache_version_hash
+      files = []
+
+      # perform_pre_create_hooks(database)
+      database.pre_create_dirs.each do |dir|
+        files << Dbt.runtime.collect_dir_set(self, dir)
+      end
+
+      # perform_create_action(database, :up)
+      database.repository.modules.each do |module_name|
+        # create_module(database, module_name, mode)
+        # process_module(database, module_name, mode)
+        [self.up_dirs, self.down_dirs, self.finalize_dirs].each do |dirs|
+          dirs.each do |dir|
+            files << Dbt.runtime.collect_dir_set(self, "#{module_name}/#{dir}")
+          end
+        end
+        # load_fixtures(database, module_name) if mode == :up
+        fixtures = {}
+        collect_fixtures_from_dirs(self, module_name, fixture_dir_name, fixtures)
+        repository.table_ordering(module_name).each do |table_name|
+          files << fixtures[table_name] if fixtures[table_name]
+        end
+      end
+
+      # perform_import_action(imp, false, nil)
+      imports.values.each do |imp|
+        #runtime.create_by_import(imp)
+        imp.pre_import_dirs.each do |dir|
+          files << Dbt.runtime.collect_dir_set(self, dir)
+        end unless partial_import_completed?
+        imp.modules.each do |module_name|
+          #import(imp, module_key, should_perform_delete)
+          tables = repository.table_ordering(module_name)
+          tables.each do |table|
+            files << Dbt.runtime.try_find_file_in_module(self, module_name, imp.dir, table, 'yml')
+            files << Dbt.runtime.try_find_file_in_module(self, module_name, imp.dir, table, 'sql')
+          end
+        end
+        imp.post_import_dirs.each do |dir|
+          files << Dbt.runtime.collect_dir_set(self, dir)
+        end
+      end
+
+      # perform_post_create_hooks(database)
+      database.post_create_dirs.each do |dir|
+        files << Dbt.runtime.collect_dir_set(self, dir)
+      end
+
+      # perform_post_create_migrations_setup(database)
+      if enable_migrations?
+        files << Dbt.runtime.collect_dir_set(self, database.migrations_dir_name)
+      end
+
+      p "Calculating hash from #{files.inspect}"
+
+      @version_hash = 10
     end
   end
 end

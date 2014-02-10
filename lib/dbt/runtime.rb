@@ -523,14 +523,16 @@ TXT
       db.post_database_import(imp)
     end
 
+    def collect_dir_set(database, dir)
+      if database.load_from_classloader?
+        collect_resources(database, dir)
+      else
+        collect_files(database, dir)
+      end
+    end
+
     def process_dir_set(database, dir, is_import, label)
-      files =
-        if database.load_from_classloader?
-          collect_resources(database, dir)
-        else
-          collect_files(database, dir)
-        end
-      run_sql_files(database, label, files, is_import)
+      run_sql_files(database, label, collect_dir_set( database, dir ), is_import)
     end
 
     def perform_package_database_data(database, package_dir)
