@@ -1139,6 +1139,11 @@ class TestRuntimeBasic < Dbt::TestCase
     files << create_file("databases/post-imp1/a.sql", import_sql)
     files << create_file("databases/post-imp2/a.sql", import_sql)
 
+    database.migrations = true
+    Dbt::Config.default_migrations_dir_name = 'migrate22'
+    migrate_sql_1 = "SELECT 1"
+    files << create_file("databases/migrate22/001_x.sql", migrate_sql_1)
+
     # Should not be collected, as in an irrelevant directories
     create_table_sql("#{module_name}/Elsewhere", 'aaa')
     create_table_sql("#{module_name}aa/Dir1", 'aaa')
