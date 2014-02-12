@@ -1125,6 +1125,10 @@ class TestRuntimeBasic < Dbt::TestCase
     files << create_table_sql("#{module_name}/Dir4", 'h')
     files << create_table_sql("db-post-create", 'postCreate')
 
+    # Should not be collected, as in an irrelevant directories
+    create_table_sql("#{module_name}/Elsewhere", 'aaa')
+    create_table_sql("#{module_name}aa/Dir1", 'aaa')
+
     assert_equal(files.sort, Dbt.runtime.send(:collect_fileset_for_hash, database).map { |f| f.gsub(/\/\.\//, '/') }.sort)
   end
 
