@@ -1100,6 +1100,79 @@ class TestRuntimeBasic < Dbt::TestCase
     assert_file_exist("#{fixture_dir}/MyModule/fixturesXX/MyModule.tblTable1.yml")
   end
 
+  def test_collect_fileset_for_hash
+    db_scripts = create_dir("databases")
+    module_name = 'MyModule'
+    table_names = ['[MyModule].[foo]']
+    database = create_simple_db_definition(db_scripts, module_name, table_names)
+
+    Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
+    Dbt::Config.default_finalize_dirs = ['Dir3', 'Dir4']
+    Dbt::Config.default_fixture_dir_name = 'foo'
+    Dbt::Config.default_pre_create_dirs = ['db-pre-create']
+    Dbt::Config.default_post_create_dirs = ['db-post-create']
+
+    files = []
+    files << create_table_sql("db-pre-create", 'preCreate')
+    files << create_table_sql("#{module_name}", 'a')
+    files << create_table_sql("#{module_name}", 'b')
+    files << create_table_sql("#{module_name}/Dir1", 'd')
+    files << create_table_sql("#{module_name}/Dir1", 'c')
+    files << create_table_sql("#{module_name}/Dir2", 'e')
+    files << create_table_sql("#{module_name}/Dir2", 'f')
+    files << create_fixture(module_name, 'foo')
+    files << create_table_sql("#{module_name}/Dir3", 'g')
+    files << create_table_sql("#{module_name}/Dir4", 'h')
+    files << create_table_sql("db-post-create", 'postCreate')
+
+    # Should not be collected, as in an irrelevant directories
+    create_table_sql("#{module_name}/Elsewhere", 'aaa')
+    create_table_sql("#{module_name}aa/Dir1", 'aaa')
+
+    assert_equal(files.sort, Dbt.runtime.send(:collect_fileset_for_hash, database).map { |f| f.gsub(/\/\.\//, '/') }.sort)
+  end
+
+  def test_hash_files_with_no_files_doesnt_crash
+    Dbt.runtime.send(:hash_files, [])
+  end
+
+  def test_hash_files
+    create_dir("databases/generated")
+    create_file("databases/generated/MyModule/base.sql", "some")
+    create_file("databases/generated/MyModule/types/typeA.sql", "content")
+    create_file("databases/generated/MyModule/views/viewA.sql", "here")
+    create_file("databases/generated/MyModule/views/viewB.sql", "here")
+
+    hash_1 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
+                                            'databases/generated/MyModule/types/typeA.sql',
+                                            'databases/generated/MyModule/views/viewA.sql'])
+
+
+    # Same content, different files
+    hash_2 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
+                                            'databases/generated/MyModule/types/typeA.sql',
+                                            'databases/generated/MyModule/views/viewB.sql'])
+    assert_not_equal(hash_1, hash_2)
+
+    create_file("databases/generated/MyModule/types/typeA.sql", "here")
+    create_file("databases/generated/MyModule/views/viewA.sql", "content")
+
+    # Same files, content switched between files
+    hash_3 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
+                                            'databases/generated/MyModule/types/typeA.sql',
+                                            'databases/generated/MyModule/views/viewA.sql'])
+    assert_not_equal(hash_1, hash_3)
+
+    create_file("databases/generated/MyModule/types/typeA.sql", "content")
+    create_file("databases/generated/MyModule/views/viewA.sql", "here")
+
+    # Same files, recreated
+    hash_4 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
+                                            'databases/generated/MyModule/types/typeA.sql',
+                                            'databases/generated/MyModule/views/viewA.sql'])
+    assert_equal(hash_1, hash_4)
+  end
+
   def setup
     super
     @s = sequence('main')
