@@ -226,7 +226,7 @@ class Dbt #nodoc
 
     private
     def cache_version_hash
-      @version_hash = Dbt.runtime.calculate_fileset_hash( self )
+      @version_hash ||= Dbt.runtime.calculate_fileset_hash( self )
     end
   end
 end
