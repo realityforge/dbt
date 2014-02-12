@@ -18,6 +18,7 @@ class Dbt
     def status(database)
       return <<TXT
 Database Version: #{database.version}
+Database Schema Hash: #{database.version_hash}
 Migration Support: #{database.enable_migrations? ? 'Yes' : 'No'}
 TXT
     end
@@ -915,7 +916,7 @@ TXT
       database.imports.values.each do |imp|
         imp.pre_import_dirs.each do |dir|
           files << collect_dir_set(database, dir)
-        end unless database.partial_import_completed?
+        end
         imp.modules.each do |module_name|
           tables = database.repository.table_ordering(module_name)
           tables.each do |table|
@@ -936,7 +937,7 @@ TXT
         files << collect_dir_set(database, database.migrations_dir_name)
       end
 
-      files.flatten!
+      files.flatten!.select{|x| !x.nil?}
     end
   end
 end
