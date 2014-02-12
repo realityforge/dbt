@@ -895,21 +895,16 @@ TXT
     def collect_fileset_for_hash(database)
       files = []
 
-      # perform_pre_create_hooks(database)
       database.pre_create_dirs.each do |dir|
         files << collect_dir_set(database, dir)
       end
 
-      # perform_create_action(database, :up)
       database.repository.modules.each do |module_name|
-        # create_module(database, module_name, mode)
-        # process_module(database, module_name, mode)
         [database.up_dirs, database.down_dirs, database.finalize_dirs].each do |dirs|
           dirs.each do |dir|
             files << collect_dir_set(database, "#{module_name}/#{dir}")
           end
         end
-        # load_fixtures(database, module_name) if mode == :up
         fixtures = {}
         collect_fixtures_from_dirs(database, module_name, database.fixture_dir_name, fixtures)
         database.repository.table_ordering(module_name).each do |table_name|
@@ -917,14 +912,11 @@ TXT
         end
       end
 
-      # perform_import_action(imp, false, nil)
       database.imports.values.each do |imp|
-        #runtime.create_by_import(imp)
         imp.pre_import_dirs.each do |dir|
           files << collect_dir_set(database, dir)
         end unless database.partial_import_completed?
         imp.modules.each do |module_name|
-          #import(imp, module_key, should_perform_delete)
           tables = database.repository.table_ordering(module_name)
           tables.each do |table|
             files << try_find_file_in_module(database, module_name, imp.dir, table, 'yml')
@@ -936,12 +928,10 @@ TXT
         end
       end
 
-      # perform_post_create_hooks(database)
       database.post_create_dirs.each do |dir|
         files << collect_dir_set(database, dir)
       end
 
-      # perform_post_create_migrations_setup(database)
       if database.enable_migrations?
         files << collect_dir_set(database, database.migrations_dir_name)
       end
