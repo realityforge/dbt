@@ -1,4 +1,4 @@
-
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -172,6 +172,11 @@ TXT
 
     def configuration_for_database(database, env = Dbt::Config.environment)
       configuration_for_key(config_key(database.key, env))
+    end
+
+    # Hash the set of files that may be used by any create/import/migrate for the given database
+    def calculate_fileset_hash(database)
+      hash_files(collect_fileset_for_hash(database))
     end
 
     private
@@ -877,11 +882,6 @@ TXT
         end
         return nil
       end
-    end
-
-    # Hash the set of files that may be used by any create/import/migrate for the given database
-    def calculate_fileset_hash(database)
-      hash_files(collect_fileset_for_hash(database))
     end
 
     def hash_files(files)
