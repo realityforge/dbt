@@ -1125,11 +1125,28 @@ class TestRuntimeBasic < Dbt::TestCase
     files << create_table_sql("#{module_name}/Dir4", 'h')
     files << create_table_sql("db-post-create", 'postCreate')
 
+    database.separate_import_task = true
+    import = database.add_import(:default, {})
+    import.pre_import_dirs = ['pre-imp1', 'pre-imp2']
+    import.post_import_dirs = ['post-imp1', 'post-imp2']
+
+    Dbt::Config.default_import_dir = 'zzzz'
+    import_sql = "INSERT INTO DBT_TEST.[foo]"
+    files << create_file("databases/pre-imp1/a.sql", import_sql)
+    files << create_file("databases/pre-imp2/a.sql", import_sql)
+    files << create_file("databases/#{module_name}/zzzz/MyModule.foo.sql", import_sql)
+    files << create_file("databases/#{module_name}/zzzz/MyModule.foo.yml", import_sql)
+    files << create_file("databases/post-imp1/a.sql", import_sql)
+    files << create_file("databases/post-imp2/a.sql", import_sql)
+
     # Should not be collected, as in an irrelevant directories
     create_table_sql("#{module_name}/Elsewhere", 'aaa')
     create_table_sql("#{module_name}aa/Dir1", 'aaa')
 
-    assert_equal(files.sort, Dbt.runtime.send(:collect_fileset_for_hash, database).map { |f| f.gsub(/\/\.\//, '/') }.sort)
+    # Should not be collected, only imports of sql and yml are included
+    create_file("databases/#{module_name}/zzzz/MyModule.foo.ignore", import_sql)
+
+    assert_equal(files.sort, Dbt.runtime.send(:collect_fileset_for_hash, database).map { |f| f.nil? ? "alert nil" : f.gsub(/\/\.\//, '/') }.sort)
   end
 
   def test_hash_files_with_no_files_doesnt_crash
