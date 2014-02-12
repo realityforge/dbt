@@ -1144,20 +1144,19 @@ class TestRuntimeBasic < Dbt::TestCase
                                             'databases/generated/MyModule/views/viewA.sql'])
 
 
+    # Same content, different files
     hash_2 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
                                             'databases/generated/MyModule/types/typeA.sql',
                                             'databases/generated/MyModule/views/viewB.sql'])
-
-    # Same content, different files
     assert_not_equal(hash_1, hash_2)
 
     create_file("databases/generated/MyModule/types/typeA.sql", "here")
     create_file("databases/generated/MyModule/views/viewA.sql", "content")
+
+    # Same files, content switched between files
     hash_3 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
                                             'databases/generated/MyModule/types/typeA.sql',
                                             'databases/generated/MyModule/views/viewA.sql'])
-
-    # Same files, content switched between files
     assert_not_equal(hash_1, hash_3)
 
     create_file("databases/generated/MyModule/types/typeA.sql", "content")
