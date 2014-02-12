@@ -7,18 +7,21 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt.runtime.instance_variable_set("@db", mock)
 
     database = create_simple_db_definition(create_dir("databases"), 'MyModule', [])
+    database.version_hash = 'testing'
 
     database.version = 2
     database.migrations = false
     status = Dbt.runtime.status(database)
     assert_match 'Migration Support: No', status
     assert_match 'Database Version: 2', status
+    assert_match 'Database Schema Hash: testing', status
 
     database.version = 1
     database.migrations = true
     status = Dbt.runtime.status(database)
     assert_match 'Migration Support: Yes', status
     assert_match 'Database Version: 1', status
+    assert_match 'Database Schema Hash: testing', status
   end
 
   def test_pre_db_artifacts_loads_repository_xml
@@ -1111,6 +1114,8 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt::Config.default_fixture_dir_name = 'foo'
     Dbt::Config.default_pre_create_dirs = ['db-pre-create']
     Dbt::Config.default_post_create_dirs = ['db-post-create']
+    Dbt::Config.default_post_create_dirs = ['db-post-create']
+
 
     files = []
     files << create_table_sql("db-pre-create", 'preCreate')

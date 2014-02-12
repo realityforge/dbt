@@ -18,6 +18,7 @@ class Dbt
     def status(database)
       return <<TXT
 Database Version: #{database.version}
+Database Schema Hash: #{database.version_hash}
 Migration Support: #{database.enable_migrations? ? 'Yes' : 'No'}
 TXT
     end
