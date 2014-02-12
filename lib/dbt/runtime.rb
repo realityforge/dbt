@@ -946,8 +946,6 @@ TXT
         files << collect_dir_set(database, database.migrations_dir_name)
       end
 
-      p "Calculating hash from #{files.inspect}"
-
       files.flatten!
     end
   end
