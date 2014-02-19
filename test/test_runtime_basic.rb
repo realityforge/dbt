@@ -1160,43 +1160,45 @@ class TestRuntimeBasic < Dbt::TestCase
   end
 
   def test_hash_files_with_no_files_doesnt_crash
-    Dbt.runtime.send(:hash_files, [])
+    Dbt.runtime.send(:hash_files, nil, [])
   end
 
   def test_hash_files
+    database = create_simple_db_definition(create_dir("databases"), 'MyModule', [])
+
     create_dir("databases/generated")
     create_file("databases/generated/MyModule/base.sql", "some")
     create_file("databases/generated/MyModule/types/typeA.sql", "content")
     create_file("databases/generated/MyModule/views/viewA.sql", "here")
     create_file("databases/generated/MyModule/views/viewB.sql", "here")
 
-    hash_1 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
-                                            'databases/generated/MyModule/types/typeA.sql',
-                                            'databases/generated/MyModule/views/viewA.sql'])
+    hash_1 = Dbt.runtime.send(:hash_files, database, ['databases/generated/MyModule/base.sql',
+                                                      'databases/generated/MyModule/types/typeA.sql',
+                                                      'databases/generated/MyModule/views/viewA.sql'])
 
 
     # Same content, different files
-    hash_2 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
-                                            'databases/generated/MyModule/types/typeA.sql',
-                                            'databases/generated/MyModule/views/viewB.sql'])
+    hash_2 = Dbt.runtime.send(:hash_files, database, ['databases/generated/MyModule/base.sql',
+                                                      'databases/generated/MyModule/types/typeA.sql',
+                                                      'databases/generated/MyModule/views/viewB.sql'])
     assert_not_equal(hash_1, hash_2)
 
     create_file("databases/generated/MyModule/types/typeA.sql", "here")
     create_file("databases/generated/MyModule/views/viewA.sql", "content")
 
     # Same files, content switched between files
-    hash_3 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
-                                            'databases/generated/MyModule/types/typeA.sql',
-                                            'databases/generated/MyModule/views/viewA.sql'])
+    hash_3 = Dbt.runtime.send(:hash_files, database, ['databases/generated/MyModule/base.sql',
+                                                      'databases/generated/MyModule/types/typeA.sql',
+                                                      'databases/generated/MyModule/views/viewA.sql'])
     assert_not_equal(hash_1, hash_3)
 
     create_file("databases/generated/MyModule/types/typeA.sql", "content")
     create_file("databases/generated/MyModule/views/viewA.sql", "here")
 
     # Same files, recreated
-    hash_4 = Dbt.runtime.send(:hash_files, ['databases/generated/MyModule/base.sql',
-                                            'databases/generated/MyModule/types/typeA.sql',
-                                            'databases/generated/MyModule/views/viewA.sql'])
+    hash_4 = Dbt.runtime.send(:hash_files, database, ['databases/generated/MyModule/base.sql',
+                                                      'databases/generated/MyModule/types/typeA.sql',
+                                                      'databases/generated/MyModule/views/viewA.sql'])
     assert_equal(hash_1, hash_4)
   end
 

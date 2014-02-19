@@ -177,7 +177,7 @@ TXT
 
     # Hash the set of files that may be used by any create/import/migrate for the given database
     def calculate_fileset_hash(database)
-      hash_files(collect_fileset_for_hash(database))
+      hash_files(database, collect_fileset_for_hash(database))
     end
 
     private
@@ -885,10 +885,10 @@ TXT
       end
     end
 
-    def hash_files(files)
+    def hash_files(database, files)
       intermediate = ''
       files.each do |path|
-        intermediate << "#{path} : #{Digest::MD5.file(path).hexdigest}\n"
+        intermediate << "#{path} : #{Digest::MD5.hexdigest(load_data(database,path))}\n"
       end
       Digest::MD5.hexdigest(intermediate)
     end
