@@ -18,6 +18,7 @@ class Dbt
     def status(database)
       return <<TXT
 Database Version: #{database.version}
+Database Schema Hash: #{database.version_hash}
 Migration Support: #{database.enable_migrations? ? 'Yes' : 'No'}
 TXT
     end
@@ -176,7 +177,7 @@ TXT
 
     # Hash the set of files that may be used by any create/import/migrate for the given database
     def calculate_fileset_hash(database)
-      hash_files(collect_fileset_for_hash(database))
+      hash_files(database, collect_fileset_for_hash(database))
     end
 
     private
@@ -884,10 +885,10 @@ TXT
       end
     end
 
-    def hash_files(files)
+    def hash_files(database, files)
       intermediate = ''
       files.each do |path|
-        intermediate << "#{path} : #{Digest::MD5.file(path).hexdigest}\n"
+        intermediate << "#{path} : #{Digest::MD5.hexdigest(load_data(database,path))}\n"
       end
       Digest::MD5.hexdigest(intermediate)
     end
@@ -915,7 +916,7 @@ TXT
       database.imports.values.each do |imp|
         imp.pre_import_dirs.each do |dir|
           files << collect_dir_set(database, dir)
-        end unless database.partial_import_completed?
+        end
         imp.modules.each do |module_name|
           tables = database.repository.table_ordering(module_name)
           tables.each do |table|
@@ -936,7 +937,7 @@ TXT
         files << collect_dir_set(database, database.migrations_dir_name)
       end
 
-      files.flatten!
+      files.flatten!.select{|x| !x.nil?}
     end
   end
 end
