@@ -810,9 +810,9 @@ TXT
       if database.load_from_classloader?
         load_resource(database, filename)
       else
-        if /^zip:.*/ =~ filename
-          parts = filename.split(':')
-          Dbt.cache.package(parts[1]).contents(parts[2])
+        match = /^zip:(.+):([^:]+)$/.match(filename)
+        if match
+          Dbt.cache.package(match[1]).contents(match[2])
         else
           IO.readlines(filename).join
         end
