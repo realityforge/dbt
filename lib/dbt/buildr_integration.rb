@@ -45,8 +45,7 @@ class Dbt #nodoc
           return
         end
 
-      buildr_project = get_buildr_project(buildr_project)
-      add_idea_data_source_from_config(buildr_project, config)
+      add_idea_data_source_from_config(config, buildr_project)
     end
 
     private
@@ -58,11 +57,13 @@ class Dbt #nodoc
       buildr_project
     end
 
-    def self.add_idea_data_source_from_config(buildr_project, config)
+    def self.add_idea_data_source_from_config(config, buildr_project = nil)
       name = config.key
       jdbc_url = config.build_jdbc_url
       username = config.username
       password = config.password
+
+      buildr_project = get_buildr_project(buildr_project)
 
       if config.is_a?(Dbt::MssqlDbConfig) || config.is_a?(Dbt::TinyTdsDbConfig)
         buildr_project.ipr.add_sql_server_data_source(name, :url => jdbc_url, :username => username, :password => password)
