@@ -17,13 +17,19 @@ class Dbt #nodoc
     def self.add_idea_data_sources_from_configuration_file(buildr_project = nil)
       return unless load_dbt_configuration_data
 
+      valid_environments = ['development', 'uat', 'training', 'production', 'staging', 'test', 'ci', 'import']
+
       Dbt.repository.configuration_keys.each do |config_key|
         database_key = nil
         environment_key = nil
         Dbt.repository.database_keys.each do |key|
-          if config_key =~ /^(#{key})_(.*)/ && (database_key.nil? || key.length > database_key.length)
-            database_key = key
-            environment_key = $2
+          pattern = Dbt::Config.default_database?(key) ? /([^_]+)/ : /^#{key}_(.*)/
+          if config_key =~ pattern
+            matched_valued = $1
+            if (database_key.nil? || key.length > database_key.length) && valid_environments.include?(matched_valued)
+              database_key = key
+              environment_key = matched_valued
+            end
           end
         end
         add_idea_data_source(database_key, environment_key, buildr_project) if database_key
