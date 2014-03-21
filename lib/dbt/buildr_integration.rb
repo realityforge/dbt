@@ -54,6 +54,23 @@ class Dbt #nodoc
       add_idea_data_source_from_config(config, buildr_project)
     end
 
+    def self.add_idea_data_source_from_config_key(config_key, buildr_project = nil)
+      unless load_dbt_configuration_data
+        info("Skipping addition of data source #{config_key} to idea due to missing configuration file.")
+        return
+      end
+
+      config =
+        begin
+          Dbt.repository.configuration_for_key(config_key)
+        rescue => e
+          info("Missing configuration #{config_key}, skipping addition of data source to idea. Cause: #{e}")
+          return
+        end
+
+      add_idea_data_source_from_config(config, buildr_project)
+    end
+
     private
 
     def self.get_buildr_project(buildr_project)
