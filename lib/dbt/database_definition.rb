@@ -106,7 +106,7 @@ class Dbt #nodoc
 
     # Hash of database version. Stuffed as an extended property and used when determining whether content of version
     # has changed.
-    attr_accessor :version_hash
+    attr_writer :version_hash
 
     def version_hash
       @version_hash || cache_version_hash
