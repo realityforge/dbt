@@ -14,7 +14,11 @@
 
 class Dbt #nodoc
 
-  def self.define_database_package(database_key, buildr_project, options = {})
+  def self.define_database_package(database_key, buildr_project = nil, options = {})
+    if buildr_project.nil? && ::Buildr.application.current_scope.size > 0
+      buildr_project = ::Buildr.project(::Buildr.application.current_scope.join(':')) rescue nil
+    end
+    raise "Unable to determine Buildr project when generating #{database_key} database package" unless buildr_project
     database = self.repository.database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
     jruby_version = options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
