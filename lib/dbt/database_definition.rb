@@ -32,7 +32,7 @@ class Dbt #nodoc
         add_module_group(module_group_key, module_groups_config[module_group_key])
       end if module_groups_config
 
-      @migrations = @backup = @restore = @datasets = @resource_prefix =
+      @migrations = @backup = @restore = @datasets = @version_hash = @resource_prefix =
         @up_dirs = @down_dirs = @finalize_dirs = @pre_create_dirs = @post_create_dirs =
           @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
             @rake_integration = @separate_import_task = @import_task_as_part_of_create =
