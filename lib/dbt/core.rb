@@ -58,7 +58,7 @@ class Dbt
     unless Dbt.repository.is_configuration_data_loaded?
       begin
         Dbt.repository.load_configuration_data
-      rescue Exception => e
+      rescue Exception
         info("Unable to determine jdbc url as #{Dbt::Config.config_filename} is not present or valid.")
         return default_value
       end
