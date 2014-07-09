@@ -33,7 +33,10 @@ class Dbt #nodoc
     end
     jar = buildr_project.package(:jar) do |j|
     end
+    sources = buildr_project.package(:jar, :classifier => 'sources') do |j|
+    end
     jar.include buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
+    sources.include buildr_project.file("#{package_dir}/data" => "#{database.task_prefix}:package")
     if include_code
       buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
       dependencies =
