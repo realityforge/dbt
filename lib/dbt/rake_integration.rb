@@ -58,6 +58,23 @@ class Dbt #nodoc
 
   private
 
+  def self.define_tasks_for_artifact_database(database, artifact, options)
+    %w(create drop).each do |action|
+      desc "#{action} the #{database.key} database"
+      task "dbt:#{database.key}:#{action}" do
+        a = ::Buildr.artifact(artifact)
+        a.invoke
+        Java::Commands.java '-jar',
+                            a.to_s,
+                            '--environment',
+                            Dbt.runtime.config_key_for_database(database),
+                            '--config-file',
+                            Dbt::Config.config_filename,
+                            action
+      end
+    end
+  end
+
   def self.define_tasks_for_database(database)
     self.define_basic_tasks
     task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"]

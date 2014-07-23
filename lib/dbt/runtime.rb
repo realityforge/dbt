@@ -171,6 +171,10 @@ TXT
       @db = nil
     end
 
+    def config_key_for_database(database, env = Dbt::Config.environment)
+      config_key(database.key, env)
+    end
+
     def configuration_for_database(database, env = Dbt::Config.environment)
       configuration_for_key(config_key(database.key, env))
     end
