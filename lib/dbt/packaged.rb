@@ -14,7 +14,8 @@
 
 class Dbt #nodoc
 
-  def self.define_database_package(database_key, buildr_project = nil, options = {})
+  def self.define_database_package(database_key, options = {})
+    buildr_project = options[:buildr_project]
     if buildr_project.nil? && ::Buildr.application.current_scope.size > 0
       buildr_project = ::Buildr.project(::Buildr.application.current_scope.join(':')) rescue nil
     end
