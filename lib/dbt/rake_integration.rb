@@ -208,6 +208,6 @@ class Dbt #nodoc
   end
 
   def self.banner(message, database_key)
-    @@runtime.info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}) ****")
+    @@runtime.info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}, Catalog: #{Dbt.configuration_for_key(database_key).catalog_name}) ****")
   end
 end
