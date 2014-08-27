@@ -208,7 +208,8 @@ class Dbt #nodoc
   end
 
   def self.banner(message, database_key)
-    catalog_name = Dbt.repository.configuration_for_key?(database_key) ? Dbt.configuration_for_key(database_key).catalog_name : ''
+    config_key = Dbt.runtime.config_key_for_database(Dbt.database_for_key(database_key), Dbt::Config.environment)
+    catalog_name = Dbt.repository.configuration_for_key?(config_key) ? Dbt.configuration_for_key(database_key).catalog_name : ''
     @@runtime.info("**** #{message}: (Database: #{database_key}, Environment: #{Dbt::Config.environment}, Catalog: #{catalog_name}) ****")
   end
 end
