@@ -650,17 +650,26 @@ TXT
       fixture_file = try_find_file_in_module(database, module_name, import_dir, table, 'yml')
       sql_file = try_find_file_in_module(database, module_name, import_dir, table, 'sql')
 
-      if fixture_file && sql_file
-        raise "Unexpectantly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
-      end
-
       info("#{'%-15s' % module_name}: Importing #{clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
-      if fixture_file
-        load_fixture(table, load_data(database, fixture_file))
-      elsif sql_file
-        run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
-      else
-        perform_standard_import(database, table)
+      begin
+        if fixture_file && sql_file
+          raise "Unexpectedly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."
+        end
+
+        if fixture_file
+          load_fixture(table, load_data(database, fixture_file))
+        elsif sql_file
+          run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
+        else
+          perform_standard_import(database, table)
+        end
+      rescue Exception => e
+
+        heading = "Problem importing #{clean_table_name(table)}."
+        error("\n#{'#' * heading.length}\n#{heading}\n#{'#' * heading.length}\n\n" +
+               "Fix the problem and retry import specifying IMPORT_RESUME_AT=#{clean_table_name(table)} " +
+               "on the commandline to re-attempt import from current position.\n\n")
+        raise e
       end
     end
 
