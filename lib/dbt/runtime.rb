@@ -93,7 +93,7 @@ TXT
       database = module_group.database
       init_database(database.key) do
         database.repository.modules.each do |module_name|
-          next unless module_group.modules.include?(module_name)
+          next unless module_group.module_by_name?(module_name)
           create_module(database, module_name, :up)
           create_module(database, module_name, :finalize)
         end
@@ -104,7 +104,7 @@ TXT
       database = module_group.database
       init_database(database.key) do
         database.repository.modules.reverse.each do |module_name|
-          next unless module_group.modules.include?(module_name)
+          next unless module_group.module_by_name?(module_name)
           process_module(database, module_name, :down)
           tables = database.repository.table_ordering(module_name).reverse
           schema_name = database.repository.schema_name_for_module(module_name)
