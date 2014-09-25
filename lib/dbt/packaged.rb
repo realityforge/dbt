@@ -90,6 +90,14 @@ class Dbt #nodoc
         end
       end
       raise "Unknown import '#{import_key}'"
+    elsif /^up/ =~ command
+      module_group_key = command[3, command.length]
+      module_group = database.module_group_by_name(module_group_key)
+      @@runtime.up_module_group(module_group)
+    elsif /^down/ =~ command
+      module_group_key = command[5, command.length]
+      module_group = database.module_group_by_name(module_group_key)
+      @@runtime.down_module_group(module_group)
     else
       raise "Unknown command '#{command}'"
     end
@@ -122,6 +130,11 @@ class Dbt #nodoc
     end
     database.datasets.each do |dataset|
       valid_commands << "datasets:#{dataset}"
+    end
+
+    database.module_groups.keys.each do |key|
+      valid_commands << "up:#{key}"
+      valid_commands << "down:#{key}"
     end
 
     valid_commands << 'migrate' if database.enable_migrations?
@@ -175,6 +188,7 @@ end
 
 if ARGV.length == 0
   puts 'No command specified'
+  puts opt_parser
   java.lang.System.exit(31)
 end
 
@@ -196,6 +210,9 @@ database = Dbt.add_database(:#{database.key}) do |database|
   database.version = #{database.version.inspect}
   database.version_hash = #{database.version_hash.inspect}
 TXT
+      database.module_groups.each_pair do |key, module_group|
+        f << "   database.add_module_group(:#{key.to_s}, :modules => #{module_group.modules.inspect}, :import_enabled => #{module_group.import_enabled?})\n"
+      end
 
       database.filters.each do |filter|
         if filter.is_a?(PropertyFilter)
