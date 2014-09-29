@@ -97,10 +97,15 @@ class Dbt #nodoc
 
     def self.load_dbt_configuration_data
       unless Dbt.repository.is_configuration_data_loaded?
-        begin
-          Dbt.repository.load_configuration_data
-        rescue Exception => e
-          info("Unable to load database configuration from #{Dbt::Config.config_filename}. Cause: #{e}")
+        if File.exist?(Dbt::Config.config_filename)
+          begin
+            Dbt.repository.load_configuration_data
+          rescue Exception => e
+            info("Dbt unable to load database configuration from #{Dbt::Config.config_filename}. Cause: #{e}")
+            return false
+          end
+        else
+          info("Dbt unable to load database configuration from #{Dbt::Config.config_filename} as file does not exist.")
           return false
         end
       end
