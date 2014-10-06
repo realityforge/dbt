@@ -63,14 +63,11 @@ class Dbt
   end
 
   def self.jdbc_url_with_credentials(database_key, env, default_value = '')
-    unless Dbt.repository.is_configuration_data_loaded?
-      begin
-        Dbt.repository.load_configuration_data
-      rescue Exception
-        info("Unable to determine jdbc url as #{Dbt::Config.config_filename} is not present or valid.")
-        return default_value
-      end
+    if Dbt.repository.load_configuration_data
+      return Dbt.configuration_for_key(database_key, env).build_jdbc_url(:credentials_inline => true)
+    else
+      info("Unable to determine jdbc url as #{Dbt::Config.config_filename} is not present or valid.")
+      return default_value
     end
-    Dbt.configuration_for_key(database_key, env).build_jdbc_url(:credentials_inline => true)
   end
 end

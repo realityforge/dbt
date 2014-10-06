@@ -241,11 +241,15 @@ puts "Environment: \#{Dbt::Config.environment}"
 puts "Config File: \#{Dbt::Config.config_filename}"
 puts "Commands: \#{ARGV.join(' ')}"
 
-Dbt.repository.load_configuration_data
-Dbt.runtime.load_database_config(database)
+if Dbt.repository.load_configuration_data
+  Dbt.runtime.load_database_config(database)
 
-ARGV.each do |command|
-  Dbt.execute_command(database, command)
+  ARGV.each do |command|
+    Dbt.execute_command(database, command)
+  end
+else
+  puts 'Unable to load database configuration'
+  java.lang.System.exit(37)
 end
 TXT
     end

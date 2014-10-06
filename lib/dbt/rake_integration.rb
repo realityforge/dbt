@@ -198,7 +198,9 @@ class Dbt #nodoc
   def self.define_basic_tasks
     if !@@defined_init_tasks
       task "#{Dbt::Config.task_prefix}:global:load_config" do
-        @@repository.load_configuration_data unless @@repository.is_configuration_data_loaded?
+        unless @@repository.load_configuration_data
+          raise "unable to load database configuration data."
+        end
       end
 
       task "#{Dbt::Config.task_prefix}:all:pre_build"
