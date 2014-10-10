@@ -666,9 +666,9 @@ TXT
       rescue Exception => e
 
         heading = "Problem importing #{clean_table_name(table)}."
-        error("\n#{'#' * heading.length}\n#{heading}\n#{'#' * heading.length}\n\n" +
+        puts "\n#{'#' * heading.length}\n#{heading}\n#{'#' * heading.length}\n\n" +
                "Fix the problem and retry import specifying IMPORT_RESUME_AT=#{clean_table_name(table)} " +
-               "on the commandline to re-attempt import from current position.\n\n")
+               "on the commandline to re-attempt import from current position.\n\n"
         raise e
       end
     end
