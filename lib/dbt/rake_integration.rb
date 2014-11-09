@@ -62,6 +62,7 @@ class Dbt #nodoc
     %w(create drop).each do |action|
       desc "#{action} the #{database.key} database"
       task "dbt:#{database.key}:#{action}" do
+        banner('Creating database from package', database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
         Java::Commands.java '-jar',
