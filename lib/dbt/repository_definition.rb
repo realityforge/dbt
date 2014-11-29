@@ -81,7 +81,9 @@ class Dbt #nodoc
     end
 
     def to_yaml
-      yaml = "---\nmodules: !omap\n"
+      yaml = "---\nmodules: !omap"
+      return yaml + " []\n" if self.modules.size == 0
+      yaml += "\n"
       self.modules.each do |module_name|
         yaml += "   - #{module_name}:\n"
         yaml += "      schema: #{self.schema_name_for_module(module_name)}\n"
