@@ -45,6 +45,10 @@ class Dbt #nodoc
       tables
     end
 
+    def table_ordering?(module_name)
+      !!table_map[module_name.to_s]
+    end
+
     def merge!(other)
       other.modules.each do |m|
         if self.modules.include?(m)
@@ -91,7 +95,7 @@ class Dbt #nodoc
         self.table_ordering(module_name).each do |table_name|
           quoted_table = table_name =~ /"/ ? "'#{table_name}'" : "\"#{table_name}\""
           yaml += "        - #{quoted_table}\n"
-        end
+        end if self.table_ordering?(module_name)
       end
       yaml
     end
