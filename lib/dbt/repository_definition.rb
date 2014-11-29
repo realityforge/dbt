@@ -81,14 +81,16 @@ class Dbt #nodoc
     end
 
     def to_yaml
-      modules = YAML::Omap.new
+      yaml = "---\nmodules: !omap\n"
       self.modules.each do |module_name|
-        module_config = {}
-        module_config['schema'] = self.schema_name_for_module(module_name)
-        module_config['tables'] = self.table_ordering(module_name)
-        modules[module_name.to_s] = module_config
+        yaml += "   - #{module_name}:\n"
+        yaml += "      schema: #{self.schema_name_for_module(module_name)}\n"
+        yaml += "      tables:\n"
+        self.table_ordering(module_name).each do |table_name|
+          yaml += "        - \"#{table_name}\"\n"
+        end
       end
-      {'modules' => modules}.to_yaml
+      yaml
     end
   end
 end
