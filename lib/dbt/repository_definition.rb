@@ -87,7 +87,8 @@ class Dbt #nodoc
         yaml += "      schema: #{self.schema_name_for_module(module_name)}\n"
         yaml += "      tables:\n"
         self.table_ordering(module_name).each do |table_name|
-          yaml += "        - \"#{table_name}\"\n"
+          quoted_table = table_name =~ /"/ ? "'#{table_name}'" : "\"#{table_name}\""
+          yaml += "        - #{quoted_table}\n"
         end
       end
       yaml
