@@ -111,7 +111,7 @@ class Dbt #nodoc
 
   def self.package_database_code(database, package_dir, options)
     FileUtils.mkdir_p package_dir
-    valid_commands = ['status', 'create', 'drop']
+    valid_commands = %w(status create drop)
     valid_commands << 'restore' if database.restore?
     valid_commands << 'backup' if database.backup?
     if database.enable_separate_import_task?
