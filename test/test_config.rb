@@ -30,9 +30,7 @@ class TestConfig < Dbt::TestCase
   end
 
   def test_config_filename
-    assert_raises(RuntimeError) do
-      Dbt::Config.config_filename
-    end
+    assert_equal Dbt::Config.config_filename, 'config/database.yml'
     Dbt::Config.config_filename = "myconfig.yml"
     assert_equal Dbt::Config.config_filename, "myconfig.yml"
   end
