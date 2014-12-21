@@ -122,7 +122,7 @@ class Dbt # nodoc
       end
 
       def config_filename
-        raise "config_filename not specified" unless @config_filename
+        raise 'config_filename not specified' unless @config_filename
         @config_filename
       end
 
@@ -130,7 +130,7 @@ class Dbt # nodoc
       attr_writer :default_search_dirs
 
       def default_search_dirs
-        raise "default_search_dirs not specified" unless @default_search_dirs
+        raise 'default_search_dirs not specified' unless @default_search_dirs
         @default_search_dirs
       end
 
