@@ -37,6 +37,17 @@ class Dbt # nodoc
     @default_import_dir = nil
 
     class << self
+      attr_writer :base_directory
+
+      def base_directory
+        return @base_directory unless @base_directory.nil?
+        if defined?(::Buildr)
+          File.dirname(::Buildr.application.buildfile.to_s)
+        else
+          '.'
+        end
+      end
+
       attr_writer :environment
 
       def environment
