@@ -75,4 +75,21 @@ class Dbt
       return default_value
     end
   end
+
+  def self.try_database_name(database_key, env, default_value = '')
+    unless Dbt.repository.is_configuration_data_loaded?
+      begin
+        Dbt.repository.load_configuration_data
+      rescue Exception
+        info("Unable to determine database name as #{Dbt::Config.config_filename} is not present or valid.")
+        return default_value
+      end
+    end
+    begin
+      Dbt.configuration_for_key(database_key, env).database
+    rescue Exception
+      info("Unable to determine database name as #{Dbt::Config.config_filename} is does not contain key.")
+      return default_value
+    end
+  end
 end
