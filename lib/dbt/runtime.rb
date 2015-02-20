@@ -251,7 +251,9 @@ TXT
             definition.merge!(RepositoryDefinition.new.from_yaml(content))
           end
 
-          raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined" unless processed_config_file
+          if database.local_repository? && processed_config_file.nil?
+            raise "#{Dbt::Config.repository_config_file} not located in base directory of database search path and no modules defined"
+          end
 
           database.repository.merge!(definition)
         end

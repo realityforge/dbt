@@ -162,6 +162,12 @@ class Dbt #nodoc
 
     attr_accessor :resource_prefix
 
+    attr_writer :local_repository
+
+    def local_repository?
+      @local_repository.nil? ? true : @local_repository
+    end
+
     attr_writer :search_dirs
 
     def search_dirs
