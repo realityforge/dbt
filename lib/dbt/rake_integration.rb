@@ -80,26 +80,28 @@ INSERT INTO @@TARGET@@.#{entity.qualified_name}(#{entity.attributes.select{|a|a.
         end
       end
     end
-  end
 
-  private
+    private
 
-  def get_domgen_repository(repository_key)
-    if repository_key
-      repository = Domgen.repository_by_name(repository_key)
-      if Domgen.repositorys.size == 1
-        Domgen.warn("Dbt database #{key} specifies a repository_key parameter in the domgen integration but it can be be derived as there is only a single repository. The parameter should be removed.")
-      end
-      return repository
-    elsif repository_key.nil?
-      repositorys = Domgen.repositorys
-      if repositorys.size == 1
-        return repositorys[0]
-      else
-        Domgen.error("Dbt database #{key} does not specify a repository_key parameter and it can not be derived. Candidate repositories include #{repositorys.collect { |r| r.name }.inspect}")
+    def get_domgen_repository(repository_key)
+      if repository_key
+        repository = Domgen.repository_by_name(repository_key)
+        if Domgen.repositorys.size == 1
+          Domgen.warn("Dbt database #{key} specifies a repository_key parameter in the domgen integration but it can be be derived as there is only a single repository. The parameter should be removed.")
+        end
+        return repository
+      elsif repository_key.nil?
+        repositorys = Domgen.repositorys
+        if repositorys.size == 1
+          return repositorys[0]
+        else
+          Domgen.error("Dbt database #{key} does not specify a repository_key parameter and it can not be derived. Candidate repositories include #{repositorys.collect { |r| r.name }.inspect}")
+        end
       end
     end
   end
+
+  private
 
   def self.define_tasks_for_artifact_database(database, artifact, options)
     extra_actions = options[:extra_actions] || []
