@@ -333,7 +333,7 @@ TXT
         migration_name = File.basename(filename, '.sql')
         if [:record, :force].include?(action) || db.should_migrate?(database.key.to_s, migration_name)
           should_run = (:record != action && !(version_index && version_index >= i))
-          run_sql_file(database, "Migration: ", filename, false) if should_run
+          run_sql_file(database, 'Migration: ', filename, false) if should_run
           db.mark_migration_as_run(database.key.to_s, migration_name)
         end
       end
