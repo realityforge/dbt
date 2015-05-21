@@ -54,7 +54,7 @@ class Dbt #nodoc
 
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
           data_module.entities.select{|entity| entity.sql? && !entity.abstract? && !entity.sql.load_from_fixture? }.each do |entity|
-            file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{entity.qualified_name}.sql")
+            file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{entity.sql.qualified_table_name.to_s.gsub('[','').gsub(']','').gsub('"','')}.sql")
             FileUtils.mkdir_p File.dirname(file)
             File.open(file, 'wb') do |f|
               f.write <<-SQL
