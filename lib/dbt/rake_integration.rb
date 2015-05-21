@@ -53,7 +53,7 @@ class Dbt #nodoc
         repository = get_domgen_repository(repository_key)
 
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
-          data_module.entities.select{|entity| entity.sql? && !entity.sql.load_from_fixture? }.each do |entity|
+          data_module.entities.select{|entity| entity.sql? && !entity.abstract? && !entity.sql.load_from_fixture? }.each do |entity|
             file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{entity.qualified_name}.sql")
             FileUtils.mkdir_p File.dirname(file)
             File.open(file, 'wb') do |f|
