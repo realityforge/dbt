@@ -20,7 +20,7 @@ Gem::Specification.new do |s|
   s.test_files         = `git ls-files -- {spec}/*`.split("\n")
   s.executables        = `git ls-files -- bin/*`.split("\n").map { |f| File.basename(f) }
   s.default_executable = []
-  s.require_paths      = ["lib"]
+  s.require_paths      = %w(lib)
 
   s.has_rdoc           = false
   s.rdoc_options       = %w(--line-numbers --inline-source --title dbt)
