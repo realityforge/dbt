@@ -17,7 +17,7 @@ class Dbt #nodoc
     def self.add_idea_data_sources_from_configuration_file(buildr_project = nil)
       return unless load_dbt_configuration_data
 
-      valid_environments = ['development', 'uat', 'training', 'production', 'staging', 'test', 'ci', 'import']
+      valid_environments = %w(development uat training production staging test ci import)
 
       Dbt.repository.configuration_keys.each do |config_key|
         database_key = nil
