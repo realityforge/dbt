@@ -101,7 +101,7 @@ class Dbt #nodoc
     end
 
     def task_prefix
-      raise "task_prefix invoked" unless enable_rake_integration?
+      raise 'task_prefix invoked' unless enable_rake_integration?
       "#{Dbt::Config.task_prefix}#{Dbt::Config.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 

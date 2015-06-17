@@ -32,7 +32,7 @@ class Dbt
         if Hash === args[0]
           hsh.replace args[0]
         elsif (args.size % 2) != 0
-          raise ArgumentError, "odd number of elements for Hash"
+          raise ArgumentError, 'odd number of elements for Hash'
         else
           0.step(args.size - 1, 2) do |a|
             b = a + 1
@@ -180,8 +180,8 @@ class Dbt
 
     def inspect
       ary = []
-      each { |k, v| ary << k.inspect + "=>" + v.inspect }
-      '{' + ary.join(", ") + '}'
+      each { |k, v| ary << k.inspect + '=>' + v.inspect }
+      '{' + ary.join(', ') + '}'
     end
 
     def update hsh2
@@ -209,10 +209,10 @@ class Dbt
       OrderedHash
     end
 
-    attr_accessor "to_yaml_style"
+    attr_accessor 'to_yaml_style'
 
     def yaml_inline= bool
-      if respond_to?("to_yaml_style")
+      if respond_to?('to_yaml_style')
         self.to_yaml_style = :inline
       else
         unless defined? @__yaml_inline_meth

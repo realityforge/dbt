@@ -5,10 +5,10 @@ require 'rake'
 require 'rubygems/package_task'
 require 'rake/testtask'
 
-desc "Default Task"
+desc 'Default Task'
 task :default => :test
 
-desc "Test Task"
+desc 'Test Task'
 Rake::TestTask.new do |t|
   files = FileList['test/helper.rb', 'test/test_*.rb']
   t.loader = :rake

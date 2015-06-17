@@ -76,12 +76,12 @@ class Dbt
         if dot_index
           full_object_name[0, dot_index]
         else
-          "dbo"
+          'dbo'
         end
       end
 
       def to_s
-        @full_object_name + ", " + @object_doc
+        @full_object_name + ', ' + @object_doc
       end
     end
 
@@ -100,15 +100,15 @@ class Dbt
       obj_name = Regexp.last_match(4)
 
       # strip the trailing */
-      comment_block.gsub!(/\*\/\s*$/, "")
+      comment_block.gsub!(/\*\/\s*$/, '')
 
       # strip the leading /**
-      comment_block.gsub!(/^\/\*\*/, "")
+      comment_block.gsub!(/^\/\*\*/, '')
 
       # strip leading blank spaces for all lines
-      comment_block.gsub!(/^\s*\*/, "")
+      comment_block.gsub!(/^\s*\*/, '')
 
-      comment_xml = "<root>" + comment_block + "</root>"
+      comment_xml = '<root>' + comment_block + '</root>'
 
       doc_model = DocModel.new
       doc_model.full_object_name = obj_name
@@ -117,14 +117,14 @@ class Dbt
       xml_doc = REXML::Document.new(comment_xml)
       root = xml_doc.root
 
-      comment_desc = ""
+      comment_desc = ''
 
-      root.elements.each("//description") { |e| comment_desc = comment_desc + e.text.strip.gsub(/'/, "''") }
+      root.elements.each('//description') { |e| comment_desc = comment_desc + e.text.strip.gsub(/'/, "''") }
 
       doc_model.object_doc = comment_desc
 
-      root.elements.each("//param") do |p|
-        param_name = p.attributes["name"]
+      root.elements.each('//param') do |p|
+        param_name = p.attributes['name']
         doc_model.add_param_doc(param_name, p.text.strip.gsub(/'/, "''"))
       end
 
@@ -175,7 +175,7 @@ SQL
     MAX_EXTENDED_PROPERTY_SIZE = 7000
 
     def self.trim_doc(doc)
-      return (doc.length < MAX_EXTENDED_PROPERTY_SIZE) ? doc :  doc[0,MAX_EXTENDED_PROPERTY_SIZE - 3] + "..."
+      return (doc.length < MAX_EXTENDED_PROPERTY_SIZE) ? doc :  doc[0,MAX_EXTENDED_PROPERTY_SIZE - 3] + '...'
     end
 
     # do not include *_Documentation.sql files in the src files
