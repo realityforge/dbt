@@ -172,6 +172,7 @@ ORDER BY t.Ordinal, t.Name
       end
 
       def drop(database, configuration)
+        execute('SET DEADLOCK_PRIORITY HIGH')
         if configuration.force_drop?
           execute(<<SQL)
   IF EXISTS
