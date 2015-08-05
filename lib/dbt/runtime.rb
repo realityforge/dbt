@@ -452,7 +452,7 @@ TXT
 
       prefix = relative_dir.gsub("/./","").gsub(/\/\.$/,"")
       matcher = /^#{prefix}\/[^\/]*\.#{extension}$/
-      index_filename = "#{prefix}#{Dbt::Config.index_file_name}"
+      index_filename = "#{prefix}/#{Dbt::Config.index_file_name}"
       database.post_db_artifacts.each do |artifact|
         pkg = Dbt.cache.package(artifact)
         if pkg.files.include?(index_filename)
