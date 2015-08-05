@@ -457,7 +457,7 @@ TXT
         pkg = Dbt.cache.package(artifact)
         if pkg.files.include?(index_filename)
           content = pkg.contents(index_filename)
-          index += content.readlines.collect { |filename| filename.strip }
+          index += content.split.collect { |filename| filename.strip }
         end
         file_additions = pkg.files.select { |f| f =~ matcher }.collect { |f| "zip:#{artifact}:#{f}" }
         file_additions.each do |f|
