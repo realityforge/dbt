@@ -68,6 +68,20 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
       end
     end
 
+    def add_pre_db_artifacts(*artifacts)
+      ::Buildr.artifacts(artifacts).each do |a|
+        self.pre_db_artifacts << a.to_s
+        task "#{self.task_prefix}:pre_build" => [a]
+      end
+    end
+
+    def add_post_db_artifacts(*artifacts)
+      ::Buildr.artifacts(artifacts).each do |a|
+        self.pre_db_artifacts << a.to_s
+        task "#{self.task_prefix}:pre_build" => [a]
+      end
+    end
+
     # Enable db doc support. Assume that all the directories in up/down will have documentation and
     # will generate relative to specified directory.
     def enable_db_doc(target_directory)
