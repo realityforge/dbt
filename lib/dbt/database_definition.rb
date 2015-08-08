@@ -45,7 +45,7 @@ class Dbt #nodoc
       super(key, options, &block)
     end
 
-    def add_import(import_key, import_config = {})
+    def add_import(import_key = :default, import_config = {})
       @imports[import_key.to_s] = ImportDefinition.new(self, import_key, import_config)
     end
 
