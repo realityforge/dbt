@@ -77,7 +77,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
 
     def add_post_db_artifacts(*artifacts)
       ::Buildr.artifacts(artifacts).each do |a|
-        self.pre_db_artifacts << a.to_s
+        self.post_db_artifacts << a.to_s
         task "#{self.task_prefix}:pre_build" => [a]
       end
     end
