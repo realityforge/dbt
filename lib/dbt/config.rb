@@ -51,7 +51,7 @@ class Dbt # nodoc
       attr_writer :environment
 
       def environment
-        @environment || 'development'
+        @environment || ENV['DBT_ENV'] || 'development'
       end
 
       attr_writer :task_prefix
