@@ -208,6 +208,10 @@ class Dbt #nodoc
       @datasets || []
     end
 
+    def add_datasets(*datasets)
+      (@datasets ||= []).concat(datasets)
+    end
+
     attr_writer :separate_import_task
 
     def enable_separate_import_task?
