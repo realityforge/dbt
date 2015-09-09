@@ -61,7 +61,7 @@ class Dbt # nodoc
       end
 
       def driver=(driver)
-        valid_drivers = ['sql_server', 'postgres']
+        valid_drivers = %w(sql_server postgres)
         raise "Unknown driver specified '#{driver}'. Valid drivers include: #{valid_drivers.inspect}" if driver && !valid_drivers.include?(driver)
         @driver = driver
       end
@@ -149,43 +149,43 @@ class Dbt # nodoc
       attr_writer :default_up_dirs
 
       def default_up_dirs
-        @default_up_dirs || ['.', 'types', 'views', 'functions', 'stored-procedures', 'misc']
+        @default_up_dirs || %w(. types views functions stored-procedures misc)
       end
 
       attr_writer :default_finalize_dirs
 
       def default_finalize_dirs
-        @default_finalize_dirs || ['triggers', 'finalize']
+        @default_finalize_dirs || %w(triggers finalize)
       end
 
       attr_writer :default_pre_import_dirs
 
       def default_pre_import_dirs
-        @default_pre_import_dirs || ['import-hooks/pre']
+        @default_pre_import_dirs || %w(import-hooks/pre)
       end
 
       attr_writer :default_post_import_dirs
 
       def default_post_import_dirs
-        @default_post_import_dirs || ['import-hooks/post']
+        @default_post_import_dirs || %w(import-hooks/post)
       end
 
       attr_writer :default_pre_create_dirs
 
       def default_pre_create_dirs
-        @default_pre_create_dirs || ['db-hooks/pre']
+        @default_pre_create_dirs || %w(db-hooks/pre)
       end
 
       attr_writer :default_post_create_dirs
 
       def default_post_create_dirs
-        @default_post_create_dirs || ['db-hooks/post']
+        @default_post_create_dirs || %w(db-hooks/post)
       end
 
       attr_writer :default_down_dirs
 
       def default_down_dirs
-        @default_down_dirs || ['down']
+        @default_down_dirs || %w(down)
       end
 
       attr_writer :index_file_name
