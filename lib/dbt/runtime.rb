@@ -213,7 +213,7 @@ TXT
       end
       FileUtils.mkdir_p File.dirname(fixture_filename)
       File.open(fixture_filename, 'wb') do |file|
-        file.write records.to_yaml
+        file.write records.to_yaml.gsub(/ *$/,'')
       end
     end
 
