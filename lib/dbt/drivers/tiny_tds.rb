@@ -26,8 +26,12 @@ class Dbt
   class TinyTdsDbDriver < Dbt::BaseDbDriver
     include Dbt::Dialect::SqlServer
 
+    def convert_value_for_fixture(value)
+      value.is_a?(Time) ? "#{value.strftime('%d %b %Y %H:%M:%S')}" : value
+    end
+
     def open(config, use_control_database)
-      raise "Can not open database connection. Connection already open." if open?
+      raise 'Can not open database connection. Connection already open.' if open?
 
       database = use_control_database ? 'msdb' : config.catalog_name
 
@@ -57,7 +61,7 @@ class Dbt
     end
 
     def execute(sql, execute_in_control_database = false)
-      raise "Can not execute statement when database connection is not open." unless open?
+      raise 'Can not execute statement when database connection is not open.' unless open?
       current_database = nil
       if execute_in_control_database
         current_database = self.current_database

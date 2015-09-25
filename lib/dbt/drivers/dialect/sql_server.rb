@@ -350,10 +350,6 @@ SQL
         query(sql).map { |r| quote_column_name(r.values[0]) }
       end
 
-      def convert_value_for_fixture(value)
-        value.is_a?(Time) ? "#{value.strftime('%d %b %Y %H:%M:%S')}" : value
-      end
-
       protected
 
       def has_identity_column(table)

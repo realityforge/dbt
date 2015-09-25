@@ -34,5 +34,9 @@ class Dbt
 
   class MssqlDbDriver < JdbcDbDriver
     include Dbt::Dialect::SqlServer
+
+      def convert_value_for_fixture(value)
+        value.is_a?(Java::JavaSql::Timestamp) ? "#{DateTime.parse(value.to_s).strftime('%d %b %Y %H:%M:%S')}" : value
+      end
   end
 end
