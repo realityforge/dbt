@@ -110,6 +110,10 @@ class Dbt #nodoc
     def post_database_import(imp)
       raise NotImplementedError
     end
+
+    def convert_value_for_fixture(value)
+      value
+    end
   end
 
   class BaseDbDriver < DbDriver

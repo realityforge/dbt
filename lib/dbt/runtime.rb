@@ -206,6 +206,11 @@ TXT
     end
 
     def emit_fixture(fixture_filename, records)
+      records.values.each do |row|
+        row.each_pair do |k,v|
+          row[k] = db.convert_value_for_fixture(v)
+        end
+      end
       FileUtils.mkdir_p File.dirname(fixture_filename)
       File.open(fixture_filename, 'wb') do |file|
         file.write records.to_yaml
