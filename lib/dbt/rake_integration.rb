@@ -121,7 +121,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     extra_actions = options[:extra_actions] || []
     (%w(create drop) + extra_actions).each do |action|
       desc "#{action} the #{database.key} database"
-      task "dbt:#{database.key}:#{action}" do
+      task "#{Dbt::Config.task_prefix}#{Dbt::Config.default_database?(database.key) ? '' : ":#{database.key}"}:#{action}" do
         banner('Creating database from package', database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
