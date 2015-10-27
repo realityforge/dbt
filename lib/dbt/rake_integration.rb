@@ -118,10 +118,12 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
   private
 
   def self.define_tasks_for_artifact_database(database, artifact, options)
+    self.define_common_tasks_for_database(database)
+
     extra_actions = options[:extra_actions] || []
     (%w(create drop) + extra_actions).each do |action|
       desc "#{action} the #{database.key} database"
-      task "#{Dbt::Config.task_prefix}#{Dbt::Config.default_database?(database.key) ? '' : ":#{database.key}"}:#{action}" do
+      task "#{database.task_prefix}:#{action}" => ["#{database.task_prefix}:prepare"] do
         banner("Running #{action} on package", database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
@@ -138,7 +140,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     end
   end
 
-  def self.define_tasks_for_database(database)
+  def self.define_common_tasks_for_database(database)
     self.define_basic_tasks
     task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"]
 
@@ -159,6 +161,10 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     end
 
     task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:prepare_fs"]
+  end
+
+  def self.define_tasks_for_database(database)
+    self.define_common_tasks_for_database(database)
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
@@ -259,8 +265,8 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
   end
 
   def self.define_basic_tasks
-    if !@@defined_init_tasks
-      task "#{Dbt::Config.task_prefix}:global:load_config" do
+    unless @@defined_init_tasks
+      task "#{Dbt::Config.task_prefix}:global:load_config" => [Dbt::Config.config_filename] do
         unless @@repository.load_configuration_data
           raise "unable to load database configuration data."
         end
