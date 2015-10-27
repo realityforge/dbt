@@ -100,8 +100,14 @@ class Dbt #nodoc
       @rake_integration.nil? ? true : @rake_integration
     end
 
+    attr_writer :packaged
+
+    def packaged?
+      @packaged.nil? ? false : @packaged
+    end
+
     def task_prefix
-      raise 'task_prefix invoked' unless enable_rake_integration?
+      raise 'task_prefix invoked' unless enable_rake_integration? || packaged?
       "#{Dbt::Config.task_prefix}#{Dbt::Config.default_database?(self.key) ? '' : ":#{self.key}"}"
     end
 

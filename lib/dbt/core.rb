@@ -54,6 +54,7 @@ class Dbt
   def self.add_artifact_based_database(database_key, artifact, options = {})
     add_database(database_key) do |database|
       database.rake_integration = false
+      database.packaged = true
       define_tasks_for_artifact_database(database, artifact, options)
     end
   end
