@@ -156,15 +156,17 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
 
     task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
 
-    task "#{database.task_prefix}:prepare_fs" => ["#{database.task_prefix}:pre_build"] do
-      @@runtime.load_database_config(database)
-    end
+    task "#{database.task_prefix}:prepare_fs" => ["#{database.task_prefix}:pre_build"]
 
     task "#{database.task_prefix}:prepare" => ["#{database.task_prefix}:load_config", "#{database.task_prefix}:prepare_fs"]
   end
 
   def self.define_tasks_for_database(database)
     self.define_common_tasks_for_database(database)
+
+    task "#{database.task_prefix}:prepare_fs" do
+      @@runtime.load_database_config(database)
+    end
 
     desc "Create the #{database.key} database."
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
