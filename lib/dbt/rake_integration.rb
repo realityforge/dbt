@@ -45,6 +45,7 @@ class Dbt #nodoc
         Dbt.banner('Database verified', key)
       end
 
+      desc 'Support task that emits a copy of import scripts in Directory specified by IMPORTS_OUTPUT_DIR.'
       task "#{task_prefix}:emit_standard_imports" => ["#{task_prefix}:prepare"] do
         base_dir = ENV['IMPORTS_OUTPUT_DIR'] || 'tmp/imports'
 
