@@ -269,13 +269,13 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
 
   def self.define_basic_tasks
     unless @@defined_init_tasks
-      task "#{Dbt::Config.task_prefix}:global:load_config" => [Dbt::Config.config_filename] do
+      task "#{Dbt::Config.task_prefix}:global:load_config" => [File.expand_path(Dbt::Config.config_filename)] do
         unless @@repository.load_configuration_data
           raise "unable to load database configuration data."
         end
       end
 
-      task Dbt::Config.config_filename do
+      file File.expand_path(Dbt::Config.config_filename) do
         target = Dbt::Config.config_filename
         unless File.exist?(target)
           target_ext = File.extname(target)

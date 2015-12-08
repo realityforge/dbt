@@ -99,6 +99,8 @@ MSG
     end
 
     def self.load_dbt_configuration_data
+      file(File.expand_path(Dbt::Config.config_filename)).invoke
+
       Dbt.repository.load_configuration_data
     end
   end
