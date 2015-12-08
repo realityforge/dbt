@@ -3,6 +3,8 @@ TODO
 
 This document lists the work that needs to be done.
 
+* Add ability to disable create/drop in standalone modules, at least when packaging the jar.
+
 * Support running the tests using
   - rake tasks,
   - the packaged jar file approach
