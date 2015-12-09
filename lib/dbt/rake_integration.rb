@@ -271,7 +271,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     unless @@defined_init_tasks
       task "#{Dbt::Config.task_prefix}:global:load_config" => [File.expand_path(Dbt::Config.config_filename)] do
         unless @@repository.load_configuration_data
-          raise "unable to load database configuration data."
+          raise 'unable to load database configuration data.'
         end
       end
 
