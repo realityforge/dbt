@@ -81,8 +81,23 @@ MSG
       !@configuration_data.empty?
     end
 
+    def ensure_configuration_file_present(filename)
+      unless File.exist?(filename)
+        target_ext = File.extname(filename)
+        if '' != target_ext
+          source = "#{filename[0, filename.size-target_ext.size]}.example#{target_ext}"
+          if File.exist?(source)
+            Dbt.runtime.info("Copying sample configuration file from #{source} to #{filename}")
+            FileUtils.cp source, filename
+          end
+        end
+      end
+    end
+
     def load_configuration_data(filename = Dbt::Config.config_filename)
       return true if is_configuration_data_loaded?
+
+      ensure_configuration_file_present(filename)
 
       filename = File.expand_path(filename, Dbt::Config.base_directory)
       if File.exist?(filename)
