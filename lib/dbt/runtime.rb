@@ -216,9 +216,13 @@ TXT
         end
       end
 
+      emit_yaml_file(fixture_filename, records)
+    end
+
+    def emit_yaml_file(fixture_filename, value)
       FileUtils.mkdir_p File.dirname(fixture_filename)
       File.open(fixture_filename, 'wb') do |file|
-        file.write records.to_yaml.gsub(/ *$/,'')
+        file.write value.to_yaml.gsub(/ *$/, '')
       end
     end
 
