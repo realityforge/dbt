@@ -741,18 +741,19 @@ TXT
     end
 
     def collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
-      unless database.load_from_classloader?
-        dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
-        filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
-        filesystem_sql_files = dirs.collect { |d| Dir["#{d}/*.sql"] }.flatten.compact
-      end
-      database.repository.table_ordering(module_name).each do |table_name|
-        if database.load_from_classloader?
+      if database.load_from_classloader?
+        database.repository.table_ordering(module_name).each do |table_name|
           filename = module_filename(module_name, subdir, table_name, 'yml')
           if resource_present?(database, filename)
             fixtures[table_name] = filename
           end
-        else
+        end
+      else
+        dirs = database.search_dirs.map { |d| "#{d}/#{module_name}#{ subdir ? "/#{subdir}" : ''}" }
+        filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] }.flatten.compact
+        filesystem_sql_files = dirs.collect { |d| Dir["#{d}/*.sql"] }.flatten.compact
+
+        database.repository.table_ordering(module_name).each do |table_name|
           dirs.each do |dir|
             filename = table_name_to_fixture_filename(dir, table_name)
             filesystem_files.delete(filename)
@@ -773,14 +774,14 @@ TXT
             end
           end unless fixtures[table_name]
         end
-      end
 
-      if !database.load_from_classloader? && !filesystem_files.empty?
-        raise "Unexpected fixtures found in database search paths. Fixtures do not match existing tables. Files: #{filesystem_files.inspect}"
-      end
+        unless filesystem_files.empty?
+          raise "Unexpected fixtures found in database search paths. Fixtures do not match existing tables. Files: #{filesystem_files.inspect}"
+        end
 
-      if !database.load_from_classloader? && !filesystem_sql_files.empty?
-        raise "Unexpected sql files found in fixture directories. SQL files are not processed. Files: #{filesystem_sql_files.inspect}"
+        unless filesystem_sql_files.empty?
+          raise "Unexpected sql files found in fixture directories. SQL files are not processed. Files: #{filesystem_sql_files.inspect}"
+        end
       end
 
       fixtures
