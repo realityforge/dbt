@@ -43,7 +43,7 @@ class TestRepositoryDefinition < Dbt::TestCase
 
     assert_equal definition.schema_overrides, {'Core' => 'C','Other' => 'O'}
     assert_equal definition.table_map, {'Core' => '"C"."tblA"', 'Other' => '"O"."tblB"'}
-    assert_equal definition.modules, ['Core','Other']
+    assert_equal definition.modules, %w(Core Other)
   end
 
   def test_from_yaml
@@ -71,10 +71,10 @@ modules: !omap
     - '[TM].[tblBar]'
     CONFIG
 
-    assert_equal definition.modules, ['CodeMetrics', 'Geo', 'TestModule']
+    assert_equal definition.modules, %w(CodeMetrics Geo TestModule)
     assert_equal definition.schema_overrides.size, 1
     assert_equal definition.schema_name_for_module('TestModule'), 'TM'
-    assert_equal definition.table_ordering('Geo'), ['[Geo].[tblMobilePOI]', '[Geo].[tblPOITrack]', '[Geo].[tblSector]', '[Geo].[tblOtherGeom]']
+    assert_equal definition.table_ordering('Geo'), %w([Geo].[tblMobilePOI] [Geo].[tblPOITrack] [Geo].[tblSector] [Geo].[tblOtherGeom])
   end
 
   def test_schema_name_for_module
@@ -101,9 +101,9 @@ modules: !omap
     definition.modules = ['CodeMetrics', 'Geo', 'TestModule']
     definition.schema_overrides = {'TestModule' => 'TM'}
     definition.table_map = {
-      'TestModule' => ['[TM].[tblBaseX]', '[TM].[tblFoo]', '[TM].[tblBar]'],
-      'Geo' => ['[Geo].[tblMobilePOI]', '[Geo].[tblPOITrack]', '[Geo].[tblSector]', '[Geo].[tblOtherGeom]'],
-      'CodeMetrics' => ['[CodeMetrics].[tblCollection]', '[CodeMetrics].[tblMethodMetric]']
+      'TestModule' => %w([TM].[tblBaseX] [TM].[tblFoo] [TM].[tblBar]),
+      'Geo' => %w([Geo].[tblMobilePOI] [Geo].[tblPOITrack] [Geo].[tblSector] [Geo].[tblOtherGeom]),
+      'CodeMetrics' => %w([CodeMetrics].[tblCollection] [CodeMetrics].[tblMethodMetric])
     }
     assert_equal definition.to_yaml, <<YAML
 ---
