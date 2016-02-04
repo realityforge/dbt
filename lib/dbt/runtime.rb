@@ -188,11 +188,7 @@ TXT
     def dump_table_sql(table_name)
       const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
 
-      if Object.const_defined?(const_name)
-        return Object.const_get(const_name)
-      else
-        return "SELECT * FROM #{table_name}"
-      end
+      Object.const_defined?(const_name) ? Object.const_get(const_name) : "SELECT * FROM #{table_name}"
     end
 
     def load_query_into_yaml(sql)
