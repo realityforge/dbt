@@ -138,11 +138,11 @@ WHERE t.type IN (
 ORDER BY t.Ordinal, t.Name
 =end
 
-        database_objects("SQL_STORED_PROCEDURE", schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
-        database_objects("SQL_SCALAR_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-        database_objects("SQL_INLINE_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-        database_objects("SQL_TABLE_VALUED_FUNCTION", schema_name).each { |name| execute("DROP FUNCTION #{name}") }
-        database_objects("VIEW", schema_name).each { |name| execute("DROP VIEW #{name}") }
+        database_objects('SQL_STORED_PROCEDURE', schema_name).each { |name| execute("DROP PROCEDURE #{name}") }
+        database_objects('SQL_SCALAR_FUNCTION', schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+        database_objects('SQL_INLINE_TABLE_VALUED_FUNCTION', schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+        database_objects('SQL_TABLE_VALUED_FUNCTION', schema_name).each { |name| execute("DROP FUNCTION #{name}") }
+        database_objects('VIEW', schema_name).each { |name| execute("DROP VIEW #{name}") }
         tables.each do |table|
           execute("DROP TABLE #{table}")
         end
@@ -314,7 +314,7 @@ SQL
           # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
           # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
           # we reindex otherwise the indexes will be highly fragmented.
-          Dbt.runtime.info("Shrinking database")
+          Dbt.runtime.info('Shrinking database')
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
         end
@@ -329,13 +329,13 @@ SQL
 
       def post_database_import(imp)
         if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
-          sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
+          sql_prefix = 'DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();'
 
-          Dbt.runtime.info("Updating statistics")
-          execute("EXEC dbo.sp_updatestats")
+          Dbt.runtime.info('Updating statistics')
+          execute('EXEC dbo.sp_updatestats')
 
           # This updates the usage details for the database. i.e. how much space is take for each index/table
-          Dbt.runtime.info("Updating usage statistics")
+          Dbt.runtime.info('Updating usage statistics')
           execute("#{sql_prefix} DBCC UPDATEUSAGE(@DbName) WITH NO_INFOMSGS, COUNT_ROWS")
         end
       end
@@ -382,7 +382,7 @@ SQL
       end
 
       def current_database
-        select_value("SELECT DB_NAME()")
+        select_value('SELECT DB_NAME()')
       end
 
       def quote_column_name(name)
@@ -414,7 +414,7 @@ SQL
 
       def select_database(database_name)
         if database_name.nil?
-          execute("USE [msdb]")
+          execute('USE [msdb]')
         else
           execute("USE [#{database_name}]")
         end
