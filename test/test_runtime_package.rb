@@ -48,7 +48,7 @@ class TestRuntimePackage < Dbt::TestCase
 
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
-      db.repository.modules = ['MyModule', 'MyOtherModule']
+      db.repository.modules = %w(MyModule MyOtherModule)
       db.repository.table_map = {'MyModule' => [], 'MyOtherModule' => []}
       db.search_dirs = [db_scripts]
     end
@@ -155,7 +155,7 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
-      db.repository.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
+      db.repository.table_map = {'MyModule' => %w(foo bar baz)}
       db.search_dirs = [create_dir('databases'), create_dir('databases/generated')]
     end
 
@@ -265,7 +265,7 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
-      db.repository.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
+      db.repository.table_map = {'MyModule' => %w(foo bar baz)}
       db.search_dirs = [db_scripts]
       db.datasets = ['bing']
     end
