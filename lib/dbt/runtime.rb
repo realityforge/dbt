@@ -149,15 +149,14 @@ TXT
       data_set = options[:data_set]
       init_database(database.key) do
         database.repository.modules.each do |module_name|
+          prefix = data_set ?
+              "#{base_fixture_dir}/#{module_name}/#{database.datasets_dir_name}/#{data_set}/" :
+              "#{base_fixture_dir}/#{module_name}/#{database.fixture_dir_name}/"
           database.repository.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
             info("Dumping #{table_name}")
             records = load_query_into_yaml(dump_table_sql(table_name))
 
-            fixture_filename =
-              data_set ?
-                "#{base_fixture_dir}/#{module_name}/#{database.datasets_dir_name}/#{data_set}/#{clean_table_name(table_name)}.yml" :
-                "#{base_fixture_dir}/#{module_name}/#{database.fixture_dir_name}/#{clean_table_name(table_name)}.yml"
-            emit_fixture(fixture_filename, records)
+            emit_fixture("#{prefix}#{clean_table_name(table_name)}.yml", records)
           end
         end
       end
