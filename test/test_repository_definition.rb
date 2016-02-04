@@ -14,9 +14,29 @@ class TestRepositoryDefinition < Dbt::TestCase
     definition = Dbt::RepositoryDefinition.new
     definition.table_map = {'mySchema' => %w(tblOne tblTwo)}
     assert_equal definition.table_ordering('mySchema'), %w(tblOne tblTwo)
+    assert_equal definition.table_ordering?('mySchema'), true
+    assert_equal definition.table_ordering?('NoSchemaHere'), false
     assert_raises(RuntimeError) do
       definition.table_ordering('NoSchemaHere')
     end
+  end
+
+  def test_sequence_ordering
+    definition = Dbt::RepositoryDefinition.new
+    definition.sequence_map = {'mySchema' => %w(tblOneSeq tblTwoSeq)}
+    assert_equal definition.sequence_ordering('mySchema'), %w(tblOneSeq tblTwoSeq)
+    assert_equal definition.sequence_ordering?('mySchema'), true
+    assert_equal definition.sequence_ordering?('NoSchemaHere'), false
+    assert_raises(RuntimeError) do
+      definition.sequence_ordering('NoSchemaHere')
+    end
+  end
+
+  def test_ordered_elements_for_module
+    definition = Dbt::RepositoryDefinition.new
+    definition.table_map = {'mySchema' => %w(tblOne tblTwo)}
+    definition.sequence_map = {'mySchema' => %w(tblOneSeq tblTwoSeq)}
+    assert_equal definition.ordered_elements_for_module('mySchema'), %w(tblOne tblTwo tblOneSeq tblTwoSeq)
   end
 
   def test_merge
@@ -56,6 +76,8 @@ modules: !omap
     tables:
     - '[CodeMetrics].[tblCollection]'
     - '[CodeMetrics].[tblMethodMetric]'
+    sequences:
+    - '[CodeMetrics].[tblCollection_IDSeq]'
 - Geo:
     schema: Geo
     tables:
@@ -63,18 +85,26 @@ modules: !omap
     - '[Geo].[tblPOITrack]'
     - '[Geo].[tblSector]'
     - '[Geo].[tblOtherGeom]'
+    sequences:
+    - '[Geo].[tblMobilePOIIDSeq]'
+    - '[Geo].[tblPOITrackIDSeq]'
+    - '[Geo].[tblSectorIDSeq]'
 - TestModule:
     schema: TM
     tables:
     - '[TM].[tblBaseX]'
     - '[TM].[tblFoo]'
     - '[TM].[tblBar]'
+    sequences: []
     CONFIG
 
     assert_equal definition.modules, %w(CodeMetrics Geo TestModule)
     assert_equal definition.schema_overrides.size, 1
     assert_equal definition.schema_name_for_module('TestModule'), 'TM'
     assert_equal definition.table_ordering('Geo'), %w([Geo].[tblMobilePOI] [Geo].[tblPOITrack] [Geo].[tblSector] [Geo].[tblOtherGeom])
+    assert_equal definition.sequence_ordering('CodeMetrics'), %w([CodeMetrics].[tblCollection_IDSeq])
+    assert_equal definition.sequence_ordering('Geo'), %w([Geo].[tblMobilePOIIDSeq] [Geo].[tblPOITrackIDSeq] [Geo].[tblSectorIDSeq])
+    assert_equal definition.sequence_ordering('TestModule'), []
   end
 
   def test_schema_name_for_module
@@ -113,6 +143,7 @@ modules: !omap
       tables:
         - "[CodeMetrics].[tblCollection]"
         - "[CodeMetrics].[tblMethodMetric]"
+      sequences: []
    - Geo:
       schema: Geo
       tables:
@@ -120,12 +151,14 @@ modules: !omap
         - "[Geo].[tblPOITrack]"
         - "[Geo].[tblSector]"
         - "[Geo].[tblOtherGeom]"
+      sequences: []
    - TestModule:
       schema: TM
       tables:
         - "[TM].[tblBaseX]"
         - "[TM].[tblFoo]"
         - "[TM].[tblBar]"
+      sequences: []
 YAML
   end
 
