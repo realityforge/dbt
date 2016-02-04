@@ -146,6 +146,7 @@ ORDER BY t.Ordinal, t.Name
         tables.each do |table|
           execute("DROP TABLE #{table}")
         end
+        database_objects('SEQUENCE_OBJECT', schema_name).each { |name| execute("DROP SEQUENCE #{name}") }
         execute("DROP SCHEMA #{schema_name}")
       end
 
