@@ -1105,13 +1105,12 @@ class TestRuntimeBasic < Dbt::TestCase
     table_names = ['[MyModule].[foo]']
     database = create_simple_db_definition(db_scripts, module_name, table_names)
 
-    Dbt::Config.default_up_dirs = ['.', 'Dir1', 'Dir2']
-    Dbt::Config.default_finalize_dirs = ['Dir3', 'Dir4']
+    Dbt::Config.default_up_dirs = %w(. Dir1 Dir2)
+    Dbt::Config.default_finalize_dirs = %w(Dir3 Dir4)
     Dbt::Config.default_fixture_dir_name = 'foo'
-    Dbt::Config.default_pre_create_dirs = ['db-pre-create']
-    Dbt::Config.default_post_create_dirs = ['db-post-create']
-    Dbt::Config.default_post_create_dirs = ['db-post-create']
-
+    Dbt::Config.default_pre_create_dirs = %w(db-pre-create)
+    Dbt::Config.default_post_create_dirs = %w(db-post-create)
+    Dbt::Config.default_post_create_dirs = %w(db-post-create)
 
     files = []
     files << create_table_sql('db-pre-create', 'preCreate')
@@ -1128,8 +1127,8 @@ class TestRuntimeBasic < Dbt::TestCase
 
     database.separate_import_task = true
     import = database.add_import(:default, {})
-    import.pre_import_dirs = ['pre-imp1', 'pre-imp2']
-    import.post_import_dirs = ['post-imp1', 'post-imp2']
+    import.pre_import_dirs = %w(pre-imp1 pre-imp2)
+    import.post_import_dirs = %w(post-imp1 post-imp2)
 
     Dbt::Config.default_import_dir = 'zzzz'
     import_sql = 'INSERT INTO DBT_TEST.[foo]'
