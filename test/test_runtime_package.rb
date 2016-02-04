@@ -285,7 +285,7 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
-      db.repository.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
+      db.repository.table_map = {'MyModule' => %w(foo bar baz)}
       db.search_dirs = [db_scripts]
       db.add_import(:default, {})
     end
