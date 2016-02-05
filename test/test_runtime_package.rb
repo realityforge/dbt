@@ -20,7 +20,8 @@ class TestRuntimePackage < Dbt::TestCase
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
-      db.repository.table_map = {'MyModule' => ['foo', 'bar', 'baz']}
+      db.repository.table_map = {'MyModule' => %w(foo bar baz)}
+      db.repository.sequence_map = {'MyModule' => %w(fooSeq barSeq)}
       db.search_dirs = [db_scripts]
     end
 
@@ -50,6 +51,7 @@ class TestRuntimePackage < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = %w(MyModule MyOtherModule)
       db.repository.table_map = {'MyModule' => [], 'MyOtherModule' => []}
+      db.repository.sequence_map = {'MyModule' => %w(fooSeq barSeq), 'MyOtherModule' => []}
       db.search_dirs = [db_scripts]
     end
 
@@ -62,7 +64,9 @@ class TestRuntimePackage < Dbt::TestCase
 
   def test_package_through_pre_import
     db_scripts = create_dir('databases/generated')
-    packaged_definition = Dbt::RepositoryDefinition.new(:modules => ['MyModule'], :table_map => {'MyModule' => ['foo', 'bar', 'baz']})
+    packaged_definition = Dbt::RepositoryDefinition.new(:modules => ['MyModule'],
+                                                        :table_map => {'MyModule' => %w(foo bar baz)},
+                                                        :sequence_map => {'MyModule' => %w(fooSeq barSeq)})
     zipfile = create_zip('data/repository.yml' => packaged_definition.to_yaml,
                          'data/MyModule/base.sql' => '',
                          'data/MyModule/types/typeA.sql' => '',
@@ -76,7 +80,7 @@ class TestRuntimePackage < Dbt::TestCase
                          'data/MyModule/triggers/trgA.sql' => '',
                          'data/MyModule/finalize/finA.sql' => '',
                          'data/MyModule/down/downA.sql' => '')
-    definition = Dbt::RepositoryDefinition.new(:modules => [], :table_map => {})
+    definition = Dbt::RepositoryDefinition.new(:modules => [], :table_map => {}, :sequence_map => {})
     File.open("#{db_scripts}/repository.yml",'w') do |f|
       f.write definition.to_yaml
     end
@@ -106,7 +110,9 @@ class TestRuntimePackage < Dbt::TestCase
 
   def test_package_through_post_import
     db_scripts = create_dir('databases/generated')
-    packaged_definition = Dbt::RepositoryDefinition.new(:modules => ['MyModule'], :table_map => {'MyModule' => ['foo', 'bar', 'baz']})
+    packaged_definition = Dbt::RepositoryDefinition.new(:modules => ['MyModule'],
+                                                        :table_map => {'MyModule' => %w(foo bar baz)},
+                                                        :sequence_map => {'MyModule' => %w(fooSeq barSeq), 'MyOtherModule' => []})
     zipfile = create_zip('data/repository.yml' => packaged_definition.to_yaml,
                          'data/MyModule/base.sql' => '',
                          'data/MyModule/types/typeA.sql' => '',
@@ -156,6 +162,7 @@ class TestRuntimePackage < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => %w(foo bar baz)}
+      db.repository.sequence_map = {'MyModule' => %w(fooSeq barSeq)}
       db.search_dirs = [create_dir('databases'), create_dir('databases/generated')]
     end
 
@@ -175,6 +182,7 @@ class TestRuntimePackage < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => []}
+      db.repository.sequence_map = {'MyModule' => []}
       db.search_dirs = [create_dir('databases')]
     end
 
@@ -208,6 +216,7 @@ class TestRuntimePackage < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => []}
+      db.repository.sequence_map = {'MyModule' => []}
       db.search_dirs = [create_dir('databases')]
     end
 
@@ -240,6 +249,7 @@ class TestRuntimePackage < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => []}
+      db.repository.sequence_map = {'MyModule' => []}
       db.search_dirs = [create_dir('databases')]
     end
 
@@ -261,11 +271,14 @@ class TestRuntimePackage < Dbt::TestCase
   def test_data_sets_copied
     db_scripts = create_dir('databases/generated')
     create_file('databases/generated/MyModule/zang/bing/foo.yml', '')
+    create_file('databases/generated/MyModule/zang/bing/fooSeq.sql', '')
+    create_file('databases/generated/MyModule/zang/bing/barSeq.yml', '')
 
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => %w(foo bar baz)}
+      db.repository.sequence_map = {'MyModule' => %w(fooSeq barSeq)}
       db.search_dirs = [db_scripts]
       db.datasets = ['bing']
     end
@@ -276,16 +289,21 @@ class TestRuntimePackage < Dbt::TestCase
     Dbt.runtime.package_database_data(database, output_dir)
 
     assert_file_exist("#{output_dir}/MyModule/zang/bing/foo.yml")
+    assert_file_not_exist("#{output_dir}/MyModule/zang/bing/fooSeq.sql")
+    assert_file_exist("#{output_dir}/MyModule/zang/bing/barSeq.yml")
   end
 
   def test_imports_copied
     db_scripts = create_dir('databases/generated')
     create_file('databases/generated/MyModule/import1/foo.yml', '')
+    create_file('databases/generated/MyModule/import1/fooSeq.sql', '')
+    create_file('databases/generated/MyModule/import1/barSeq.yml', '')
 
     database = Dbt.add_database(:default) do |db|
       db.rake_integration = false
       db.repository.modules = ['MyModule']
       db.repository.table_map = {'MyModule' => %w(foo bar baz)}
+      db.repository.sequence_map = {'MyModule' => %w(fooSeq barSeq)}
       db.search_dirs = [db_scripts]
       db.add_import(:default, {})
     end
@@ -296,5 +314,7 @@ class TestRuntimePackage < Dbt::TestCase
     Dbt.runtime.package_database_data(database, output_dir)
 
     assert_file_exist("#{output_dir}/MyModule/import1/foo.yml")
+    assert_file_exist("#{output_dir}/MyModule/import1/fooSeq.sql")
+    assert_file_exist("#{output_dir}/MyModule/import1/barSeq.yml")
   end
 end

@@ -1270,6 +1270,7 @@ class TestRuntimeBasic < Dbt::TestCase
       db.rake_integration = false
       db.repository.modules = [module_name]
       db.repository.table_map = {module_name => table_names}
+      db.repository.sequence_map = {module_name => []}
       db.search_dirs = [db_scripts]
     end
   end
