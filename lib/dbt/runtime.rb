@@ -865,7 +865,7 @@ TXT
     end
 
     def load_yaml(content)
-      yaml = YAML::load(ERB.new(content).result)
+      YAML::load(ERB.new(content).result)
     end
 
     def load_sequence_fixture(sequence_name, content)
