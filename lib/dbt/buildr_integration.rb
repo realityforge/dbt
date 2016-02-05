@@ -45,7 +45,7 @@ class Dbt #nodoc
       config =
         begin
           Dbt.configuration_for_key(database_key, environment_key)
-        rescue => e
+        rescue Exception
           info(<<MSG)
 Skipping addition of data source '#{database_key}' (in environment '#{environment_key}') to idea due to database configuration missing from configuration file #{Dbt::Config.config_filename}.
 MSG
