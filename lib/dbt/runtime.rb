@@ -865,8 +865,6 @@ TXT
     end
 
     def load_yaml(content)
-      require 'erb'
-      require 'yaml'
       yaml = YAML::load(ERB.new(content).result)
     end
 
