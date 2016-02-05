@@ -781,7 +781,7 @@ TXT
       database.repository.table_ordering(module_name).reverse.select {|table_name| !!fixtures[table_name] }.each do |table_name|
         run_sql_batch("DELETE FROM #{table_name}")
       end
-      database.repository.sequence_ordering(module_name).each do |sequence_name|
+      database.repository.sequence_ordering(module_name).reverse.select {|table_name| !!fixtures[table_name] }.each do |sequence_name|
         load_sequence_fixture(sequence_name, 1)
       end
     end
