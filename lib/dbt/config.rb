@@ -35,6 +35,7 @@ class Dbt # nodoc
     @default_database = nil
     @task_prefix = nil
     @default_import_dir = nil
+    @config_filename = nil
 
     class << self
       attr_writer :base_directory

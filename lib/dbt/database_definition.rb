@@ -36,7 +36,7 @@ class Dbt #nodoc
         @up_dirs = @down_dirs = @finalize_dirs = @pre_create_dirs = @post_create_dirs =
           @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
             @rake_integration = @separate_import_task = @import_task_as_part_of_create =
-              @datasets_dir_name = @fixture_dir_name =
+              @datasets_dir_name = @fixture_dir_name = @local_repository = @packaged =
                 @database_environment_filter = @import_assert_filters = nil
 
       @pre_db_artifacts = []
