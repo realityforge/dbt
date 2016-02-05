@@ -31,6 +31,10 @@ class Dbt #nodoc
       raise NotImplementedError
     end
 
+    def update_sequence(sequence_name, value)
+      raise NotImplementedError
+    end
+
     def execute(sql, execute_in_control_database = false)
       raise NotImplementedError
     end

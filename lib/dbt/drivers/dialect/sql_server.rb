@@ -67,6 +67,10 @@ class Dbt
   module Dialect
     module SqlServer
 
+      def update_sequence(sequence_name, value)
+        execute("ALTER SEQUENCE #{sequence_name} RESTART WITH #{value}")
+      end
+
       def create_schema(schema_name)
         if query("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?
           execute("CREATE SCHEMA [#{schema_name}]")
