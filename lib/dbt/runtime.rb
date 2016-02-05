@@ -869,7 +869,7 @@ TXT
     end
 
     def load_sequence_fixture(sequence_name, content)
-      yaml = load_yaml(content)
+      yaml = content.is_a?(Fixnum) ? content : load_yaml(content)
       # Skip empty files
       return unless yaml
 
