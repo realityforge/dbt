@@ -75,6 +75,7 @@ class Dbt #nodoc
       end
       self.schema_overrides.merge!(other.schema_overrides)
       self.table_map.merge!(other.table_map)
+      self.sequence_map.merge!(other.sequence_map)
       self
     end
 
