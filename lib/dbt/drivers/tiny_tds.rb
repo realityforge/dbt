@@ -93,7 +93,7 @@ class Dbt
 
     def close
       if open?
-        @connection.close() rescue Exception
+        @connection.close rescue Exception
         @connection = nil
       end
     end
