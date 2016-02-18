@@ -199,9 +199,26 @@ TXT
     end
 
     def dump_table_sql(table_name)
-      const_name = :"DUMP_SQL_FOR_#{clean_table_name(table_name).gsub('.', '_')}"
+      clean_table_name = clean_table_name(table_name)
+      const_name = :"DUMP_SQL_FOR_#{clean_table_name.gsub('.', '_')}"
+      return Object.const_get(const_name) if Object.const_defined?(const_name)
 
-      Object.const_defined?(const_name) ? Object.const_get(const_name) : "SELECT * FROM #{table_name}"
+      name_split = clean_table_name.split('.')
+      schema = name_split[0]
+      table = name_split[1]
+      sql_for_primary_key = <<-SQL
+        SELECT
+          U.COLUMN_NAME
+        FROM
+          INFORMATION_SCHEMA.TABLE_CONSTRAINTS C
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE U ON  U.CONSTRAINT_CATALOG = C.CONSTRAINT_CATALOG AND U.CONSTRAINT_SCHEMA = C.CONSTRAINT_SCHEMA AND U.CONSTRAINT_NAME = C.CONSTRAINT_NAME
+        WHERE C.CONSTRAINT_TYPE = 'PRIMARY KEY' AND C.TABLE_NAME = '#{table}' AND C.TABLE_SCHEMA = '#{schema}'
+        ORDER BY U.COLUMN_NAME
+      SQL
+
+      primary_keys = db.query(sql_for_primary_key).collect { |row| row['COLUMN_NAME'] }.join(',')
+
+      "SELECT * FROM #{table_name} ORDER BY #{primary_keys}"
     end
 
     def load_query_into_yaml(sql)
