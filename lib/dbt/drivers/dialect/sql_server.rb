@@ -199,7 +199,7 @@ SQL
       end
 
       def backup(database, configuration)
-        sql = "DECLARE @BackupName VARCHAR(500)"
+        sql = 'DECLARE @BackupName VARCHAR(500)'
         if configuration.backup_location
           sql << "SET @BackupName = '#{configuration.backup_location}\\#{configuration.catalog_name}.bak'"
         else
@@ -314,7 +314,7 @@ SQL
       end
 
       def post_data_module_import(imp, module_name)
-        sql_prefix = "DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();"
+        sql_prefix = 'DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();'
         if Dbt.configuration_for_key(imp.database.key).shrink_on_import?
           # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
           # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
