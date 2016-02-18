@@ -1045,9 +1045,10 @@ class TestRuntimeBasic < Dbt::TestCase
 
     begin
       mock.expects(:open).with(config, false).in_sequence(@s)
-      Dbt.runtime.expects(:info).with('Dumping [MyModule].[tblTable1]').in_sequence(@s)
-      mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1]').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
-      Dbt.runtime.expects(:info).with('Dumping [MyModule].[tblTable2]').in_sequence(@s)
+      Dbt.runtime.expects(:info).with('Exporting fixture for MyModule.tblTable1').in_sequence(@s)
+      mock.expects(:query).with(sql_for_primary_key('tblTable1', 'MyModule')).returns([{'COLUMN_NAME' => 'ID'}]).in_sequence(@s)
+      mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1] ORDER BY ID').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
+      Dbt.runtime.expects(:info).with('Exporting fixture for MyModule.tblTable2').in_sequence(@s)
       mock.expects(:query).with(expected_table2_sql).returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
       mock.expects(:close).with.in_sequence(@s)
 
@@ -1058,6 +1059,18 @@ class TestRuntimeBasic < Dbt::TestCase
     ensure
       Object.send(:remove_const, :DUMP_SQL_FOR_MyModule_tblTable2)
     end
+  end
+
+  def sql_for_primary_key(table, schema)
+    <<-SQL
+        SELECT
+          U.COLUMN_NAME
+        FROM
+          INFORMATION_SCHEMA.TABLE_CONSTRAINTS C
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE U ON  U.CONSTRAINT_CATALOG = C.CONSTRAINT_CATALOG AND U.CONSTRAINT_SCHEMA = C.CONSTRAINT_SCHEMA AND U.CONSTRAINT_NAME = C.CONSTRAINT_NAME
+        WHERE C.CONSTRAINT_TYPE = 'PRIMARY KEY' AND C.TABLE_NAME = '#{table}' AND C.TABLE_SCHEMA = '#{schema}'
+        ORDER BY U.COLUMN_NAME
+      SQL
   end
 
   def test_dump_database_to_fixtures_with_data_set
@@ -1077,8 +1090,9 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt::Config.default_datasets_dir_name = 'dataset123'
 
     mock.expects(:open).with(config, false).in_sequence(@s)
-    Dbt.runtime.expects(:info).with('Dumping [MyModule].[tblTable1]').in_sequence(@s)
-    mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1]').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
+    Dbt.runtime.expects(:info).with('Exporting fixture for MyModule.tblTable1').in_sequence(@s)
+    mock.expects(:query).with(sql_for_primary_key('tblTable1', 'MyModule')).returns([{'COLUMN_NAME' => 'ID'}]).in_sequence(@s)
+    mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1] ORDER BY ID').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
     mock.expects(:close).with.in_sequence(@s)
 
     Dbt.runtime.dump_database_to_fixtures(database, fixture_dir, :data_set => data_set)
@@ -1103,8 +1117,9 @@ class TestRuntimeBasic < Dbt::TestCase
     Dbt::Config.default_fixture_dir_name = 'fixturesXX'
 
     mock.expects(:open).with(config, false).in_sequence(@s)
-    Dbt.runtime.expects(:info).with('Dumping [MyModule].[tblTable1]').in_sequence(@s)
-    mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1]').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
+    Dbt.runtime.expects(:info).with('Exporting fixture for MyModule.tblTable1').in_sequence(@s)
+    mock.expects(:query).with(sql_for_primary_key('tblTable1', 'MyModule')).returns([{'COLUMN_NAME' => 'ID'}]).in_sequence(@s)
+    mock.expects(:query).with('SELECT * FROM [MyModule].[tblTable1] ORDER BY ID').returns([{'ID' => 1}, {'ID' => 2}]).in_sequence(@s)
     mock.expects(:close).with.in_sequence(@s)
 
     Dbt.runtime.dump_database_to_fixtures(database, fixture_dir, :filter => filter)
