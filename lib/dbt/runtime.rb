@@ -153,10 +153,12 @@ TXT
               "#{base_fixture_dir}/#{module_name}/#{database.datasets_dir_name}/#{data_set}/" :
               "#{base_fixture_dir}/#{module_name}/#{database.fixture_dir_name}/"
           database.repository.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
+            filename = "#{prefix}#{clean_table_name(table_name)}.yml"
+
             info("Dumping #{table_name}")
             records = load_query_into_yaml(dump_table_sql(table_name))
 
-            emit_fixture("#{prefix}#{clean_table_name(table_name)}.yml", records)
+            emit_fixture(filename, records)
           end
           database.repository.sequence_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |sequence_name|
             info("Dumping #{sequence_name}")
