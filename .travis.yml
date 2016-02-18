@@ -8,3 +8,5 @@ jdk:
   - oraclejdk7
 git:
   depth: 10
+before_install:
+  - gem update bundler
