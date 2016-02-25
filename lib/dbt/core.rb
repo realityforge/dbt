@@ -34,6 +34,10 @@ class Dbt
     self.repository.database_for_key(database_key)
   end
 
+  def self.configuration_for_key?(database_key, env = Dbt::Config.environment)
+    self.runtime.configuration_for_database?(database_for_key(database_key), env)
+  end
+
   def self.configuration_for_key(database_key, env = Dbt::Config.environment)
     self.runtime.configuration_for_database(database_for_key(database_key), env)
   end

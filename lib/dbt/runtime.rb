@@ -185,6 +185,10 @@ TXT
       configuration_for_key(config_key(database.key, env))
     end
 
+    def configuration_for_database?(database, env = Dbt::Config.environment)
+      configuration_for_key?(config_key(database.key, env))
+    end
+
     # Hash the set of files that may be used by any create/import/migrate for the given database
     def calculate_fileset_hash(database)
       hash_files(database, collect_fileset_for_hash(database))
@@ -322,6 +326,10 @@ TXT
 
     def configuration_for_key(config_key)
       Dbt.repository.configuration_for_key(config_key)
+    end
+
+    def configuration_for_key?(config_key)
+      Dbt.repository.configuration_for_key?(config_key)
     end
 
     def init_database(database_key, &block)
