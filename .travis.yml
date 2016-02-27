@@ -4,7 +4,6 @@ rvm:
   - jruby-19mode
 jdk:
 
-
   - oraclejdk7
 git:
   depth: 10
