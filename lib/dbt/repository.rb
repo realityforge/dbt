@@ -28,6 +28,10 @@ class Dbt #nodoc
       @databases.keys
     end
 
+    def database_for_key?(database_key)
+      !@databases[database_key].nil?
+    end
+
     def database_for_key(database_key)
       database = @databases[database_key]
       raise "Missing database for key #{database_key}" unless database
