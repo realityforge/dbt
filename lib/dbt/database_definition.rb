@@ -170,6 +170,9 @@ class Dbt #nodoc
 
     attr_writer :local_repository
 
+    # This returns true if the database has no local repository.yml
+    # This is usually true when the database is solely constructed by
+    # adding pre/post db artifacts.
     def local_repository?
       @local_repository.nil? ? true : @local_repository
     end
