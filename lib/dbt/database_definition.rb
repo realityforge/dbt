@@ -97,7 +97,7 @@ class Dbt #nodoc
     attr_writer :rake_integration
 
     def enable_rake_integration?
-      @rake_integration.nil? ? true : @rake_integration
+      @rake_integration.nil? ? managed?  : @rake_integration
     end
 
     attr_writer :packaged
@@ -175,6 +175,14 @@ class Dbt #nodoc
     # adding pre/post db artifacts.
     def local_repository?
       @local_repository.nil? ? true : @local_repository
+    end
+
+    attr_writer :managed
+
+    # This returns true if the database lifecycle is managed by dbt.
+    # i.e. DBT can create/drop database.
+    def managed?
+      @managed.nil? ? true : @managed
     end
 
     attr_writer :search_dirs
