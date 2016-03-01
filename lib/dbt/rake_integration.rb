@@ -185,9 +185,9 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     end
 
     if database.enable_migrations?
-      desc "Apply migrations to bring data to latest version"
+      desc 'Apply migrations to bring data to latest version'
       task "#{database.task_prefix}:migrate" => ["#{database.task_prefix}:prepare"] do
-        banner("Migrating", database.key)
+        banner('Migrating', database.key)
         @@runtime.migrate(database)
       end
     end
@@ -195,7 +195,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     # Import tasks
     if database.enable_separate_import_task?
       database.imports.values.each do |imp|
-        define_import_task("#{database.task_prefix}", imp, "contents")
+        define_import_task("#{database.task_prefix}", imp, 'contents')
       end
     end
 
@@ -205,11 +205,11 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
 
     if database.enable_import_task_as_part_of_create?
       database.imports.values.each do |imp|
-        key = ""
-        key = ":" + imp.key.to_s unless Dbt::Config.default_import?(imp.key)
+        key = ''
+        key = ':' + imp.key.to_s unless Dbt::Config.default_import?(imp.key)
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:prepare"] do
-          banner("Creating Database By Import", database.key)
+          banner('Creating Database By Import', database.key)
           @@runtime.create_by_import(imp)
         end
       end
@@ -218,7 +218,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     if database.backup?
       desc "Perform backup of #{database.key} database"
       task "#{database.task_prefix}:backup" => ["#{database.task_prefix}:load_config"] do
-        banner("Backing up Database", database.key)
+        banner('Backing up Database', database.key)
         @@runtime.backup(database)
       end
     end
@@ -226,7 +226,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
     if database.restore?
       desc "Perform restore of #{database.key} database"
       task "#{database.task_prefix}:restore" => ["#{database.task_prefix}:load_config"] do
-        banner("Restoring Database", database.key)
+        banner('Restoring Database', database.key)
         @@runtime.restore(database)
       end
     end
