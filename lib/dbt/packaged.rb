@@ -112,11 +112,12 @@ class Dbt #nodoc
 
   def self.package_database(database, package_dir, options)
     rm_rf package_dir
-    package_database_code(database, "#{package_dir}/code", options) if options[:include_code]
+    package_database_code(database, package_dir, options) if options[:include_code]
     self.runtime.package_database_data(database, "#{package_dir}/data")
   end
 
-  def self.package_database_code(database, package_dir, options)
+  def self.package_database_code(database, base_package_dir, options)
+    package_dir = "#{base_package_dir}/code"
     FileUtils.mkdir_p package_dir
     valid_commands = %w(status create drop)
     valid_commands << 'restore' if database.restore?
@@ -266,9 +267,20 @@ else
 end
 TXT
     end
-    jruby_version = options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
-    prefix = jruby_version ? "RBENV_VERSION=jruby-#{options[:jruby_version]} RUBYOPT= rbenv exec " : ''
-    sh "#{prefix}jrubyc --dir #{::Buildr::Util.relative_path(package_dir, Dir.pwd)} #{::Buildr::Util.relative_path(package_dir, Dir.pwd)}"
     FileUtils.cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
+
+    jar = ::Buildr.artifact(jruby_complete_jar(options))
+    dir = ::Buildr::Util.relative_path(package_dir, Dir.pwd)
+    script = "require 'jruby/jrubyc';exit(JRuby::Compiler::compile_argv(ARGV))"
+    java = Java::Commands.send(:path_to_bin, 'java')
+    command = "#{java} -jar #{jar} --disable-gems -e \"#{script}\" -- --dir #{dir} #{Dir["#{dir}/**/*.rb"].join(' ')}"
+    old_gemfile = ENV['BUNDLE_GEMFILE']
+    ENV['BUNDLE_GEMFILE'] = "#{base_package_dir}/Gemfile"
+    FileUtils.touch "#{base_package_dir}/Gemfile"
+    begin
+      sh command
+    ensure
+      ENV['BUNDLE_GEMFILE'] = old_gemfile
+    end
   end
 end
