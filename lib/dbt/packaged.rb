@@ -14,6 +14,10 @@
 
 class Dbt #nodoc
 
+  def self.jruby_version(options)
+    options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
+  end
+
   def self.define_database_package(database_key, options = {})
     buildr_project = options[:buildr_project]
     if buildr_project.nil? && ::Buildr.application.current_scope.size > 0
@@ -22,13 +26,12 @@ class Dbt #nodoc
     raise "Unable to determine Buildr project when generating #{database_key} database package" unless buildr_project
     database = self.repository.database_for_key(database_key)
     package_dir = buildr_project._(:target, 'dbt')
-    jruby_version = options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
     include_code = options[:include_code].nil? || options[:include_code]
 
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
       banner('Packaging Database Scripts', database.key)
       params = options.dup
-      params[:jruby_version] = jruby_version
+      params[:jruby_version] = jruby_version(options)
       params[:include_code] = include_code
       package_database(database, package_dir, params)
     end
