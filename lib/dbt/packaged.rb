@@ -18,6 +18,10 @@ class Dbt #nodoc
     options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
   end
 
+  def self.jruby_complete_jar(options)
+    "org.jruby:jruby-complete:jar:#{jruby_version(options)}"
+  end
+
   def self.define_database_package(database_key, options = {})
     buildr_project = options[:buildr_project]
     if buildr_project.nil? && ::Buildr.application.current_scope.size > 0
@@ -44,7 +48,7 @@ class Dbt #nodoc
     if include_code
       buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
       dependencies =
-        ["org.jruby:jruby-complete:jar:#{jruby_version}"] +
+        [jruby_complete_jar(options)] +
           Dbt::Config.driver_config_class(:jruby => true).jdbc_driver_dependencies
 
       dependencies.each do |spec|
