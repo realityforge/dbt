@@ -187,6 +187,10 @@ class Dbt #nodoc
 
     attr_writer :search_dirs
 
+    def search_dirs?
+      !@search_dirs.nil?
+    end
+
     def search_dirs
       @search_dirs || Dbt::Config.default_search_dirs
     end
