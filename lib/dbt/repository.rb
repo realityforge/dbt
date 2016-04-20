@@ -87,12 +87,11 @@ MSG
 
     def ensure_configuration_file_present(filename)
       unless File.exist?(filename)
-        target_ext = File.extname(filename)
-        if '' != target_ext
-          source = "#{filename[0, filename.size-target_ext.size]}.example#{target_ext}"
-          if File.exist?(source)
-            Dbt.runtime.info("Copying sample configuration file from #{source} to #{filename}")
-            FileUtils.cp source, filename
+        example_filename = Dbt::Config.example_config_filename
+        if example_filename
+          if File.exist?(example_filename)
+            Dbt.runtime.info("Copying sample configuration file from #{example_filename} to #{filename}")
+            FileUtils.cp example_filename, filename
           end
         end
       end

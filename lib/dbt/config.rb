@@ -139,6 +139,17 @@ class Dbt # nodoc
         @config_filename || 'config/database.yml'
       end
 
+      attr_writer :example_config_filename
+
+      # Return the filename of sample database configuration
+      def example_config_filename
+        return @example_config_filename unless @example_config_filename.nil?
+        filename = self.config_filename
+        target_ext = File.extname(filename)
+        return "#{filename[0, filename.size-target_ext.size]}.example#{target_ext}" if '' != target_ext
+        nil
+      end
+
       # search_dirs is an array of paths that are searched in order for artifacts for each module
       attr_writer :default_search_dirs
 
