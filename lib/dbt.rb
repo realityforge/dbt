@@ -17,6 +17,7 @@ require 'yaml'
 
 require 'dbt/orderedhash'
 
+require 'dbt/dbtc'
 require 'dbt/base'
 require 'dbt/config'
 require 'dbt/filter_container'
