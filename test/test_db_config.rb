@@ -55,6 +55,7 @@ class TestDbConfig < Dbt::TestCase
     shrink_on_import = true
     reindex_on_import = true
     force_drop = true
+    delete_backup_history = true
 
     config = new_base_config.merge(
       :instance => instance,
@@ -66,7 +67,8 @@ class TestDbConfig < Dbt::TestCase
       :instance_registry_key => instance_registry_key,
       :shrink_on_import => shrink_on_import,
       :reindex_on_import => reindex_on_import,
-      :force_drop => force_drop
+      :force_drop => force_drop,
+      :delete_backup_history => delete_backup_history
     ).merge(options)
     config = config_class.new('sqlserver_test',config)
     assert_base_config(config, 1433)
@@ -82,11 +84,16 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.shrink_on_import?, shrink_on_import
     assert_equal config.reindex_on_import?, reindex_on_import
     assert_equal config.force_drop?, force_drop
+    assert_equal config.delete_backup_history?, delete_backup_history
 
     assert_equal config.control_catalog_name, 'msdb'
 
     config.force_drop = nil
     assert_equal config.force_drop?, false
+
+    config.delete_backup_history = nil
+    assert_equal config.delete_backup_history?, true
+
     config
   end
 
