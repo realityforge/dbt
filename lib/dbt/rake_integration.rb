@@ -118,10 +118,10 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
 
   private
 
-  def self.define_tasks_for_artifact_database(database, artifact, options)
+  def self.define_tasks_for_artifact_database(database, artifact)
     self.define_common_tasks_for_database(database)
 
-    extra_actions = options[:extra_actions] || []
+    extra_actions = database.extra_actions
     (%w(create drop) + extra_actions).each do |action|
       desc "#{action} the #{database.key} database"
       task "#{database.task_prefix}:#{action}" => ["#{database.task_prefix}:prepare"] do
