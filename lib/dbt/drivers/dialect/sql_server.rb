@@ -51,6 +51,12 @@ class Dbt
       !!@force_drop
     end
 
+    attr_writer :delete_backup_history
+
+    def delete_backup_history?
+      @delete_backup_history.nil? ? true : @delete_backup_history
+    end
+
     attr_writer :reindex_on_import
 
     def reindex_on_import?
@@ -178,7 +184,7 @@ ORDER BY t.Ordinal, t.Name
 
       def drop(database, configuration)
         execute('SET DEADLOCK_PRIORITY HIGH')
-        execute("EXEC msdb.dbo.sp_delete_database_backuphistory @database_name = N'#{configuration.catalog_name}'")
+        execute("EXEC msdb.dbo.sp_delete_database_backuphistory @database_name = N'#{configuration.catalog_name}'") if configuration.delete_backup_history?
         if configuration.force_drop?
           execute(<<SQL)
   IF EXISTS
