@@ -29,27 +29,27 @@ class Dbt #nodoc
     end
 
     def database_for_key?(database_key)
-      !@databases[database_key].nil?
+      !@databases[database_key.to_s].nil?
     end
 
     def database_for_key(database_key)
-      database = @databases[database_key]
+      database = @databases[database_key.to_s]
       raise "Missing database for key #{database_key}" unless database
       database
     end
 
     def add_database(database_key, options = {}, &block)
-      raise "Database with key #{database_key} already defined." if @databases.has_key?(database_key)
+      raise "Database with key #{database_key} already defined." if @databases.has_key?(database_key.to_s)
 
       database = DatabaseDefinition.new(database_key, options, &block)
-      @databases[database_key] = database
+      @databases[database_key.to_s] = database
 
       database
     end
 
     def remove_database(database_key)
-      raise "Database with key #{database_key} not defined." unless @databases.has_key?(database_key)
-      @databases.delete(database_key)
+      raise "Database with key #{database_key} not defined." unless @databases.has_key?(database_key.to_s)
+      @databases.delete(database_key.to_s)
     end
 
     def configuration_for_key?(config_key)

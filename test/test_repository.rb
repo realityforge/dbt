@@ -8,7 +8,7 @@ class TestRepository < Dbt::TestCase
 
     assert_equal repository.database_for_key(:default), database
 
-    assert repository.database_keys.include?(:default)
+    assert repository.database_keys.include?('default')
 
     assert_raises(RuntimeError) do
       repository.add_database(:default)
@@ -16,11 +16,11 @@ class TestRepository < Dbt::TestCase
 
     assert_equal repository.database_for_key(:default), database
 
-    assert repository.database_keys.include?(:default)
+    assert repository.database_keys.include?('default')
 
     assert_equal repository.remove_database(:default), database
 
-    assert !repository.database_keys.include?(:default)
+    assert !repository.database_keys.include?('default')
 
     assert_raises(RuntimeError) do
       repository.database_for_key(:default)
