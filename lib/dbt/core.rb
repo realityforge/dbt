@@ -30,6 +30,10 @@ class Dbt
     @@runtime
   end
 
+  def self.database_for_key?(database_key)
+    self.repository.database_for_key?(database_key)
+  end
+
   def self.database_for_key(database_key)
     self.repository.database_for_key(database_key)
   end
