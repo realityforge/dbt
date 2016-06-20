@@ -116,6 +116,10 @@ MSG
       end
     end
 
+    def configuration_data
+      @configuration_data.dup
+    end
+
     def configuration_data=(configuration_data)
       @configurations = {}
       @configuration_data = configuration_data.nil? ? {} : configuration_data
