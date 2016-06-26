@@ -38,7 +38,7 @@ class Dbt
   module Dialect
     module Postgres
 
-      CONTROL_DATABASE = "postgres"
+      CONTROL_DATABASE = 'postgres'
 
       def create_schema(schema_name)
         if query("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '#{schema_name}'").empty?

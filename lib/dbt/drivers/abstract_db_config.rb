@@ -40,7 +40,7 @@ class Dbt
       if no_create.nil?
         @no_create = nil
       else
-        raise "no_create must be true or false" unless %w(true false).include?(no_create.to_s)
+        raise 'no_create must be true or false' unless %w(true false).include?(no_create.to_s)
         @no_create = no_create.to_s == 'true'
       end
     end
