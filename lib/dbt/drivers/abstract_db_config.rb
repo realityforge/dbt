@@ -15,14 +15,14 @@
 class Dbt
   class AbstractDbConfig < Dbt::DbConfig
 
-    def initialize(key, options)
+    def initialize(key, options, &block)
       ignore_elements = options.delete('ignore_elements') || []
       ignore_elements.each do |element|
         options.delete(element)
       end
       @key = key
       @no_create = nil
-      super(options)
+      super(options, &block)
     end
 
     attr_reader :key
