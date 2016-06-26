@@ -77,8 +77,12 @@ MSG
         end
       end
       raise "Missing database configuration for key '#{config_key}'" unless c
-      configuration = Dbt::Config.driver_config_class.new(config_key, c)
-      @configurations[config_key.to_s] = configuration
+      add_configuration(config_key, c)
+    end
+
+    def add_configuration(config_key, config, &block)
+      Dbt.error("Attempting to redefine configuration for key '#{config_key}'.") if @configurations[config_key.to_s]
+      @configurations[config_key.to_s] = Dbt::Config.driver_config_class.new(config_key, config, &block)
     end
 
     def is_configuration_data_loaded?
