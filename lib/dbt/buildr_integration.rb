@@ -20,6 +20,7 @@ class Dbt #nodoc
       valid_environments = %w(development uat training production staging test ci import)
 
       Dbt.repository.configuration_keys.each do |config_key|
+        next if config_key =~ /^import_test.*$/
         database_key = nil
         environment_key = nil
         Dbt.repository.database_keys.each do |key|
