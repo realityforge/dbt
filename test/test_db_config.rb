@@ -49,9 +49,9 @@ class TestDbConfig < Dbt::TestCase
     appname = 'app-ick'
     data_path = 'C:\\someDir'
     log_path = 'C:\\someDir'
-    restore_from = 'C:\\someDir\\foo.bak'
+    restore_name = 'foo'
+    backup_name = 'bar'
     backup_location = 'C:\\someDir\\bar.bak'
-    instance_registry_key = 'MSQL10.05'
     shrink_on_import = true
     reindex_on_import = true
     force_drop = true
@@ -62,9 +62,9 @@ class TestDbConfig < Dbt::TestCase
       :appname => appname,
       :data_path => data_path,
       :log_path => log_path,
-      :restore_from => restore_from,
+      :restore_name => restore_name,
+      :backup_name => backup_name,
       :backup_location => backup_location,
-      :instance_registry_key => instance_registry_key,
       :shrink_on_import => shrink_on_import,
       :reindex_on_import => reindex_on_import,
       :force_drop => force_drop,
@@ -78,9 +78,9 @@ class TestDbConfig < Dbt::TestCase
     assert_equal config.appname, appname
     assert_equal config.data_path, data_path
     assert_equal config.log_path, log_path
-    assert_equal config.restore_from, restore_from
+    assert_equal config.restore_name, restore_name
+    assert_equal config.backup_name, backup_name
     assert_equal config.backup_location, backup_location
-    assert_equal config.instance_registry_key, instance_registry_key
     assert_equal config.shrink_on_import?, shrink_on_import
     assert_equal config.reindex_on_import?, reindex_on_import
     assert_equal config.force_drop?, force_drop

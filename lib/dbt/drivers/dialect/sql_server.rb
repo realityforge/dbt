@@ -42,9 +42,13 @@ class Dbt
     attr_accessor :appname
     attr_accessor :data_path
     attr_accessor :log_path
-    attr_accessor :restore_from
+    # Short key used to generate filename restored from.
+    # Something like "MYDATABASE" results in restore from backup "MYDATABASE.bak".
+    attr_accessor :restore_name
+    # Short key used to generate filename backed up to. S
+    # Something like "MYDATABASE" results in backup to file "MYDATABASE.bak".
+    attr_accessor :backup_name
     attr_accessor :backup_location
-    attr_accessor :instance_registry_key
     attr_writer :force_drop
 
     def force_drop?
@@ -205,21 +209,7 @@ SQL
       end
 
       def backup(database, configuration)
-        sql = 'DECLARE @BackupName VARCHAR(500)'
-        if configuration.backup_location
-          sql << "SET @BackupName = '#{configuration.backup_location}\\#{configuration.catalog_name}.bak'"
-        else
-          sql << <<SQL
-  DECLARE @BackupDir VARCHAR(400)
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
-    @value_name='BackupDirectory',
-    @value=@BackupDir OUTPUT
-  IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
-  SET @BackupName = @BackupDir + '\\#{configuration.catalog_name}.bak'
-SQL
-        end
-
+        sql = get_backup_name_sql(configuration, configuration.backup_name || Dbt::Naming.uppercase_constantize(database.key.to_s))
         sql << <<SQL
   BACKUP DATABASE #{quote_table_name(configuration.catalog_name)} TO DISK = @BackupName
   WITH FORMAT, INIT, NAME = N'POST_CI_BACKUP', SKIP, NOREWIND, NOUNLOAD, STATS = 10
@@ -230,56 +220,96 @@ SQL
       def restore(database, configuration)
         execute(<<SQL)
   IF EXISTS (SELECT * FROM sys.databases WHERE name = '#{configuration.catalog_name}')
-    ALTER DATABASE #{configuration.catalog_name} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-
-  DECLARE @TargetDatabase VARCHAR(400)
-  DECLARE @SourceDatabase VARCHAR(400)
-  SET @TargetDatabase = '#{configuration.catalog_name}'
-  SET @SourceDatabase = '#{configuration.restore_from}'
-
-  DECLARE @BackupFile VARCHAR(400)
+#{get_backup_name_sql(configuration, configuration.restore_name || Dbt::Naming.uppercase_constantize(database.key.to_s))}
   DECLARE @DataLogicalName VARCHAR(400)
   DECLARE @LogLogicalName VARCHAR(400)
   DECLARE @DataDir VARCHAR(400)
   DECLARE @LogDir VARCHAR(400)
   DECLARE @DataRoot VARCHAR(400)
 
-#{get_backup_file_list_locations(configuration)}
+  DECLARE @FileList TABLE
+     (
+     LogicalName NVARCHAR(128) NOT NULL,
+     PhysicalName NVARCHAR(260) NOT NULL,
+     Type CHAR(1) NOT NULL,
+     FileGroupName NVARCHAR(120) NULL,
+     Size NUMERIC(20, 0) NOT NULL,
+     MaxSize NUMERIC(20, 0) NOT NULL,
+     FileID BIGINT NULL,
+     CreateLSN NUMERIC(25,0) NULL,
+     DropLSN NUMERIC(25,0) NULL,
+     UniqueID UNIQUEIDENTIFIER NULL,
+     ReadOnlyLSN NUMERIC(25,0) NULL,
+     ReadWriteLSN NUMERIC(25,0) NULL,
+     BackupSizeInBytes BIGINT NULL,
+     SourceBlockSize INT NULL,
+     FileGroupID INT NULL,
+     LogGroupGUID UNIQUEIDENTIFIER NULL,
+     DifferentialBaseLSN NUMERIC(25,0)NULL,
+     DifferentialBaseGUID UNIQUEIDENTIFIER NULL,
+     IsReadOnly BIT NULL,
+     IsPresent BIT NULL,
+     TDEThumbprint VARBINARY(32) NULL
+  );
+
+  INSERT INTO @FileList EXEC('RESTORE FILELISTONLY FROM DISK = ''' + @BackupName + '''')
+  SELECT TOP 1 @DataLogicalName = LogicalName FROM @FileList WHERE Type = 'D' ORDER BY DifferentialBaseLSN
+  SELECT TOP 1 @LogLogicalName = LogicalName FROM @FileList WHERE Type = 'L' ORDER BY DifferentialBaseLSN
 
   IF @@RowCount <> 1 RAISERROR ('Unable to locate backupset', 16, 1) WITH SETERROR
 
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\Setup',
-    @value_name='SQLDataRoot',
-    @value=@DataRoot OUTPUT
+  SET @RegKey = 'SOFTWARE\\Microsoft\\Microsoft SQL Server\\' + @InstanceKey + '\\Setup'
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@RegKey, @value_name='SQLDataRoot', @value=@DataRoot OUTPUT
 
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
-    @value_name='DefaultData',
-    @value=@DataDir OUTPUT
+  SET @RegKey = 'SOFTWARE\\Microsoft\\Microsoft SQL Server\\' + @InstanceKey + '\\MSSQLServer'
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@RegKey, @value_name='DefaultData', @value=@DataDir OUTPUT
 
-  IF @DataDir IS NULL AND @DataRoot IS NOT NULL
-    SET @DataDir = @DataRoot + '\\Data'
+  IF @DataDir IS NULL AND @DataRoot IS NOT NULL SET @DataDir = @DataRoot + '\\Data'
   IF @DataDir IS NULL RAISERROR ('Unable to locate DefaultData or SQLDataRoot registry key', 16, 1) WITH SETERROR
 
-  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE',
-    @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\#{configuration.instance_registry_key}\\MSSQLServer',
-    @value_name='DefaultLog',
-    @value=@LogDir OUTPUT
-  IF @LogDir IS NULL AND @DataRoot IS NOT NULL
-    SET @LogDir = @DataRoot + '\\Data'
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@RegKey, @value_name='DefaultLog', @value=@LogDir OUTPUT
+  IF @LogDir IS NULL AND @DataRoot IS NOT NULL SET @LogDir = @DataRoot + '\\Data'
   IF @LogDir IS NULL RAISERROR ('Unable to locate DefaultLog or SQLDataRoot registry key', 16, 1) WITH SETERROR
 
   DECLARE @sql VARCHAR(4000)
-  SET @sql = 'RESTORE DATABASE [' + @TargetDatabase + '] FROM DISK = N''' + @BackupFile + ''' WITH  FILE = 1,
-  MOVE N''' + @DataLogicalName + ''' TO N''' + @DataDir + '\\' + @TargetDatabase + '.MDF'',
-  MOVE N''' + @LogLogicalName + ''' TO N''' + @LogDir + '\\' + @TargetDatabase + '.LDF'',
+  SET @sql = 'RESTORE DATABASE #{quote_table_name(configuration.catalog_name)} FROM DISK = N''' + @BackupName + ''' WITH  FILE = 1,
+  MOVE N''' + @DataLogicalName + ''' TO N''' + @DataDir + '\\#{configuration.catalog_name}.MDF'',
+  MOVE N''' + @LogLogicalName + ''' TO N''' + @LogDir + '\\#{configuration.catalog_name}.LDF'',
   NOUNLOAD,
   REPLACE,
   STATS = 10
   '
+
+  ALTER DATABASE #{configuration.catalog_name} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
   EXEC(@sql)
 SQL
+      end
+
+      def get_backup_name_sql(configuration, backup_name)
+        sql = 'DECLARE @BackupName VARCHAR(500)'
+        if configuration.backup_location
+          sql << "SET @BackupName = '#{configuration.backup_location}\\#{backup_name}.bak'"
+        else
+          sql << <<SQL
+#{get_instance_key_sql}
+
+  DECLARE @RegKey VARCHAR(400)
+  SET @RegKey = 'SOFTWARE\\Microsoft\\Microsoft SQL Server\\' + @InstanceKey + '\\MSSQLServer'
+  DECLARE @BackupDir VARCHAR(400)
+  EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@RegKey, @value_name='BackupDirectory', @value=@BackupDir OUTPUT
+  IF @BackupDir IS NULL RAISERROR ('Unable to locate BackupDirectory registry key', 16, 1) WITH SETERROR
+  SET @BackupName = @BackupDir + '\\#{backup_name}.bak'
+SQL
+
+        end
+        sql
+      end
+
+      def get_instance_key_sql
+        <<-SQL
+  DECLARE @InstanceKey VARCHAR(400)
+  EXEC xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key='SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL', @value_name=@@servicename, @value=@InstanceKey OUTPUT
+        SQL
       end
 
       def setup_migrations
@@ -431,11 +461,8 @@ SQL
         end
       end
 
-      def get_backup_file_list_locations(configuration)
-        if configuration.backup_location
-          <<SQL
-  SET @BackupFile = '#{configuration.backup_location}\\#{configuration.restore_from}.bak';
-
+      def get_backup_file_list_locations
+        <<SQL
   DECLARE @FileList TABLE
       (
       LogicalName NVARCHAR(128) NOT NULL,
@@ -461,29 +488,10 @@ SQL
       TDEThumbprint VARBINARY(32) NULL
    );
 
-   INSERT INTO @FileList EXEC('RESTORE FILELISTONLY FROM DISK = ''' + @BackupFile + '''')
+   INSERT INTO @FileList EXEC('RESTORE FILELISTONLY FROM DISK = ''' + @BackupName + '''')
    SELECT TOP 1 @DataLogicalName = LogicalName FROM @FileList WHERE Type = 'D' ORDER BY DifferentialBaseLSN
    SELECT TOP 1 @LogLogicalName = LogicalName FROM @FileList WHERE Type = 'L' ORDER BY DifferentialBaseLSN
 SQL
-        else
-          <<SQL
-  SELECT
-  @BackupFile = MF.physical_device_name, @DataLogicalName = BF_Data.logical_name, @LogLogicalName = BF_Log.logical_name
-  FROM
-    msdb.dbo.backupset BS
-  JOIN msdb.dbo.backupmediafamily MF ON MF.media_set_id = BS.media_set_id
-  JOIN msdb.dbo.backupfile BF_Data ON BF_Data.backup_set_id = BS.backup_set_id AND BF_Data.file_type = 'D'
-  JOIN msdb.dbo.backupfile BF_Log ON BF_Log.backup_set_id = BS.backup_set_id AND BF_Log.file_type = 'L'
-  WHERE
-    BS.backup_set_id =
-    (
-      SELECT TOP 1 backup_set_id
-      FROM msdb.dbo.backupset
-      WHERE database_name = @SourceDatabase
-      ORDER BY backup_start_date DESC
-    )
-SQL
-        end
       end
     end
   end
