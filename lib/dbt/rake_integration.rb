@@ -209,7 +209,7 @@ INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.se
         key = ':' + imp.key.to_s unless Dbt::Config.default_import?(imp.key)
         desc "Create the #{database.key} database by import."
         task "#{database.task_prefix}:create_by_import#{key}" => ["#{database.task_prefix}:prepare"] do
-          banner('Creating Database By Import', database.key)
+          banner("Creating Database By Import#{Dbt::Config.default_import?(imp.key) ? '' : " (#{imp.key})"}", database.key)
           @@runtime.create_by_import(imp)
         end
       end
