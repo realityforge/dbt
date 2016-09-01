@@ -210,6 +210,7 @@ SQL
 
       def backup(database, configuration)
         sql = <<SQL
+  DECLARE @RegKey VARCHAR(400)
 #{get_instance_key_sql}
 #{get_backup_name_sql(configuration, configuration.backup_name || Dbt::Naming.uppercase_constantize(database.key.to_s))}
   BACKUP DATABASE #{quote_table_name(configuration.catalog_name)} TO DISK = @BackupName
@@ -221,6 +222,7 @@ SQL
       def restore(database, configuration)
         execute(<<SQL)
   IF EXISTS (SELECT * FROM sys.databases WHERE name = '#{configuration.catalog_name}')
+  DECLARE @RegKey VARCHAR(400)
 #{get_instance_key_sql}
 #{get_backup_name_sql(configuration, configuration.restore_name || Dbt::Naming.uppercase_constantize(database.key.to_s))}
   DECLARE @DataLogicalName VARCHAR(400)
@@ -293,7 +295,6 @@ SQL
           sql << "SET @BackupName = '#{configuration.backup_location}\\#{backup_name}.bak'"
         else
           sql << <<SQL
-  DECLARE @RegKey VARCHAR(400)
   SET @RegKey = 'SOFTWARE\\Microsoft\\Microsoft SQL Server\\' + @InstanceKey + '\\MSSQLServer'
   DECLARE @BackupDir VARCHAR(400)
   EXEC master.dbo.xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@RegKey, @value_name='BackupDirectory', @value=@BackupDir OUTPUT
