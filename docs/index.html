@@ -1,0 +1,342 @@
+---
+layout: default
+title: Dbt
+---
+
+<p>
+    Dbt is a ruby library that helps you to automate the <a href="#database-creation">creation</a>,
+    <a href="#database-import">importing</a> and <a href="#database-migration">migration</a> of databases.
+    Dbt uses convention over configuration and is designed to be a composable component of a larger automation
+    tool chain. Dbt has existing drivers for SQL Server and Postgres.
+</p>
+
+<h4>Create, Import, Migrate</h4>
+<p>
+    Dbt expects you to define the database using SQL scripts or via a tool that generates SQL scripts (i.e.
+    Domgen). Dbt is responsible for executing the scripts in a defined order. Dbt can also load fixture data
+    from yaml files as part of the database creation. Dbt also defines a mechanism for importing one version of
+    the database into a newer version. Sometimes modifying an existing database, in easier to manage and Dbt
+    offers migrations for use in this scenario.
+</p>
+
+<h4>Convention over Configuration</h4>
+<p>
+    The library adopts a series of conventions aimed to simplify large, complex, legacy projects but without adding
+    burden to smaller, early stage projects. In particular it grew out of several complex projects that made extensive
+    use of schemas, functions, constraints, stored-procedures, triggers, views and custom types. Most of these projects
+    had in excess 5000 database artifacts. The library is also used in projects where the database is little more than
+    a persistence mechanism with all the complex business logic outside the database.
+</p>
+
+<h4>Composable Component</h4>
+<p>
+    The library is just one part of the automation tool chain and is easily integrated into other tools. It is used
+    extensively with tools such as <a href="">Rake</a>,
+    <a href="http://buildr.apache.org">Buildr</a> and <a href="https://github.com/realityforge/domgen">Domgen</a>.
+</p>
+
+<h2>
+    <a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>
+    Getting Started
+</h2>
+
+<p>
+    A simple database configuration that explicitly defined the schema and the set of tables part of the schema follows;
+</p>
+{% highlight ruby %}
+Dbt::Config.config_filename = 'config/database.yml'
+
+Dbt.add_database(:default) do |db|
+  db.search_dirs = ["database"]
+  db.modules = ['MyModule']
+  db.table_map = {'MyModule' => ['MyModule.tblFoo']}
+end
+{% endhighlight %}
+<p>
+    If this was declared within a <code>Rakefile</code>, it would then define the tasks <code>dbt:create</code> and
+    <code>dbt:drop</code> that would create and drop the database respectively. The create task would create the
+    schema <code>MyModule</code>, scan the <code>search_dirs</code> based on a rules and load any sql files found.
+    The task would also fixture data for the <code>MyModule.tblFoo</code> table if a yaml file was found in the correct
+    location. The drop task would just delete the database. The runtime configuration required to connect to the
+    database is read from the file <code>config/database.yml</code>.
+</p>
+<p>
+    The above example gives a basic feel of the library but it is not representative of how the library is used in
+    practice. In most cases, Dbt is integrated into external tools such as Domgen and will not have to define the
+    <code>modules</code> or <code>table_map</code>. Nor does the example define any imports, migrations or datasets.
+</p>
+
+<p>
+    A more realistic example is given below. It configures a single database, and integrates with domgen to define
+    the modules, tables and expects domgen to generate sql into <code>database/generated</code> directory.
+</p>
+{% highlight ruby %}
+Dbt::Config.config_filename = 'config/database.yml'
+# Explicitly configure the database driver
+Dbt::Config.driver = 'sql_server'
+
+Dbt.add_database(:default,
+                 :imports =>
+                    {
+                      # Standard import config
+                      :default => {:modules => [:Audit, :Core, :Coordination, :Payroll]},
+                      # Customized import for a particular client
+                      :client2 => {:modules => [:Audit, :Core], :dir => "client2-imports"},
+                      # Customized import with alternative hook actions
+                      :client3 => {:modules => [:Audit, :Core],
+                                  :post_import_dirs => %w(client3-import-hooks/post),
+                                  :dir => "client3-imports"},
+                    },
+                 # define two datasets that can be loaded into database
+                 :datasets => [:sample, :minimal],
+                 :migrations => true, # Enable migrations
+                 :backup => true,
+                 :restore => true) do |database|
+  database.search_dirs = ["database/generated", "database"]
+  # Integrate with domgen
+  database.enable_domgen(:MyApplication, 'domgen:load', 'domgen:sql')
+  # Import configurations
+  database.import_assert_filters = true
+  database.import_task_as_part_of_create = true
+  database.separate_import_task = false
+end
+{% endhighlight %}
+
+<h2>
+    <a name="semantic-model" class="anchor" href="#semantic-model"><span class="octicon octicon-link"></span></a>
+    Semantic Model
+</h2>
+
+<p>
+    Conceptually, each Dbt database is composed of 0 or more modules. Each module maps to a schema in the database
+    and by convention the schema is the same name as the module. Each database has a search path form which Dbt
+    collects files used to create the database. Each module is mapped to a sub-directory of each element of the
+    search path.
+</p>
+
+<p>
+    Thus if a database definition defined a search path of <code>["database", "database/generated"]</code>, then
+    the module "MyModule" would load data from the directories <code>"database/MyModule"</code> and
+    <code>"database/generated/MyModule"</code>
+</p>
+
+<p>
+    Each module has a number of sub directories that contain database entities such as triggers, views,
+    stored-procedures etc. A module may also contain a sub-directory that contains fixtures. Fixtures define the
+    contents of specific tables at creation time. The module may also include 0 or more directories defining
+    import scripts or migration scripts.
+</p>
+
+<p>
+    The order in which the sub-directories are processed is dependent on the configuration in the database
+    definition but follows a specific convention based on the activity. Within a directory, the order of the sql
+    files is determined by an index file (named <code>index.txt</code> by default) that lists one sql file per
+    line. If the index file is not present or does not include all the sql files, then the sql files are loaded
+    in alphanumeric ordering.
+</p>
+
+<h3>
+    <a name="database-creation" class="anchor" href="#database-creation"><span class="octicon octicon-link"></span></a>
+    Database Creation Workflow
+</h3>
+
+<h5>Create the database.</h5>
+
+<p>
+    During this step the database is created. Both of the existing database drivers will use a control database
+    (<code>master</code> for SQL Server and <code>postgres</code> for PostgreSQL) to create the new database. The
+    driver will then change to the created database for the remainder of the database creation steps. In some
+    environments, it is not possible to access the control database so Dbt allows you to disable database creation
+    by setting the <code>no_create</code> flag to false in the runtime configuration file (i.e.
+    <code>database.yml</code>). In this scenario it is expected that a system administrator has already set up the
+    database.
+</p>
+
+<h5>Process the <code>pre_create_dirs</code>.</h5>
+
+<p>
+    Load any sql files that need to be loaded prior to processing any modules. The <code>pre_create_dirs</code>
+    setting defaults to <code>["db-hooks/pre"]</code>.
+</p>
+
+<h5>Process the <em>up</em> phase for each module in order.</h5>
+
+<p>
+    The purpose of the up phase is to setup the database but without enabling or creating any runtime checks.
+    i.e The tables should be created as part of this phase and populated with any initial fixture data but
+    may not yet have constraints or triggers created or if created, left disabled.
+</p>
+
+<h6>Create the database schema for the module.</h6>
+
+<p>
+    Unless overridden the schema name is the same as the module name. Dbt will create the schema if it
+    does not already exist. This allows multiple modules to map to the same database schema or for a module
+    to map to a predefined schema. (i.e. <code>dbo</code> under SQL Server or <code>public</code> in postgres).
+</p>
+
+<h6>Process the <code>up_dirs</code> for the module.</h6>
+
+<p>
+    The <code>up_dirs</code> are used to define the artifacts in the database. They are separated into
+    separate directories purely as a mechanism to simplify the ordering of database creation scripts.
+    The <code>up_dirs</code> setting defaults to
+    <code>['.', 'types', 'views', 'functions', 'stored-procedures', 'misc']</code>.
+</p>
+
+<h6>Load any fixtures tables in the module.</h6>
+
+<p>
+    The database definition includes a list of tables in each module. Dbt will look for a yaml file
+    in the <code>fixture_dir_name</code> that matches the name of the table. This will then be as a
+    yaml file and inserted into the database. To ensure the order of the rows, the top level element
+    of the yaml file can be encoded as an omap. The <code>fixture_dir_name</code> setting defaults to
+    <code>'fixtures'</code>.
+</p>
+
+<h5>Process the <em>import</em> phase for each module.</h5>
+
+<p>
+    If the creation is a "create_by_import" create, then the import of the module occurs at this step.
+    See the <a href="#database-import">import</a> section for further details on importing.
+</p>
+
+<h5>Process the <em>finalize</em> phase for each module.</h5>
+
+<p>
+    The finalize phase prepares the database for operation. This typically involves enabling triggers,
+    rebuilding indexes and applying any final security grants.
+</p>
+
+<h6>Process the <code>finalize_dirs</code> for the module.</h6>
+
+<p>
+    The finalize dirs are configurable by the <code>finalize_dirs</code> setting which
+    defaults to <code>['triggers', 'finalize']</code>.
+</p>
+
+<h5>Process the <code>post_create_dirs</code> for the database.</h5>
+
+<p>
+    Process the dirs defined by the <code>post_create_dirs</code> setting. The setting defaults to
+    <code>["db-hooks/post"]</code>.
+</p>
+
+<h5>Setup migrations infrastructure.</h5>
+
+<p>
+    The last thing that occurs when creating the database is to setup migrations if migrations are enabled.
+    The <a href="#database-migration">migrations</a> section goes into further details about how migrations
+    proceeds. During database creation the table that records the migrations is created. By default the
+    creation will assume that there is no need to apply the database migrations and will mark all migrations
+    present as having being applied. This can be overriden by setting the <code>migrations_applied_at_create</code>
+    setting on the database definition in which case the migrations will be applied during database creation.
+</p>
+
+<h2>
+    <a name="database-import" class="anchor" href="#database-import"><span class="octicon octicon-link"></span></a>
+    Import a Database
+</h2>
+
+<p>
+    Importing is typically used to upgrade from the old version of the database to the new version of the
+    database. Conceptually it selects data form the old database and inserts it into the new database.
+    However, like the other components of Dbt it can be overriden by the user. It is not uncommon to use
+    the import facility to import from several databases.
+</p>
+
+<p>
+    The import process can be integrated into the database creation process and/or it can be a
+    standalone task. Import that is integrated into the database creation process is much easier to
+    manage, primarily as it occurs prior to the database <em>finalize</em> phase and thus triggers
+    and constraints are not yet enabled. The standalone import process must also assume that the
+    database has already been used and thus must delete data from the tables as part of the import
+    process.
+</p>
+
+<p>
+    It should be noted that the import process will only import data for "importable" tables.
+    These constitute any table which does not have a fixture in the fixtures directory.
+</p>
+
+<h5>Process the <code>pre_import_dirs</code>.</h5>
+
+<p>
+    The pre_import_dirs dirs are configurable by the <code>pre_import_dirs</code> setting which
+    defaults to <code>['import-hooks/pre']</code>.
+</p>
+
+<h5>Process the <em>delete</em> phase for each module in reverse order.</h5>
+
+<p>
+    If the import process is a standalone then the import process will delete data
+    from all the importable tables. The delete will delete data from importable tables in
+    the reverse order. Each module will also be processed in reverse order.
+</p>
+
+<h5>Process the <em>import</em> phase for each module.</h5>
+<p>
+    Each module will be processed according to the order in which it is declared.
+</p>
+
+<h6>Import each table.</h6>
+
+<p>
+    Each importable table will be imported in order. Import files are loaded from a directory
+    defined in the import definition that defaults to <code>import</code>. If a <code>.yml</code>
+    file with the same name as the table is present it is loaded into the table. If a <code>.sql</code>
+    file with the same name as the table is present it is processed to import the table. If neither
+    a <code>.yml</code> nor a <code>.sql</code> file is present then the import process will attempt
+    to import data from the old database using a table name and set of columns that matches the new
+    database.
+</p>
+
+<h6>Process the <em>post_data_module_import</em> at the end of the import phase for each module.</h6>
+
+<p>
+    At the end of importing each module,the database driver is given the option to optimise the
+    module using the post_data_module_import hook. The sql server driver will attempt to shrink
+    any tables to remove unused space and then re-index the table. Both steps can be disabled
+    in the runtime configuration.
+</p>
+
+<h5>Process the <code>post_import_dirs</code>.</h5>
+
+<p>
+    The <code>pre_import_dirs</code> setting controls the directories processed in this phase and
+    it defaults to <code>['import-hooks/pre']</code>.
+</p>
+
+<h2>
+    <a name="database-migration" class="anchor" href="#database-migration"><span class="octicon octicon-link"></span></a>
+    Migrate a Database
+</h2>
+
+<p>
+    Migrations are used to incrementally modify a database without recreating or re-importing the database
+    from scratch. The <code>migrations_dir_name</code> setting controls the directory from which the migration
+    scripts are sourced and defaults to 'migrations'.
+</p>
+
+<p>
+    The migrations scripts are ordered using the same mechanism as per standard directories using an
+    <code>index.txt</code> file or alphanumeric ordering based on the name of the script. When the scripts are
+    applied, a record of the application is recorded in a per-database migrations table. The name of the
+    migration table differs between databases and is <code>[dbo].[tblMigrations]</code> under sql server and
+    <code>"public"."tblMigration"</code> under postgres.
+</p>
+  <p>TODO: Document "release" migrations and how migrations are handled at database creation.</p>
+
+<h2>
+    <a name="database-datasets" class="anchor" href="#database-datasets"><span class="octicon octicon-link"></span></a>
+    Defining Datasets
+</h2>
+
+<p>TODO: Document me.</p>
+
+<h2>
+    <a name="database-module-groups" class="anchor" href="#database-module-groups"><span class="octicon octicon-link"></span></a>
+    Module Groups
+</h2>
+
+<p>TODO: Document me.</p>
