@@ -1251,7 +1251,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
   def expect_default_sequence(mock, module_name, sequence_name)
     import_banner(module_name, sequence_name, 'D')
-    mock.expects(:execute).with("DECLARE @Next VARCHAR(50);\nSELECT @Next = CAST(current_value AS BIGINT) + 1 FROM IMPORT_DB.sys.sequences WHERE object_id = OBJECT_ID('[IMPORT_DB].[#{module_name}].[#{sequence_name}]');\nSET @Next = COALESCE(@Next,'1');EXEC('USE DBT_TEST; ALTER SEQUENCE [#{module_name}].[#{sequence_name}] RESTART WITH ' + @Next );", true).in_sequence(@s)
+    mock.expects(:execute).with("DECLARE @Next VARCHAR(50);\nSELECT @Next = CAST(current_value AS BIGINT) + 1 FROM TEST_DB.sys.sequences WHERE object_id = OBJECT_ID('[TEST_DB].[#{module_name}].[#{sequence_name}]');\nSET @Next = COALESCE(@Next,'1');EXEC('USE DBT_TEST; ALTER SEQUENCE [#{module_name}].[#{sequence_name}] RESTART WITH ' + @Next );", true).in_sequence(@s)
   end
 
   def import_banner(module_name, sequence_name, import_type = 'D')
