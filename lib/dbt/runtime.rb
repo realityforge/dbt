@@ -311,12 +311,12 @@ TXT
 
     def read_repository_xml_from_artifact(artifact)
       raise "Unable to locate database artifact #{artifact}" unless File.exist?(artifact)
-      Zip::ZipFile.open(artifact) do |zip|
+      (Dbt::Util.use_pre_1_zip_gem? ? Zip::ZipFile : Zip::File).open(artifact) do |zip|
         filename = 'data/repository.yml'
-        unless zip.file.exist?(filename)
+        if Dbt::Util.use_pre_1_zip_gem? ? !zip.file.exist?(filename) : zip.find_entry(filename).nil?
           raise "Database artifact #{artifact} does not contain a #{filename} and thus is not in the correct format."
         end
-        return zip.file.read(filename)
+        return (Dbt::Util.use_pre_1_zip_gem? ? zip.file : zip).read(filename)
       end
     end
 

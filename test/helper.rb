@@ -5,8 +5,12 @@ require 'test/unit/assertions'
 require 'mocha/setup'
 require 'dbt'
 require 'securerandom'
-require 'zip/zip'
-require 'zip/zipfilesystem'
+if Dbt::Util.use_pre_1_zip_gem?
+  require 'zip/zip'
+  require 'zip/zipfilesystem'
+else
+  require 'zip'
+end
 require 'fileutils'
 
 class Dbt::TestCase < Minitest::Test
@@ -90,7 +94,7 @@ class Dbt::TestCase < Minitest::Test
 
   def create_zip(contents = {})
     zip_filename = create_filename
-    Zip::ZipOutputStream.open(zip_filename) do |zip|
+    (Dbt::Util.use_pre_1_zip_gem? ? Zip::ZipOutputStream : Zip::OutputStream).open(zip_filename) do |zip|
       contents.each_pair do |filename, file_content|
         zip.put_next_entry(filename)
         zip << file_content

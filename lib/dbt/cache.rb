@@ -20,17 +20,24 @@ class Dbt #nodoc
     def initialize(filename)
       @filename = filename
       @files = []
-      require 'zip/zip'
-      require 'zip/zipfilesystem'
-      Zip::ZipFile.foreach(filename) do |entry|
-        @files << entry.name[5, entry.name.length - 5] if entry.file? && entry.name =~ /^data\/.*$/
+      if Dbt::Util.use_pre_1_zip_gem?
+        require 'zip/zip'
+        require 'zip/zipfilesystem'
+        Zip::ZipFile.foreach(filename) do |entry|
+          @files << entry.name[5, entry.name.length - 5] if entry.file? && entry.name =~ /^data\/.*$/
+        end
+      else
+        require 'zip'
+        Zip::File.foreach(filename) do |entry|
+          @files << entry.name[5, entry.name.length - 5] if entry.file? && entry.name =~ /^data\/.*$/
+        end
       end
     end
 
     def contents(filename)
       raise "Unknown filename #{filename} for package #{self.filename}" unless self.files.include?(filename)
-      Zip::ZipFile.open(self.filename) do |zipfile|
-        return zipfile.read "data/#{filename}"
+      (Dbt::Util.use_pre_1_zip_gem? ? Zip::ZipFile : Zip::File).open(self.filename) do |zipfile|
+        return zipfile.read("data/#{filename}")
       end
     end
   end
