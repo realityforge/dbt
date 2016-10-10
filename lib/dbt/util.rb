@@ -14,7 +14,7 @@
 
 class Dbt
   class Util
-    @@pre_1_zip_gem = false
+    @@pre_1_zip_gem = nil
 
     def self.use_pre_1_zip_gem!
       @@pre_1_zip_gem = true
