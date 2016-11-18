@@ -60,13 +60,13 @@ class Dbt #nodoc
       if import_assert_filters?
         filters << Proc.new do |sql|
           sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
-IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (SELECT COUNT(*) FROM @@SOURCE@@.@@TABLE@@)
+IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (SELECT COUNT(*) FROM [@@SOURCE@@].@@TABLE@@)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
           sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
-IF (SELECT COUNT(*) FROM @@TARGET@@.@@TABLE@@) != (\\1)
+IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (\\1)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
