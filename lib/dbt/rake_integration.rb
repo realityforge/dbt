@@ -59,9 +59,9 @@ class Dbt #nodoc
             FileUtils.mkdir_p File.dirname(file)
             File.open(file, 'wb') do |f|
               f.write <<-SQL
-INSERT INTO @@TARGET@@.#{entity.sql.qualified_table_name}(#{entity.attributes.select{|a|a.sql?}.collect{|a|a.sql.quoted_column_name }.join(', ')})
+INSERT INTO [@@TARGET@@].#{entity.sql.qualified_table_name}(#{entity.attributes.select{|a|a.sql?}.collect{|a|a.sql.quoted_column_name }.join(', ')})
   SELECT #{entity.attributes.select{|a|a.sql?}.collect{|a|a.sql.quoted_column_name }.join(', ')}
-  FROM @@SOURCE@@.#{entity.sql.qualified_table_name}
+  FROM [@@SOURCE@@].#{entity.sql.qualified_table_name}
               SQL
             end
           end

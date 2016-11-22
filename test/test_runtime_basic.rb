@@ -1251,7 +1251,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
   def expect_default_sequence(mock, module_name, sequence_name)
     import_banner(module_name, sequence_name, 'D')
-    mock.expects(:execute).with("DECLARE @Next VARCHAR(50);\nSELECT @Next = CAST(current_value AS BIGINT) + 1 FROM DBT_TEST.sys.sequences WHERE object_id = OBJECT_ID('[DBT_TEST].[#{module_name}].[#{sequence_name}]');\nSET @Next = COALESCE(@Next,'1');EXEC('USE DBT_TEST; ALTER SEQUENCE [#{module_name}].[#{sequence_name}] RESTART WITH ' + @Next );", true).in_sequence(@s)
+    mock.expects(:execute).with("DECLARE @Next VARCHAR(50);\nSELECT @Next = CAST(current_value AS BIGINT) + 1 FROM [DBT_TEST].sys.sequences WHERE object_id = OBJECT_ID('[DBT_TEST].[#{module_name}].[#{sequence_name}]');\nSET @Next = COALESCE(@Next,'1');EXEC('USE [DBT_TEST]; ALTER SEQUENCE [#{module_name}].[#{sequence_name}] RESTART WITH ' + @Next );", true).in_sequence(@s)
   end
 
   def import_banner(module_name, sequence_name, import_type = 'D')
@@ -1286,7 +1286,7 @@ class TestRuntimeBasic < Dbt::TestCase
   def expect_default_table_import(mock, import_definition, module_name, table_name)
     expect_pre_table_import(mock, import_definition, module_name, table_name, 'D')
     mock.expects(:column_names_for_table).with("[#{module_name}].[#{table_name}]").returns(['[ID]']).in_sequence(@s)
-    mock.expects(:execute).with("INSERT INTO DBT_TEST.[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM IMPORT_DB.[#{module_name}].[#{table_name}]\n", true).in_sequence(@s)
+    mock.expects(:execute).with("INSERT INTO [DBT_TEST].[#{module_name}].[#{table_name}]([ID])\n  SELECT [ID] FROM [IMPORT_DB].[#{module_name}].[#{table_name}]\n", true).in_sequence(@s)
     expect_post_table_import(mock, import_definition, module_name, table_name)
   end
 
