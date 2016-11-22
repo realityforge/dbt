@@ -222,7 +222,7 @@ SQL
       def restore(database, configuration)
         execute(<<SQL)
   IF EXISTS (SELECT * FROM sys.databases WHERE name = '#{configuration.catalog_name}')
-  ALTER DATABASE #{configuration.catalog_name} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+  ALTER DATABASE #{quote_table_name(configuration.catalog_name)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
   DECLARE @RegKey VARCHAR(400)
 #{get_instance_key_sql}
 #{get_backup_name_sql(configuration, configuration.restore_name || Dbt::Naming.uppercase_constantize(database.key.to_s))}
