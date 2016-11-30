@@ -61,7 +61,7 @@ class Dbt
       results = []
 
       while rs.next()
-        result = Dbt::OrderedHash.new
+        result = Reality::OrderedHash.new
 
         column_names.each_with_index do |name, index|
           value = rs.getObject(index + 1)

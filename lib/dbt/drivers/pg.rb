@@ -59,7 +59,7 @@ class Dbt
       results = []
 
       rs.each do |rs_hash|
-        result = Dbt::OrderedHash.new
+        result = Reality::OrderedHash.new
 
         rs_hash.each do |key, value|
           result[key] = value

@@ -16,7 +16,7 @@ require 'erb'
 require 'yaml'
 require 'rubygems'
 
-require 'dbt/orderedhash'
+require 'reality/orderedhash'
 
 require 'dbt/dbtc'
 require 'dbt/base'
