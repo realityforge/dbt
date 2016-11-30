@@ -269,6 +269,15 @@ TXT
     end
     FileUtils.cp_r Dir.glob("#{File.expand_path(File.dirname(__FILE__) + '/..')}/*"), package_dir
 
+    spec = Gem::Specification::load(File.expand_path(File.dirname(__FILE__) + '/../../dbt.gemspec'))
+    spec.dependencies.select { |dependency| dependency.type == :runtime }.each do |dep|
+      dep_spec = Gem.loaded_specs[dep.name]
+      dep_spec.require_paths.each do |path|
+        lib_path = dep_spec.gem_dir + '/' + path + '/.'
+        FileUtils.cp_r lib_path, package_dir
+      end
+    end
+
     jar = ::Buildr.artifact(jruby_complete_jar(options))
     dir = ::Buildr::Util.relative_path(package_dir, Dir.pwd)
     script = "require 'jruby/jrubyc';exit(JRuby::Compiler::compile_argv(ARGV))"

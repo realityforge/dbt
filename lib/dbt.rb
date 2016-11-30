@@ -14,6 +14,7 @@
 require 'rexml/document'
 require 'erb'
 require 'yaml'
+require 'rubygems'
 
 require 'dbt/orderedhash'
 
