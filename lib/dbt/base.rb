@@ -14,32 +14,8 @@
 
 class Dbt #nodoc
 
-  # Base class used for elements configurable via options
-  class ConfigElement
-
-    def initialize(options, &block)
-      self.options = options
-      yield self if block_given?
-    end
-
-    def options=(options)
-      options.each_pair do |k, v|
-        keys = k.to_s.split('.')
-        target = self
-        keys[0, keys.length - 1].each do |target_accessor_key|
-          target = target.send target_accessor_key.to_sym
-        end
-        begin
-          target.send "#{keys.last}=", v
-        rescue NoMethodError
-          raise "Attempted to configure property \"#{keys.last}\" on #{self.class} but property does not exist."
-        end
-      end
-    end
-  end
-
   # Base class used for named elements configurable via options
-  class BaseElement < ConfigElement
+  class BaseElement < Reality::BaseElement
     attr_reader :key
 
     def initialize(key, options, &block)
@@ -49,7 +25,7 @@ class Dbt #nodoc
   end
 
   # Base Class used for sub-elements of database
-  class DatabaseElement < BaseElement
+  class DatabaseElement < Dbt::BaseElement
 
     def initialize(database, key, options, &block)
       @database = database

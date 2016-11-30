@@ -16,6 +16,7 @@ require 'erb'
 require 'yaml'
 require 'rubygems'
 
+require 'reality/base_element'
 require 'reality/orderedhash'
 
 require 'dbt/dbtc'

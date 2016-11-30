@@ -14,7 +14,7 @@
 
 class Dbt #nodoc
 
-  class DatabaseDefinition < BaseElement
+  class DatabaseDefinition < Dbt::BaseElement
     include FilterContainer
 
     def initialize(key, options, &block)

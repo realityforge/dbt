@@ -14,7 +14,7 @@
 
 class Dbt #nodoc
 
-  class RepositoryDefinition < ConfigElement
+  class RepositoryDefinition < Reality::BaseElement
     attr_accessor :schema_overrides, :table_map, :sequence_map
 
     def initialize(options = {}, &block)
