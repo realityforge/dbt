@@ -14,7 +14,7 @@
 
 class Dbt #nodoc
 
-  class ModuleGroupDefinition < DatabaseElement
+  class ModuleGroupDefinition < Reality.base_element(:container_key => :database, :key => true)
 
     def initialize(database, key, options, &block)
       @modules = @import_enabled = nil

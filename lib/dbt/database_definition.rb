@@ -14,7 +14,7 @@
 
 class Dbt #nodoc
 
-  class DatabaseDefinition < Dbt::BaseElement
+  class DatabaseDefinition < Reality.base_element(:key => true)
     include FilterContainer
 
     def initialize(key, options, &block)

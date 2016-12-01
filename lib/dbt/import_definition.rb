@@ -15,7 +15,7 @@
 class Dbt #nodoc
 
   # Configuration class describing a database import activity
-  class ImportDefinition < DatabaseElement
+  class ImportDefinition < Reality.base_element(:container_key => :database, :key => true)
     include FilterContainer
 
     # TODO: Add per-import configurations that defines whether import should be
