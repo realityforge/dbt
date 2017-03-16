@@ -65,6 +65,12 @@ TXT
       end
     end
 
+    def query_in_control_database(database, sql)
+      init_control_database(database.key) do
+        return db.query(sql)
+      end
+    end
+
     def execute(database, sql)
       init_database(database.key) do
         db.execute(sql)
