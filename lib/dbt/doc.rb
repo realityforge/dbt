@@ -72,7 +72,7 @@ class Dbt
       end
 
       def schema_name
-        dot_index = full_object_name.index(".")
+        dot_index = full_object_name.index('.')
         if dot_index
           full_object_name[0, dot_index]
         else
