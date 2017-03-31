@@ -30,4 +30,5 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency(%q<minitest>, ['= 5.0.2'])
   s.add_development_dependency(%q<mocha>, ['= 0.14.0'])
+  s.add_development_dependency 'test-unit', '= 3.1.5'
 end
