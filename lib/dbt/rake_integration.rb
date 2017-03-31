@@ -124,7 +124,7 @@ INSERT INTO [@@TARGET@@].#{entity.sql.qualified_table_name}(#{entity.attributes.
     extra_actions = database.extra_actions
     (%w(create drop) + extra_actions).each do |action|
       desc "#{action} the #{database.key} database"
-      task "#{database.task_prefix}:#{action}" => ["#{database.task_prefix}:prepare"] do
+      task "#{database.task_prefix}:#{action}" => ["#{database.task_prefix}:load_config"] do
         banner("Running #{action} on package", database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
@@ -145,16 +145,6 @@ INSERT INTO [@@TARGET@@].#{entity.sql.qualified_table_name}(#{entity.attributes.
     self.define_basic_tasks
     task "#{database.task_prefix}:load_config" => ["#{Dbt::Config.task_prefix}:global:load_config"]
 
-    # Database dropping
-
-    desc "Drop the #{database.key} database."
-    task "#{database.task_prefix}:drop" => ["#{database.task_prefix}:load_config"] do
-      banner('Dropping database', database.key)
-      @@runtime.drop(database)
-    end
-
-    # Database creation
-
     task "#{database.task_prefix}:pre_build" => ["#{Dbt::Config.task_prefix}:all:pre_build"]
 
     task "#{database.task_prefix}:prepare_fs" => ["#{database.task_prefix}:pre_build"]
@@ -173,6 +163,12 @@ INSERT INTO [@@TARGET@@].#{entity.sql.qualified_table_name}(#{entity.attributes.
     task "#{database.task_prefix}:create" => ["#{database.task_prefix}:prepare"] do
       banner('Creating database', database.key)
       @@runtime.create(database)
+    end
+
+    desc "Drop the #{database.key} database."
+    task "#{database.task_prefix}:drop" => ["#{database.task_prefix}:load_config"] do
+      banner('Dropping database', database.key)
+      @@runtime.drop(database)
     end
 
     # Data set loading etc

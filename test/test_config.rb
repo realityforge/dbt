@@ -17,7 +17,7 @@ class TestConfig < Dbt::TestCase
     [:repository_config_file, 'repository.yml', 'repo.yml'],
     [:default_datasets_dir_name, 'datasets', 'mydatasets'],
     [:default_fixture_dir_name, 'fixtures', 'myfixtures'],
-    [:index_file_name, 'index.txt', 'import-lite'],
+    [:index_file_name, 'home.txt', 'import-lite'],
     [:task_prefix, 'dbt', 'db'],
     [:driver, 'sql_server', 'postgres'],
     [:environment, 'development', 'production']
