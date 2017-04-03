@@ -82,7 +82,7 @@ MSG
 
     def add_configuration(config_key, config, &block)
       Dbt.error("Attempting to redefine configuration for key '#{config_key}'.") if @configurations[config_key.to_s]
-      @configurations[config_key.to_s] = Dbt::Config.driver_config_class.new(config_key, config, &block)
+      @configurations[config_key.to_s] = Dbt::Config.driver_config(config_key, config, &block)
     end
 
     def is_configuration_data_loaded?

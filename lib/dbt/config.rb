@@ -82,11 +82,18 @@ class Dbt # nodoc
         end
       end
 
+      def driver_config(config_key, config, &block)
+        options = config.dup
+        options.delete(:driver)
+        options.delete('driver')
+        driver_config_class(config).new(config_key, options, &block)
+      end
+
       def driver_config_class(options = {})
-        d = options[:driver] || driver
+        driver = options[:driver] || options['driver'] || self.driver
         is_jruby = options[:jruby].nil? ? defined?(JRUBY_VERSION) : options[:jruby]
 
-        if d == 'sql_server'
+        if driver == 'sql_server'
           is_jruby ? Dbt::MssqlDbConfig : Dbt::TinyTdsDbConfig
         else #d == 'postgres'
           is_jruby ? Dbt::PostgresDbConfig : Dbt::PgDbConfig
