@@ -59,6 +59,18 @@ class Dbt #nodoc
       filters = []
       if import_assert_filters?
         filters << Proc.new do |sql|
+          sql = sql.gsub(/ASSERT_DATABASE_VERSION\((.*)\)/, <<SQL)
+BEGIN
+  DECLARE @DbVersion INT
+  SELECT @DbVersion = CONVERT(INTEGER,value)
+    FROM  [@@TARGET@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
+    WHERE name = 'DatabaseSchemaVersion'
+  IF (@DbVersion IS NULL OR @DbVersion != \\1)
+  BEGIN
+    RAISERROR ('Expected DatabaseSchemaVersion to be \\1', 16, 1) WITH SETERROR
+  END
+END
+SQL
           sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (SELECT COUNT(*) FROM [@@SOURCE@@].@@TABLE@@)
 BEGIN
