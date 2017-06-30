@@ -60,6 +60,7 @@ class Dbt #nodoc
       if import_assert_filters?
         filters << Proc.new do |sql|
           sql = sql.gsub(/ASSERT_DATABASE_VERSION\((.*)\)/, <<SQL)
+GO
 BEGIN
   DECLARE @DbVersion INT
   SELECT @DbVersion = CONVERT(INTEGER,value)
@@ -70,6 +71,7 @@ BEGIN
     RAISERROR ('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1', 16, 1) WITH SETERROR
   END
 END
+GO
 BEGIN
   DECLARE @DbVersion INT
   SELECT @DbVersion = CONVERT(INTEGER,value)
@@ -80,20 +82,24 @@ BEGIN
     RAISERROR ('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1', 16, 1) WITH SETERROR
   END
 END
+GO
 SQL
           sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
+GO
 IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (SELECT COUNT(*) FROM [@@SOURCE@@].@@TABLE@@)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
           sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
+GO
 IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (\\1)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
           sql = sql.gsub(/ASSERT\((.+)\)/, <<SQL)
+GO
 IF NOT (\\1)
 BEGIN
   RAISERROR ('Failed to assert \\1', 16, 1) WITH SETERROR
