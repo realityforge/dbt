@@ -63,11 +63,21 @@ class Dbt #nodoc
 BEGIN
   DECLARE @DbVersion INT
   SELECT @DbVersion = CONVERT(INTEGER,value)
+    FROM  [@@SOURCE@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
+    WHERE name = 'DatabaseSchemaVersion'
+  IF (@DbVersion IS NULL OR @DbVersion = \\1)
+  BEGIN
+    RAISERROR ('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1', 16, 1) WITH SETERROR
+  END
+END
+BEGIN
+  DECLARE @DbVersion INT
+  SELECT @DbVersion = CONVERT(INTEGER,value)
     FROM  [@@TARGET@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
     WHERE name = 'DatabaseSchemaVersion'
   IF (@DbVersion IS NULL OR @DbVersion != \\1)
   BEGIN
-    RAISERROR ('Expected DatabaseSchemaVersion to be \\1', 16, 1) WITH SETERROR
+    RAISERROR ('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1', 16, 1) WITH SETERROR
   END
 END
 SQL
