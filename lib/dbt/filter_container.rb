@@ -62,24 +62,28 @@ class Dbt #nodoc
           sql = sql.gsub(/ASSERT_DATABASE_VERSION\((.*)\)/, <<SQL)
 GO
 BEGIN
-  DECLARE @DbVersion INT
-  SELECT @DbVersion = CONVERT(INTEGER,value)
-    FROM  [@@SOURCE@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
+  DECLARE @DbVersion VARCHAR(MAX)
+  SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
+    FROM [@@SOURCE@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
     WHERE name = 'DatabaseSchemaVersion'
   IF (@DbVersion IS NULL OR @DbVersion = \\1)
   BEGIN
-    RAISERROR ('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1', 16, 1) WITH SETERROR
+    DECLARE @Message VARCHAR(MAX)
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1. Actual Value: ', COALESCE(@DbVersion,''))
+    RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
 GO
 BEGIN
-  DECLARE @DbVersion INT
-  SELECT @DbVersion = CONVERT(INTEGER,value)
-    FROM  [@@TARGET@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
+  DECLARE @DbVersion VARCHAR(MAX)
+  SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
+    FROM [@@TARGET@@]..fn_listextendedproperty(default, default, default, default, default, default, default)
     WHERE name = 'DatabaseSchemaVersion'
   IF (@DbVersion IS NULL OR @DbVersion != \\1)
   BEGIN
-    RAISERROR ('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1', 16, 1) WITH SETERROR
+    DECLARE @Message VARCHAR(MAX)
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1. Actual Value: ', COALESCE(@DbVersion,''))
+    RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
 GO
