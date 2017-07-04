@@ -64,8 +64,7 @@ GO
 BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
   SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
-    FROM [@@SOURCE@@].sys.fn_listextendedproperty(default, default, default, default, default, default, default)
-    WHERE name = 'DatabaseSchemaVersion'
+    FROM [@@SOURCE@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
   IF (@DbVersion IS NULL OR @DbVersion = \\1)
   BEGIN
     DECLARE @Message VARCHAR(MAX)
@@ -77,8 +76,7 @@ GO
 BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
   SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
-    FROM [@@TARGET@@].sys.fn_listextendedproperty(default, default, default, default, default, default, default)
-    WHERE name = 'DatabaseSchemaVersion'
+    FROM [@@TARGET@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
   IF (@DbVersion IS NULL OR @DbVersion != \\1)
   BEGIN
     DECLARE @Message VARCHAR(MAX)
