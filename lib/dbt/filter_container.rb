@@ -63,24 +63,26 @@ class Dbt #nodoc
 GO
 BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
-  SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
+  SET @DbVersion = ''
+  SELECT @DbVersion = COALESCE(CONVERT(VARCHAR(MAX),value),'')
     FROM [@@SOURCE@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
-  IF (@DbVersion IS NULL OR @DbVersion = \\1)
+  IF (@DbVersion IS NULL OR @DbVersion = '\\1')
   BEGIN
     DECLARE @Message VARCHAR(MAX)
-    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1. Actual Value: ', COALESCE(@DbVersion,''))
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1. Actual Value: ', @DbVersion)
     RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
 GO
 BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
-  SELECT @DbVersion = CONVERT(VARCHAR(MAX),value)
+  SET @DbVersion = ''
+  SELECT @DbVersion = COALESCE(CONVERT(VARCHAR(MAX),value),'')
     FROM [@@TARGET@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
-  IF (@DbVersion IS NULL OR @DbVersion != \\1)
+  IF (@DbVersion IS NULL OR @DbVersion != '\\1')
   BEGIN
     DECLARE @Message VARCHAR(MAX)
-    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1. Actual Value: ', COALESCE(@DbVersion,''))
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1. Actual Value: ', @DbVersion)
     RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
