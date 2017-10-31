@@ -21,7 +21,7 @@ class Dbt
     end
 
     def jdbc_driver
-      "net.sourceforge.jtds.jdbc.Driver"
+      'net.sourceforge.jtds.jdbc.Driver'
     end
 
     def jdbc_info

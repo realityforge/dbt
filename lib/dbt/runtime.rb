@@ -519,7 +519,7 @@ TXT
         end
       end
 
-      prefix = relative_dir.gsub("/./","").gsub(/\/\.$/,"")
+      prefix = relative_dir.gsub('/./', '').gsub(/\/\.$/, '')
       matcher = /^#{prefix}\/[^\/]*\.#{extension}$/
       index_filename = "#{prefix}/#{Dbt::Config.index_file_name}"
       database.post_db_artifacts.each do |artifact|
@@ -661,7 +661,7 @@ TXT
         cp_files_to_dir(files, target_dir)
         generate_index(target_dir, files)
       end
-      File.open("#{package_dir}/#{Dbt::Config.repository_config_file}","w") do |f|
+      File.open("#{package_dir}/#{Dbt::Config.repository_config_file}", 'w') do |f|
         f.write database.repository.to_yaml
       end
       if database.enable_migrations?
@@ -678,7 +678,7 @@ TXT
       FileUtils.cp_r files.select{|f| !(f =~ /^zip:/)}, target_dir
       files.select{|f| (f =~ /^zip:/)}.each do |f|
         parts = f.split(':')
-        File.open("#{target_dir}/#{File.basename(parts[2])}","w") do |out|
+        File.open("#{target_dir}/#{File.basename(parts[2])}", 'w') do |out|
           out.write Dbt.cache.package(parts[1]).contents(parts[2])
         end
       end
@@ -686,7 +686,7 @@ TXT
 
     def generate_index(target_dir, files)
       unless files.empty?
-        File.open("#{target_dir}/#{Dbt::Config.index_file_name}", "w") do |index_file|
+        File.open("#{target_dir}/#{Dbt::Config.index_file_name}", 'w') do |index_file|
           index_file.write files.collect { |f| File.basename(f) }.join("\n")
         end
       end
@@ -761,7 +761,7 @@ TXT
       fixture_file = try_find_file_in_module(database, module_name, import_dir, table, 'yml')
       sql_file = try_find_file_in_module(database, module_name, import_dir, table, 'sql')
 
-      info("#{'%-15s' % module_name}: Importing #{clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : "D"})")
+      info("#{'%-15s' % module_name}: Importing #{clean_table_name(table)} (By #{fixture_file ? 'F' : sql_file ? 'S' : 'D'})")
       begin
         if fixture_file && sql_file
           raise "Unexpectedly found both import fixture (#{fixture_file}) and import sql (#{sql_file}) files."

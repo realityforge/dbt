@@ -13,6 +13,6 @@ Rake::TestTask.new do |t|
   files = FileList['test/helper.rb', 'test/test_*.rb']
   t.loader = :rake
   t.test_files = files
-  t.libs << "."
+  t.libs << '.'
   t.warning = true
 end

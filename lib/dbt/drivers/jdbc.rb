@@ -29,7 +29,7 @@ class Dbt
 
   class JdbcDbDriver < Dbt::BaseDbDriver
     def execute(sql, execute_in_control_database = false)
-      raise "Can not execute statement when database connection is not open." unless open?
+      raise 'Can not execute statement when database connection is not open.' unless open?
       current_database = nil
       if execute_in_control_database
         current_database = self.current_database
@@ -78,7 +78,7 @@ class Dbt
     end
 
     def open(config, use_control_database)
-      raise "Can not open database connection. Connection already open." if open?
+      raise 'Can not open database connection. Connection already open.' if open?
       config.class.jdbc_driver_dependencies.each do |spec|
         begin
           dependency = ::Buildr.artifact(spec)

@@ -345,7 +345,7 @@ class TestRuntimeBasic < Dbt::TestCase
 
   def test_create_with_sql
     mock = Dbt::DbDriver.new
-    Dbt.runtime.instance_variable_set("@db", mock)
+    Dbt.runtime.instance_variable_set('@db', mock)
 
     config = create_postgres_config
 

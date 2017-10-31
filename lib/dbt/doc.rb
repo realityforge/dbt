@@ -24,9 +24,9 @@ class Dbt
       if File.expand_path(source_directory) != File.expand_path(target_directory)
         find_source_files(source_directory).collect do |src_file|
           # source file name with the source_directory path removed from its start
-          src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, "")
+          src_file_name = src_file.to_s.gsub(/^#{source_directory.to_s}/, '')
 
-          target_file = File.expand_path(target_directory + src_file_name.gsub(/\.sql$/, "_Documentation.sql"))
+          target_file = File.expand_path(target_directory + src_file_name.gsub(/\.sql$/, '_Documentation.sql'))
 
           file(target_file => [src_file]) do
             File.open(src_file) do |f|
@@ -63,7 +63,7 @@ class Dbt
       end
 
       def object_name
-        dot_index = full_object_name.index(".")
+        dot_index = full_object_name.index('.')
         if dot_index
           full_object_name[dot_index + 1, full_object_name.length]
         else

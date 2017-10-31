@@ -105,7 +105,7 @@ class Dbt
       protected
 
       def current_database
-        select_value("SELECT current_database()")
+        select_value('SELECT current_database()')
       end
 
       def select_database(database_name)

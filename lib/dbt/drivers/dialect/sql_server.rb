@@ -176,8 +176,8 @@ ORDER BY t.Ordinal, t.Name
         base_data_path = configuration.data_path
         base_log_path = configuration.log_path
 
-        db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ""
-        log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ""
+        db_def = base_data_path ? "ON PRIMARY (NAME = [#{db_filename}], FILENAME='#{base_data_path}#{"\\"}#{db_filename}.mdf')" : ''
+        log_def = base_log_path ? "LOG ON (NAME = [#{db_filename}_LOG], FILENAME='#{base_log_path}#{"\\"}#{db_filename}.ldf')" : ''
 
         quoted_catalog_name = quote_table_name(configuration.catalog_name)
         execute("CREATE DATABASE #{quoted_catalog_name} #{db_def} #{log_def}")
