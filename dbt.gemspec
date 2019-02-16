@@ -14,7 +14,6 @@ Gem::Specification.new do |s|
   s.summary            = %q{A simple tool designed to simplify the creation, migration and deletion of databases.}
   s.description        = %q{A simple tool designed to simplify the creation, migration and deletion of databases.}
 
-  s.rubyforge_project  = %q{dbt}
 
   s.files              = `git ls-files`.split("\n")
   s.test_files         = `git ls-files -- {spec}/*`.split("\n")
