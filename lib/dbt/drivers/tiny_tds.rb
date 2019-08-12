@@ -45,7 +45,7 @@ class Dbt
                             :timeout => config.timeout,
                             :username => config.username,
                             :password => config.password)
-      # Configure the conenction so it is more ANSI-like
+      # Configure the connection so it is more ANSI-like
       [
         'SET CURSOR_CLOSE_ON_COMMIT ON',
         'SET ANSI_NULLS ON',
