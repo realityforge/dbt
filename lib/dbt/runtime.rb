@@ -697,7 +697,7 @@ TXT
     end
 
     def run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
-      sql = filter_sql(sql, database.expanded_filters)
+      sql = filter_sql(sql, database.expanded_filters('import'))
       if table
         sql = sql.gsub(/@@TABLE@@/, table)
         sql = sql.gsub(/__TABLE__/, table)

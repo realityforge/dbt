@@ -55,7 +55,7 @@ class Dbt #nodoc
       @filters ||= []
     end
 
-    def expanded_filters
+    def expanded_filters(environment = Dbt::Config.environment)
       filters = []
       if import_assert_filters?
         filters << Proc.new do |sql|
@@ -115,7 +115,7 @@ SQL
 
       if database_environment_filter?
         filters << Proc.new do |sql|
-          sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s).gsub(/__ENVIRONMENT__/, Dbt::Config.environment.to_s)
+          sql.gsub(/@@ENVIRONMENT@@/, environment.to_s).gsub(/__ENVIRONMENT__/, environment.to_s)
         end
       end
 
@@ -126,11 +126,7 @@ SQL
           end
         elsif filter.is_a?(DatabaseNameFilter)
           filters << Proc.new do |sql|
-            Dbt.runtime.filter_database_name(sql,
-                                             filter.pattern,
-                                             filter.database_key,
-                                             Dbt::Config.environment,
-                                             filter.optional)
+            Dbt.runtime.filter_database_name(sql, filter.pattern, filter.database_key, environment, filter.optional)
           end
         else
           filters << filter
