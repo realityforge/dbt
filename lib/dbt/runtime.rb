@@ -698,27 +698,32 @@ TXT
 
     def run_import_sql(database, table, sql, script_file_name = nil, print_dot = false)
       sql = filter_sql(sql, database.expanded_filters)
-      sql = sql.gsub(/@@TABLE@@/, table) if table
+      if table
+        sql = sql.gsub(/@@TABLE@@/, table)
+        sql = sql.gsub(/__TABLE__/, table)
+      end
       sql = filter_database_name(sql, /@@SOURCE@@/, database.key, 'import')
+      sql = filter_database_name(sql, /__SOURCE__/, database.key, 'import')
       sql = filter_database_name(sql, /@@TARGET@@/, database.key, Dbt::Config.environment)
+      sql = filter_database_name(sql, /__TARGET__/, database.key, Dbt::Config.environment)
       run_sql_batch(sql, script_file_name, print_dot, true)
     end
 
     def generate_standard_import_sql(table)
-      sql = "INSERT INTO [@@TARGET@@].#{table}("
+      sql = "INSERT INTO [__TARGET__].#{table}("
       columns = db.column_names_for_table(table)
       sql += columns.join(', ')
       sql += ")\n  SELECT "
       sql += columns.join(', ')
-      sql += " FROM [@@SOURCE@@].#{table}\n"
+      sql += " FROM [__SOURCE__].#{table}\n"
       sql
     end
 
     def generate_standard_sequence_import_sql(sequence_name)
       sql = "DECLARE @Next VARCHAR(50);\n"
-      sql += "SELECT @Next = CAST(current_value AS BIGINT) + 1 FROM [@@SOURCE@@].sys.sequences WHERE object_id = OBJECT_ID('[@@SOURCE@@].#{sequence_name}');\n"
+      sql += "SELECT @Next = CAST(current_value AS BIGINT) + 1 FROM [__SOURCE__].sys.sequences WHERE object_id = OBJECT_ID('[__SOURCE__].#{sequence_name}');\n"
       sql += "SET @Next = COALESCE(@Next,'1');"
-      sql += "EXEC('USE [@@TARGET@@]; ALTER SEQUENCE #{sequence_name} RESTART WITH ' + @Next );"
+      sql += "EXEC('USE [__TARGET__]; ALTER SEQUENCE #{sequence_name} RESTART WITH ' + @Next );"
       sql
     end
 

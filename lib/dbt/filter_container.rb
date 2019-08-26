@@ -65,11 +65,11 @@ BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
   SET @DbVersion = ''
   SELECT @DbVersion = COALESCE(CONVERT(VARCHAR(MAX),value),'')
-    FROM [@@SOURCE@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
+    FROM [__SOURCE__].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
   IF (@DbVersion IS NULL OR @DbVersion = '\\1')
   BEGIN
     DECLARE @Message VARCHAR(MAX)
-    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@SOURCE@@ database not to be \\1. Actual Value: ', @DbVersion)
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in __SOURCE__ database not to be \\1. Actual Value: ', @DbVersion)
     RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
@@ -78,11 +78,11 @@ BEGIN
   DECLARE @DbVersion VARCHAR(MAX)
   SET @DbVersion = ''
   SELECT @DbVersion = COALESCE(CONVERT(VARCHAR(MAX),value),'')
-    FROM [@@TARGET@@].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
+    FROM [__TARGET__].sys.fn_listextendedproperty('DatabaseSchemaVersion', default, default, default, default, default, default)
   IF (@DbVersion IS NULL OR @DbVersion != '\\1')
   BEGIN
     DECLARE @Message VARCHAR(MAX)
-    SET @Message = CONCAT('Expected DatabaseSchemaVersion in @@TARGET@@ database to be \\1. Actual Value: ', @DbVersion)
+    SET @Message = CONCAT('Expected DatabaseSchemaVersion in __TARGET__ database to be \\1. Actual Value: ', @DbVersion)
     RAISERROR (@Message, 16, 1) WITH SETERROR
   END
 END
@@ -90,14 +90,14 @@ GO
 SQL
           sql = sql.gsub(/ASSERT_UNCHANGED_ROW_COUNT\(\)/, <<SQL)
 GO
-IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (SELECT COUNT(*) FROM [@@SOURCE@@].@@TABLE@@)
+IF (SELECT COUNT(*) FROM [__TARGET__].@@TABLE@@) != (SELECT COUNT(*) FROM [__SOURCE__].@@TABLE@@)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
 SQL
           sql = sql.gsub(/ASSERT_ROW_COUNT\((.*)\)/, <<SQL)
 GO
-IF (SELECT COUNT(*) FROM [@@TARGET@@].@@TABLE@@) != (\\1)
+IF (SELECT COUNT(*) FROM [__TARGET__].@@TABLE@@) != (\\1)
 BEGIN
   RAISERROR ('Actual row count for @@TABLE@@ does not match expected rowcount', 16, 1) WITH SETERROR
 END
@@ -115,7 +115,7 @@ SQL
 
       if database_environment_filter?
         filters << Proc.new do |sql|
-          sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s)
+          sql.gsub(/@@ENVIRONMENT@@/, Dbt::Config.environment.to_s).gsub(/__ENVIRONMENT__/, Dbt::Config.environment.to_s)
         end
       end
 
