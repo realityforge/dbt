@@ -167,7 +167,7 @@ TXT
             emit_fixture(filename, records)
           end
           database.repository.sequence_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |sequence_name|
-            info("Dumping #{sequence_name}")
+            info("Exporting fixture for #{clean_table_name(sequence_name)}")
             sequence_value = db.query(dump_sequence_sql(sequence_name))[0]['']
             emit_yaml_file("#{prefix}#{clean_table_name(sequence_name)}.yml", sequence_value)
           end
