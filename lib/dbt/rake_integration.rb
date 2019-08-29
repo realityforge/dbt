@@ -64,6 +64,19 @@ INSERT INTO [__TARGET__].#{entity.sql.qualified_table_name}(#{entity.attributes.
   FROM [__SOURCE__].#{entity.sql.qualified_table_name}
               SQL
             end
+            entity.attributes.select{|attribute|attribute.sql? && attribute.sql.sequence?}.each do |attribute|
+              sequence_name = attribute.sql.sequence.qualified_sequence_name.to_s.gsub('[','').gsub(']','')
+              parts = sequence_name.split('.')
+              file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{sequence_name}.sql")
+              FileUtils.mkdir_p File.dirname(file)
+              File.open(file, 'wb') do |f|
+                f.write <<-SQL
+DECLARE @Next VARCHAR(50)
+SELECT @Next = CAST(current_value AS BIGINT) + 1 FROM __SOURCE__.sys.sequences WHERE object_id = OBJECT_ID('[__SOURCE__].#{attribute.sql.sequence.qualified_sequence_name}')
+EXEC ( 'USE __TARGET__; ALTER SEQUENCE #{attribute.sql.sequence.qualified_sequence_name} RESTART WITH ' + @Next )
+                SQL
+              end
+            end
           end
         end
       end
