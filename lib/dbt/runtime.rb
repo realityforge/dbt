@@ -416,7 +416,6 @@ TXT
       database.repository.modules.each do |module_name|
         collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
       end
-
       database.repository.modules.reverse.each do |module_name|
         down_fixtures(database, module_name, fixtures)
       end
