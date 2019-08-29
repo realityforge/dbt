@@ -97,6 +97,13 @@ class Dbt #nodoc
         end
       end
       raise "Unknown import '#{import_key}'"
+    elsif /^create_with_dataset:/ =~ command
+      dataset_name = command[20, command.length]
+      if database.datasets.collect { |d| d.to_s }.include?(dataset_name)
+        @@runtime.create_with_dataset(database, dataset_name)
+      else
+        raise "Unknown dataset '#{dataset_name}'"
+      end
     elsif /^up/ =~ command
       module_group_key = command[3, command.length]
       module_group = database.module_group_by_name(module_group_key)
@@ -137,6 +144,7 @@ class Dbt #nodoc
       end
     end
     database.datasets.each do |dataset|
+      valid_commands << "create_with_dataset:#{dataset}"
       valid_commands << "datasets:#{dataset}"
     end
 

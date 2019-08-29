@@ -34,6 +34,18 @@ TXT
       end
     end
 
+    def create_with_dataset(database, dataset_name)
+      create_database(database)
+      init_database(database.key) do
+        perform_pre_create_hooks(database)
+        perform_create_action(database, :up)
+        perform_load_dataset(database, dataset_name)
+        perform_create_action(database, :finalize)
+        perform_post_create_hooks(database)
+        perform_post_create_migrations_setup(database)
+      end
+    end
+
     def create_by_import(imp)
       database = imp.database
       create_database(database) unless partial_import_completed?
@@ -121,18 +133,7 @@ TXT
 
     def load_dataset(database, dataset_name)
       init_database(database.key) do
-        subdir = "#{database.datasets_dir_name}/#{dataset_name}"
-        fixtures = {}
-        database.repository.modules.each do |module_name|
-          collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
-        end
-
-        database.repository.modules.reverse.each do |module_name|
-          down_fixtures(database, module_name, fixtures)
-        end
-        database.repository.modules.each do |module_name|
-          up_fixtures(database, module_name, fixtures)
-        end
+        perform_load_dataset(database, dataset_name)
       end
     end
 
@@ -406,6 +407,21 @@ TXT
     def perform_pre_create_hooks(database)
       database.pre_create_dirs.each do |dir|
         process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+      end
+    end
+
+    def perform_load_dataset(database, dataset_name)
+      subdir = "#{database.datasets_dir_name}/#{dataset_name}"
+      fixtures = {}
+      database.repository.modules.each do |module_name|
+        collect_fixtures_from_dirs(database, module_name, subdir, fixtures)
+      end
+
+      database.repository.modules.reverse.each do |module_name|
+        down_fixtures(database, module_name, fixtures)
+      end
+      database.repository.modules.each do |module_name|
+        up_fixtures(database, module_name, fixtures)
       end
     end
 

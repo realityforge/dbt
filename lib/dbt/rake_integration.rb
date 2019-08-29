@@ -178,6 +178,12 @@ INSERT INTO [__TARGET__].#{entity.sql.qualified_table_name}(#{entity.attributes.
         banner("Loading Dataset #{dataset_name}", database.key)
         @@runtime.load_dataset(database, dataset_name)
       end
+
+      desc "Create the #{database.key} database and load #{dataset_name} dataset during creation."
+      task "#{database.task_prefix}:create_with_dataset:#{dataset_name}" => ["#{database.task_prefix}:prepare"] do
+        banner("Creating Database and loading '#{dataset_name}' dataset", database.key)
+        @@runtime.create_with_dataset(database, dataset_name)
+      end
     end
 
     if database.enable_migrations?
