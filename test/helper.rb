@@ -23,6 +23,8 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_no_create = nil
     Dbt::Config.config_filename = nil
     Dbt::Config.default_datasets_dir_name = nil
+    Dbt::Config.default_pre_dataset_dirs = nil
+    Dbt::Config.default_post_dataset_dirs = nil
     Dbt::Config.repository_config_file = nil
     Dbt::Config.default_up_dirs = nil
     Dbt::Config.default_down_dirs = nil

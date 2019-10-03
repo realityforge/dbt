@@ -37,7 +37,8 @@ class Dbt #nodoc
           @search_dirs = @migrations_dir_name = @migrations_applied_at_create =
             @rake_integration = @separate_import_task = @import_task_as_part_of_create =
               @datasets_dir_name = @fixture_dir_name = @local_repository = @packaged =
-                @database_environment_filter = @import_assert_filters = @managed = nil
+                @database_environment_filter = @import_assert_filters = @managed =
+                  @pre_dataset_dirs = @post_dataset_dirs = nil
 
       @pre_db_artifacts = []
       @post_db_artifacts = []
@@ -132,6 +133,18 @@ class Dbt #nodoc
 
     def datasets_dir_name
       @datasets_dir_name || Dbt::Config.default_datasets_dir_name
+    end
+
+    attr_writer :pre_dataset_dirs
+
+    def pre_dataset_dirs
+      @pre_dataset_dirs || Dbt::Config.default_pre_dataset_dirs
+    end
+
+    attr_writer :post_dataset_dirs
+
+    def post_dataset_dirs
+      @post_dataset_dirs || Dbt::Config.default_post_dataset_dirs
     end
 
     attr_writer :fixture_dir_name

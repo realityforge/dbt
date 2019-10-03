@@ -26,6 +26,8 @@ class TestDatabaseDefinition < Dbt::TestCase
     assert_equal definition.pre_create_dirs, Dbt::Config.default_pre_create_dirs
     assert_equal definition.post_create_dirs, Dbt::Config.default_post_create_dirs
     assert_equal definition.datasets_dir_name, Dbt::Config.default_datasets_dir_name
+    assert_equal definition.pre_dataset_dirs, Dbt::Config.default_pre_dataset_dirs
+    assert_equal definition.post_dataset_dirs, Dbt::Config.default_post_dataset_dirs
 
     Dbt::Config.default_search_dirs = ['x']
     assert_equal definition.search_dirs, Dbt::Config.default_search_dirs

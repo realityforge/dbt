@@ -39,7 +39,9 @@ TXT
       init_database(database.key) do
         perform_pre_create_hooks(database)
         perform_create_action(database, :up)
+        perform_pre_dataset_hooks(database, dataset_name)
         perform_load_dataset(database, dataset_name)
+        perform_post_dataset_hooks(database, dataset_name)
         perform_create_action(database, :finalize)
         perform_post_create_hooks(database)
         perform_post_create_migrations_setup(database)
@@ -133,7 +135,9 @@ TXT
 
     def load_dataset(database, dataset_name)
       init_database(database.key) do
+        perform_pre_dataset_hooks(database, dataset_name)
         perform_load_dataset(database, dataset_name)
+        perform_post_dataset_hooks(database, dataset_name)
       end
     end
 
@@ -410,6 +414,20 @@ TXT
       end
     end
 
+    def perform_pre_dataset_hooks(database, dataset_name)
+      database.pre_dataset_dirs.each do |pre_dir|
+        dir = "#{database.datasets_dir_name}/#{dataset_name}/#{pre_dir}"
+        process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+      end
+    end
+
+    def perform_post_dataset_hooks(database, dataset_name)
+      database.post_dataset_dirs.each do |post_dir|
+        dir = "#{database.datasets_dir_name}/#{dataset_name}/#{post_dir}"
+        process_dir_set(database, dir, false, "#{'%-15s' % ''}: #{dir_display_name(dir)}")
+      end
+    end
+
     def perform_load_dataset(database, dataset_name)
       subdir = "#{database.datasets_dir_name}/#{dataset_name}"
       fixtures = {}
@@ -669,7 +687,10 @@ TXT
       end
       create_hooks = [database.pre_create_dirs, database.post_create_dirs]
       import_hooks = database.imports.values.collect { |i| [i.pre_import_dirs, i.post_import_dirs] }
-      database_wide_dirs = create_hooks + import_hooks
+      base_dataset_hook_dirs = database.datasets.collect { |dataset| "#{database.datasets_dir_name}/#{dataset}" }
+      pre_dataset_hook_dirs = base_dataset_hook_dirs.collect {|d| database.pre_dataset_dirs.collect {|pre|"#{d}/#{pre}" }}
+      post_dataset_hook_dirs = base_dataset_hook_dirs.collect {|d| database.post_dataset_dirs.collect {|post|"#{d}/#{post}" }}
+      database_wide_dirs = create_hooks + import_hooks + pre_dataset_hook_dirs + post_dataset_hook_dirs
       database_wide_dirs.flatten.compact.each do |relative_dir_name|
         target_dir = "#{package_dir}/#{relative_dir_name}"
         files = collect_files(database, relative_dir_name)

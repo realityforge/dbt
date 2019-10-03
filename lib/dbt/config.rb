@@ -18,6 +18,8 @@ class Dbt # nodoc
   class Config
 
     @default_datasets_dir_name = nil
+    @default_pre_dataset_dirs = nil
+    @default_post_dataset_dirs = nil
     @repository_config_file = nil
     @default_up_dirs = nil
     @default_down_dirs = nil
@@ -223,6 +225,19 @@ class Dbt # nodoc
 
       def default_datasets_dir_name
         @default_datasets_dir_name || 'datasets'
+      end
+
+      attr_writer :default_pre_dataset_dirs
+
+      # The name of the directory in full is "{default_datasets_dir_name}/{dataset_name}/{default_pre_dataset_dirs}"
+      def default_pre_dataset_dirs
+        @default_pre_dataset_dirs || %w(pre)
+      end
+
+      attr_writer :default_post_dataset_dirs
+
+      def default_post_dataset_dirs
+        @default_post_dataset_dirs || %w(post)
       end
 
       attr_writer :default_migrations_dir_name
