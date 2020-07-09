@@ -46,6 +46,11 @@ class Dbt
         end
       end
 
+      def verify_schema(schema_name)
+        # We haven't implemented the checking of constraints in Postgres. Returning an empty list of errors.
+        []
+      end
+
       def drop_schema(schema_name, tables)
         execute("DROP SCHEMA #{quote_table_name(schema_name)} CASCADE")
       end

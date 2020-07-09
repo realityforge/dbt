@@ -87,6 +87,10 @@ class Dbt
         end
       end
 
+      def verify_schema(schema_name)
+        query("EXEC #{schema_name}.spCheckConstraints")
+      end
+
       def drop_schema(schema_name, tables)
         #TODO: A better dependency list is as follows
 =begin
