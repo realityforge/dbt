@@ -205,6 +205,12 @@ TXT
       hash_files(database, collect_fileset_for_hash(database))
     end
 
+    def verify_schema(database, schema_name)
+      init_database(database.key) do
+        db.verify_schema schema_name
+      end
+    end
+
     private
 
     def dump_sequence_sql(table_name)

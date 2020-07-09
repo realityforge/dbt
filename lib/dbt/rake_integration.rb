@@ -34,7 +34,7 @@ class Dbt #nodoc
 
         failed_constraints = []
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
-          failed_constraints += Dbt.runtime.query(self, "EXEC #{data_module.sql.schema}.spCheckConstraints")
+          failed_constraints += Dbt.runtime.verify_schema(self, data_module.sql.schema)
         end
         if failed_constraints.size > 0
           error_message = "Failed Constraints:\n#{failed_constraints.collect do |row|

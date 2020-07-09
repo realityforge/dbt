@@ -47,6 +47,10 @@ class Dbt #nodoc
       raise NotImplementedError
     end
 
+    def verify_schema(schema_name)
+      raise NotImplementedError
+    end
+
     def drop_schema(schema_name, tables)
       raise NotImplementedError
     end
