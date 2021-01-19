@@ -467,8 +467,8 @@ TXT
         filesystem_files = dirs.collect { |d| Dir["#{d}/*.yml"] + Dir["#{d}/*.sql"] }.flatten.compact
         ordered_elements.each do |table_name|
           table_name = clean_table_name(table_name)
-          sql_file = /#{table_name}.sql$/
-          yml_file = /#{table_name}.yml$/
+          sql_file = /\/#{table_name}.sql$/
+          yml_file = /\/#{table_name}.yml$/
           filesystem_files = filesystem_files.delete_if { |f| f =~ sql_file || f =~ yml_file }
         end
         raise "Discovered additional files in import directory in database search path. Files: #{filesystem_files.inspect}" unless filesystem_files.empty?
