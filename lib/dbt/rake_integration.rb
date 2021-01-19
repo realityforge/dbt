@@ -55,7 +55,7 @@ class Dbt #nodoc
 
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
           data_module.entities.select{|entity| entity.sql? && entity.concrete? && !entity.sql.load_from_fixture? }.each do |entity|
-            file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{entity.sql.qualified_table_name.to_s.gsub('[','').gsub(']','').gsub('"','')}.sql")
+            file = File.expand_path("#{base_dir}/#{data_module.sql.schema_name}/import/#{entity.sql.qualified_table_name.to_s.gsub('[','').gsub(']','').gsub('"','')}.sql")
             FileUtils.mkdir_p File.dirname(file)
             File.open(file, 'wb') do |f|
               f.write <<-SQL
@@ -67,7 +67,7 @@ INSERT INTO [__TARGET__].#{entity.sql.qualified_table_name}(#{entity.attributes.
             entity.attributes.select{|attribute|attribute.sql? && attribute.sql.sequence?}.each do |attribute|
               sequence_name = attribute.sql.sequence.qualified_sequence_name.to_s.gsub('[','').gsub(']','')
               parts = sequence_name.split('.')
-              file = File.expand_path("#{base_dir}/#{data_module.name}/import/#{sequence_name}.sql")
+              file = File.expand_path("#{base_dir}/#{data_module.sql.schema_name}/import/#{sequence_name}.sql")
               FileUtils.mkdir_p File.dirname(file)
               File.open(file, 'wb') do |f|
                 f.write <<-SQL
