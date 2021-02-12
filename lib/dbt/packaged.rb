@@ -15,7 +15,7 @@
 class Dbt #nodoc
 
   def self.jruby_version(options)
-    options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '1.7.2')
+    options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '9.2.14.0')
   end
 
   def self.jruby_complete_jar(options)
