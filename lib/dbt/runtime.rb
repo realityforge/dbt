@@ -254,15 +254,25 @@ TXT
     def emit_fixture(fixture_filename, records)
       if !records.respond_to?(:values)
         # Old versions of JRuby do not support values
-        records.each do |record|
+        records.dup.each do |record|
           record[1].each do |k, v|
-            record[1][k] = db.convert_value_for_fixture(v)
+            value = db.convert_value_for_fixture(v)
+            if value.nil?
+              record[1].delete(k)
+            else
+              record[1][k] = value
+            end
           end
         end
       else
         records.values.each do |row|
-          row.each_pair do |k, v|
-            row[k] = db.convert_value_for_fixture(v)
+          row.dup.each_pair do |k, v|
+            value = db.convert_value_for_fixture(v)
+            if value.nil?
+              row.delete(k)
+            else
+              row[k] = value
+            end
           end
         end
       end
