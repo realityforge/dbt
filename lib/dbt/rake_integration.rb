@@ -144,9 +144,9 @@ EXEC ( 'USE __TARGET__; ALTER SEQUENCE #{attribute.sql.sequence.qualified_sequen
         Java::Commands.java '-jar',
                             a.to_s,
                             '--database',
-                            database.key,
+                            database.key.to_s,
                             '--environment',
-                            Dbt::Config.environment,
+                            Dbt::Config.environment.to_s,
                             '--config-file',
                             Dbt::Config.config_filename,
                             action
