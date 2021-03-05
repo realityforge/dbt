@@ -49,7 +49,7 @@ class Dbt #nodoc
         jar.merge(::Buildr.artifact(spec))
       end
       jar.include "#{package_dir}/code", :as => '.'
-      jar.with :manifest => buildr_project.manifest.merge('Main-Class' => 'org.realityforge.dbt.dbtcli')
+      jar.with :manifest => buildr_project.manifest.merge('Main-Class' => 'org.jruby.JarBootstrapMain')
     end
   end
 
@@ -149,8 +149,7 @@ class Dbt #nodoc
 
     valid_commands << 'migrate' if database.enable_migrations?
 
-    FileUtils.mkdir_p "#{package_dir}/org/realityforge/dbt"
-    File.open("#{package_dir}/org/realityforge/dbt/dbtcli.rb", 'w') do |f|
+    File.open("#{package_dir}/jar-bootstrap.rb", 'w') do |f|
       f << <<TXT
 require 'dbt'
 require 'optparse'
@@ -280,20 +279,6 @@ TXT
         lib_path = dep_spec.gem_dir + '/' + path + '/.'
         FileUtils.cp_r lib_path, package_dir
       end
-    end
-
-    jar = ::Buildr.artifact(jruby_complete_jar(options))
-    dir = ::Buildr::Util.relative_path(package_dir, Dir.pwd)
-    script = "require 'jruby/jrubyc';exit(JRuby::Compiler::compile_argv(ARGV))"
-    java = Java::Commands.send(:path_to_bin, 'java')
-    command = "#{java} -jar #{jar} --disable-gems -e \"#{script}\" -- --dir #{dir} #{Dir["#{dir}/**/*.rb"].join(' ')}"
-    old_gemfile = ENV['BUNDLE_GEMFILE']
-    ENV['BUNDLE_GEMFILE'] = "#{base_package_dir}/Gemfile"
-    FileUtils.touch "#{base_package_dir}/Gemfile"
-    begin
-      sh command
-    ensure
-      ENV['BUNDLE_GEMFILE'] = old_gemfile
     end
   end
 end
