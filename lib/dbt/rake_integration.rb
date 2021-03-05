@@ -141,15 +141,7 @@ EXEC ( 'USE __TARGET__; ALTER SEQUENCE #{attribute.sql.sequence.qualified_sequen
         banner("Running #{action} on package", database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
-        Java::Commands.java '-jar',
-                            a.to_s,
-                            '--database',
-                            database.key.to_s,
-                            '--environment',
-                            Dbt::Config.environment.to_s,
-                            '--config-file',
-                            Dbt::Config.config_filename,
-                            action
+        sh "export RUBYOPT= && #{Java::Commands.path_to_bin('java')} -jar #{a} --database #{database.key} --environment #{Dbt::Config.environment} --config-file #{Dbt::Config.config_filename} #{action}"
       end
     end
   end
