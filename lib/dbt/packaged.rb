@@ -14,12 +14,8 @@
 
 class Dbt #nodoc
 
-  def self.jruby_version(options)
-    options[:jruby_version] || (defined?(JRUBY_VERSION) ? JRUBY_VERSION : '9.2.14.0')
-  end
-
-  def self.jruby_complete_jar(options)
-    "org.jruby:jruby-complete:jar:#{jruby_version(options)}"
+  def self.jruby_complete_jar
+    'org.jruby:jruby-complete:jar:9.2.14.0'
   end
 
   def self.define_database_package(database_key, options = {})
@@ -35,7 +31,6 @@ class Dbt #nodoc
     task "#{database.task_prefix}:package" => ["#{database.task_prefix}:prepare_fs"] do
       banner('Packaging Database Scripts', database.key)
       params = options.dup
-      params[:jruby_version] = jruby_version(options)
       params[:include_code] = include_code
       package_database(database, package_dir, params)
     end
@@ -48,8 +43,7 @@ class Dbt #nodoc
     if include_code
       buildr_project.file("#{package_dir}/code" => "#{database.task_prefix}:package")
       dependencies =
-        [jruby_complete_jar(options)] +
-          Dbt::Config.driver_config_class(:jruby => true).jdbc_driver_dependencies
+        [jruby_complete_jar] + Dbt::Config.driver_config_class(:jruby => true).jdbc_driver_dependencies
 
       dependencies.each do |spec|
         jar.merge(::Buildr.artifact(spec))
