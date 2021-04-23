@@ -23,9 +23,13 @@ class Dbt #nodoc
     # is 'domgen:load' and the generate task is 'domgen:sql' and these will be used if no
     # other values are specified. The repository_key can be derived if there is only one
     # repository in the system, otherwise it must be specified.
-    def enable_domgen(repository_key = nil, load_task_name = nil, generate_task_name = nil)
-      task "#{task_prefix}:load_config" => (load_task_name || 'domgen:load')
-      task "#{task_prefix}:pre_build" => (generate_task_name || 'domgen:sql')
+    def enable_domgen(options = {})
+      repository_key = options[:repository_key]
+      load_task_name = options[:load_task_name] || 'domgen:load'
+      generate_task_name = options[:generate_task_name] || 'domgen:sql'
+      perform_analysis_checks = options[:perform_analysis_checks].nil? ? false : !!options[:perform_analysis_checks]
+      task "#{task_prefix}:load_config" => load_task_name
+      task "#{task_prefix}:pre_build" => generate_task_name
 
       desc 'Verify constraints on database.'
       task "#{task_prefix}:verify_constraints" => ["#{task_prefix}:load_config"] do
@@ -36,12 +40,24 @@ class Dbt #nodoc
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
           failed_constraints += Dbt.runtime.verify_schema(self, data_module.sql.schema)
         end
+        error_message = ''
         if failed_constraints.size > 0
-          error_message = "Failed Constraints:\n#{failed_constraints.collect do |row|
+          error_message += "Failed Constraints:\n#{failed_constraints.collect do |row|
             "\t#{row['ConstraintName']} on #{row['SchemaName']}.#{row['TableName']}"
           end.join("\n")}"
-          raise error_message
         end
+        if perform_analysis_checks
+          Dbt.banner('Analyzing database', key)
+          results = Dbt.runtime.query(self, "EXEC [Analysis].[spPerformChecks]")
+          unless results.empty?
+            error_message += "Failed Checks:\n#{results.collect do |row|
+              "\t#{row['Category']}: #{row['Description']} - #{row['ViewSQL']}"
+            end.join("\n")}"
+          end
+        end
+
+        raise error_message unless error_message.empty?
+
         Dbt.banner('Database verified', key)
       end
 
