@@ -67,6 +67,8 @@ class Dbt #nodoc
 
         Dbt.banner("Emit standard imports to IMPORTS_OUTPUT_DIR=#{base_dir}", key)
 
+        FileUtils.rm_rf base_dir
+
         repository = get_domgen_repository(repository_key)
 
         repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
