@@ -91,6 +91,12 @@ TXT
       end
     end
 
+    def in_database(database)
+      init_database(database.key) do
+        yield db
+      end
+    end
+
     def backup(database)
       init_control_database(database.key) do
         db.backup(database, configuration_for_database(database))
