@@ -164,11 +164,12 @@ TXT
     def dump_database_to_fixtures(database, base_fixture_dir, options = {})
       filter = options[:filter]
       data_set = options[:data_set]
+      fixture_dir_name = options[:fixture_dir_name] || database.fixture_dir_name
       init_database(database.key) do
         database.repository.modules.each do |module_name|
           prefix = data_set ?
               "#{base_fixture_dir}/#{module_name}/#{database.datasets_dir_name}/#{data_set}/" :
-              "#{base_fixture_dir}/#{module_name}/#{database.fixture_dir_name}/"
+              "#{base_fixture_dir}/#{module_name}/#{fixture_dir_name}/"
           database.repository.table_ordering(module_name).select{|t| filter ? filter.call(t) : true}.each do |table_name|
             filename = "#{prefix}#{clean_table_name(table_name)}.yml"
 
