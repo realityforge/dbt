@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
   s.rdoc_options       = %w(--line-numbers --inline-source --title dbt)
 
   s.add_dependency 'reality-core', '>= 1.6.0'
+  s.add_dependency 'rexml', '>= 3.2.5'
 
   s.add_development_dependency(%q<minitest>, ['= 5.0.2'])
   s.add_development_dependency(%q<mocha>, ['= 0.14.0'])
