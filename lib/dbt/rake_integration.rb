@@ -159,7 +159,10 @@ EXEC ( 'USE __TARGET__; ALTER SEQUENCE #{attribute.sql.sequence.qualified_sequen
         banner("Running #{action} on package", database.key)
         a = ::Buildr.artifact(artifact)
         a.invoke
-        sh "export RUBYOPT= && #{Java::Commands.path_to_bin('java')} -jar #{a} --database #{database.key} --environment #{Dbt::Config.environment} --config-file #{Dbt::Config.config_filename} #{action}"
+        java = Java::Commands.send(:path_to_bin, 'java')
+        java_version = `#{java} -version 2>&1`.scan(/^java version "(.*)"/).first.first rescue '1.8'
+        is_java_8 = java_version.start_with?('1.8')
+        sh "export RUBYOPT= && #{java} #{is_java_8 ? '' : '--add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED'} -jar #{a} --database #{database.key} --environment #{Dbt::Config.environment} --config-file #{Dbt::Config.config_filename} #{action}"
       end
     end
   end
