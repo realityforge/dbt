@@ -357,19 +357,19 @@ SQL
 
       def post_data_module_import(imp, module_name)
         sql_prefix = 'DECLARE @DbName VARCHAR(100); SET @DbName = DB_NAME();'
-        if Dbt.configuration_for_key(imp.database.key).shrink_on_import?
+        database = Dbt.configuration_for_key(imp.database.key)
+        if database.shrink_on_import?
           # We are shrinking the database in case any of the import scripts created tables/columns and dropped them
           # later. This would leave large chunks of empty space in the underlying files. However it has to be done before
           # we reindex otherwise the indexes will be highly fragmented.
           Dbt.runtime.info('Shrinking database')
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, NOTRUNCATE) WITH NO_INFOMSGS")
           execute("#{sql_prefix} DBCC SHRINKDATABASE(@DbName, 10, TRUNCATEONLY) WITH NO_INFOMSGS")
-        end
-
-        if Dbt.configuration_for_key(imp.database.key).reindex_on_import?
-          imp.database.repository.table_ordering(module_name).each do |table|
-            Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
-            execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
+          if database.reindex_on_import?
+            imp.database.repository.table_ordering(module_name).each do |table|
+              Dbt.runtime.info("Reindexing #{clean_table_name(table)}")
+              execute("DBCC DBREINDEX (N'#{table}', '', 0) WITH NO_INFOMSGS")
+            end
           end
         end
       end
