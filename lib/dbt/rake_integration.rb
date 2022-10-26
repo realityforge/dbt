@@ -90,7 +90,7 @@ INSERT INTO [__TARGET__].#{entity.sql.qualified_table_name}(#{entity.attributes.
               File.open(file, 'wb') do |f|
                 f.write <<-SQL
 DECLARE @Next VARCHAR(50)
-SELECT @Next = CAST(current_value AS BIGINT) + 1 FROM __SOURCE__.sys.sequences WHERE object_id = OBJECT_ID('[__SOURCE__].#{attribute.sql.sequence.qualified_sequence_name}')
+SELECT @Next = CAST(current_value AS BIGINT) + 1 FROM __TARGET__.sys.sequences WHERE object_id = OBJECT_ID('[__TARGET__].#{attribute.sql.sequence.qualified_sequence_name}')
 EXEC ( 'USE __TARGET__; ALTER SEQUENCE #{attribute.sql.sequence.qualified_sequence_name} RESTART WITH ' + @Next )
                 SQL
               end
