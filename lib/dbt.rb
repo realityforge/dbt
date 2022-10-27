@@ -15,6 +15,7 @@ require 'rexml/document'
 require 'erb'
 require 'yaml'
 require 'rubygems'
+require 'digest'
 
 require 'reality/base_element'
 
