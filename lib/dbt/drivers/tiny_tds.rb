@@ -47,13 +47,24 @@ class Dbt
                             :password => config.password)
       # Configure the connection so it is more ANSI-like
       [
-        'SET CURSOR_CLOSE_ON_COMMIT ON',
+        # This is for SQL Server
+        'SET ANSI_DEFAULTS ON',
+
+        # This is for Azure
         'SET ANSI_NULLS ON',
+        'SET ANSI_NULL_DFLT_ON ON',
         'SET ANSI_PADDING ON',
         'SET ANSI_WARNINGS ON',
-        'SET ARITHABORT ON',
-        'SET CONCAT_NULL_YIELDS_NULL ON',
+
+        # Common recommendations
         'SET QUOTED_IDENTIFIER ON',
+        'SET CURSOR_CLOSE_ON_COMMIT OFF',
+        'SET IMPLICIT_TRANSACTIONS OFF',
+        'SET TEXTSIZE 2147483647',
+        'SET CONCAT_NULL_YIELDS_NULL ON',
+
+        # Our specific changes
+        'SET ARITHABORT ON',
         'SET NUMERIC_ROUNDABORT OFF'
       ].each do |sql|
         execute(sql, false)
