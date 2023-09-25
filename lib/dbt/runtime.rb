@@ -832,7 +832,7 @@ TXT
         end
 
         if fixture_file
-          load_fixture(table, load_data(database, fixture_file))
+          load_fixture(database, table, load_data(database, fixture_file))
         elsif sql_file
           run_import_sql(database, table, load_data(database, sql_file), sql_file, true)
         else
@@ -889,7 +889,7 @@ TXT
         filename = fixtures[table_name]
         next unless filename
         info("#{'%-15s' % 'Fixture'}: #{clean_table_name(table_name)}")
-        load_fixture(table_name, load_data(database, filename))
+        load_fixture(database, table_name, load_data(database, filename))
       end
       database.repository.sequence_ordering(module_name).each do |sequence_name|
         filename = fixtures[sequence_name]
@@ -974,7 +974,7 @@ TXT
       db.update_sequence(sequence_name, yaml)
     end
 
-    def load_fixture(table_name, content)
+    def load_fixture(database, table_name, content)
       yaml = load_yaml(content)
       # Skip empty files
       return unless yaml
@@ -990,7 +990,14 @@ TXT
         raise "Bad data for #{table_name} fixture named #{fixture}" unless fixture.respond_to?(:each)
         fixture.each do |name, data|
           raise "Bad data for #{table_name} fixture named #{name} (nil)" unless data
-          db.insert(table_name, data)
+          filtered_data = data.map do |key, value|
+            if value.respond_to?(:to_str)
+              [key, filter_sql(value, database.expanded_filters)]
+            else
+              [key, value]
+            end
+          end.to_h
+          db.insert(table_name, filtered_data)
         end
         db.post_fixture_import(table_name)
       end
