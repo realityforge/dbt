@@ -635,9 +635,7 @@ TXT
         end
       end
 
-      files.map! do |f|
-        f.sub(/^#{Dbt::Config.base_directory}\//, '')
-      end
+      files
     end
 
     def perform_import_action(imp, should_perform_delete, module_group)
@@ -1105,7 +1103,8 @@ TXT
     def hash_files(database, files)
       intermediate = ''
       files.each do |path|
-        intermediate << "#{path.gsub(/[^:]+:/, '')} : #{Digest::MD5.hexdigest(load_data(database,path))}\n"
+        hash_key = path.gsub(/[^:]+:/, '').delete_prefix(Dbt::Config.base_directory + '/')
+        intermediate << "#{hash_key} : #{Digest::MD5.hexdigest(load_data(database,path))}\n"
       end
       Digest::MD5.hexdigest(intermediate)
     end
