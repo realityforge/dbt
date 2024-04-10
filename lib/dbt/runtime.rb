@@ -1101,10 +1101,19 @@ TXT
     end
 
     def hash_files(database, files)
-      intermediate = ''
+      file_map = {}
       files.each do |path|
-        hash_key = path.gsub(/[^:]+:/, '').delete_prefix(Dbt::Config.base_directory + '/')
-        intermediate << "#{hash_key} : #{Digest::MD5.hexdigest(load_data(database,path))}\n"
+        hash_key = path.gsub(/[^:]+:/, '')
+        hash_key = hash_key.delete_prefix(Dbt::Config.base_directory + '/')
+        database.search_dirs.each do |dir|
+          hash_key = hash_key.delete_prefix(dir)
+        end
+        file_map[hash_key] = path
+      end
+
+      intermediate = ''
+      file_map.keys.sort.each do |hash_key|
+        intermediate << "#{hash_key} : #{Digest::MD5.hexdigest(load_data(database,file_map[hash_key]))}\n"
       end
       Digest::MD5.hexdigest(intermediate)
     end
