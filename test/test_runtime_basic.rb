@@ -948,7 +948,7 @@ class TestRuntimeBasic < Dbt::TestCase
     expect_default_table_import(mock, import, 'MyOtherModule', 'baz')
     expect_default_sequence(mock, 'MyOtherModule', 'bazSeq')
     mock.expects(:post_data_module_import).with(import, 'MyOtherModule').in_sequence(@s)
-    # TODO: This is wrong behaviour. All of deletes should occur first
+    # TODO: This is wrong behavior. All of deletes should occur first
     expect_delete_for_table_import(mock, 'MyThirdModule', 'biz')
     expect_default_table_import(mock, import, 'MyThirdModule', 'biz')
     expect_default_sequence(mock, 'MyThirdModule', 'bizSeq')
