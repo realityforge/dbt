@@ -46,6 +46,64 @@ class TestFilterContainer < Dbt::TestCase
     assert_equal expand_text('@@MYKEY@@', c), 'foofoo'
   end
 
+  def test_add_dynamic_property_filter
+    c = TestFilterContainer.new
+
+    pattern = '@@MYKEY@@'
+    value_key = 'MYKEY'
+    default_value = 'MYDEFVALUE'
+    c.add_dynamic_property_filter(pattern, value_key, default_value)
+
+    assert_equal c.filters.size, 1
+    assert c.filters[0].is_a?(Dbt::DynamicPropertyFilter)
+    assert_equal c.filters[0].pattern, pattern
+    assert_equal c.filters[0].value_key, value_key
+    assert_equal c.filters[0].default_value, default_value
+
+    assert_equal expand_text('X', c), 'X'
+    assert_equal expand_text('@@MYKEY@@', c), 'MYDEFVALUE'
+  end
+
+  def test_add_dynamic_property_filter_default_default_value
+    c = TestFilterContainer.new
+
+    pattern = '@@MYKEY@@'
+    value_key = 'MYKEY'
+    c.add_dynamic_property_filter(pattern, value_key)
+
+    assert_equal c.filters.size, 1
+    assert c.filters[0].is_a?(Dbt::DynamicPropertyFilter)
+    assert_equal c.filters[0].pattern, pattern
+    assert_equal c.filters[0].value_key, value_key
+    assert_equal c.filters[0].default_value, ''
+
+    assert_equal expand_text('X', c), 'X'
+    assert_equal expand_text('@@MYKEY@@', c), ''
+  end
+
+  def test_add_dynamic_property_filter_with_overridden_value
+    c = TestFilterContainer.new
+
+    pattern = '@@MYKEY@@'
+    value_key = 'MYKEY'
+    default_value = 'MYDEFVALUE'
+    override_value = 'MyOverride'
+    c.add_dynamic_property_filter(pattern, value_key, default_value)
+
+    assert_equal c.filters.size, 1
+    assert c.filters[0].is_a?(Dbt::DynamicPropertyFilter)
+    assert_equal c.filters[0].pattern, pattern
+    assert_equal c.filters[0].value_key, value_key
+    assert_equal c.filters[0].default_value, default_value
+
+    dynamic_properties = { value_key => override_value }
+
+    Dbt::Config.dynamic_property_provider = Proc.new {|key| dynamic_properties[key]}
+
+    assert_equal expand_text('X', c), 'X'
+    assert_equal expand_text('@@MYKEY@@', c), 'MyOverride'
+  end
+
   def test_database_environment_filter
     c = TestFilterContainer.new
 

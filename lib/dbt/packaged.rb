@@ -160,6 +160,8 @@ Dbt::Config.environment = 'production'
 Dbt::Config.config_filename = 'config/database.yml'
 VALID_COMMANDS=#{valid_commands.inspect}
 
+dynamic_properties = {}
+
 database_key = :default
 
 opt_parser = OptionParser.new do |opt|
@@ -179,6 +181,11 @@ opt_parser = OptionParser.new do |opt|
 
   opt.on('-c','--config-file CONFIG', "the configuration file to use. Defaults to 'config/database.yml'.") do |config_filename|
     Dbt::Config.config_filename = config_filename
+  end
+
+  opt.on('-p','--dynamic-property KEY=VALUE', "a dynamic property that can be explicitly set.") do |dynamic_property|
+    key, value = dynamic_property.split('=',2)
+    dynamic_properties[key] = value
   end
 
   opt.on('-h','--help','help') do
@@ -206,6 +213,8 @@ if ARGV.length == 0
   puts opt_parser
   java.lang.System.exit(31)
 end
+
+Dbt::Config.dynamic_property_provider = Proc.new {|key| dynamic_properties[key]}
 
 database = Dbt.add_database(database_key) do |database|
   database.resource_prefix = 'data'
@@ -236,6 +245,8 @@ TXT
           f << "  database.add_property_filter(#{filter.pattern.inspect}, #{filter.value.inspect})\n"
         elsif filter.is_a?(DatabaseNameFilter)
           f << "  database.add_database_name_filter(#{filter.pattern.inspect}, #{filter.database_key.inspect}, #{filter.optional.inspect})\n"
+        elsif filter.is_a?(DynamicPropertyFilter)
+          f << "  database.add_dynamic_property_filter(#{filter.pattern.inspect}, #{filter.value_key.inspect}, #{filter.default_value.inspect})\n"
         else
           raise "Unsupported filter #{filter}"
         end
@@ -257,6 +268,9 @@ end
 puts "Environment: \#{Dbt::Config.environment}"
 puts "Config File: \#{Dbt::Config.config_filename}"
 puts "Commands: \#{ARGV.join(' ')}"
+dynamic_properties.each do |key, value|
+  puts "  Dynamic Property: \#{key}=\#{value}"
+end
 
 if Dbt.repository.load_configuration_data
   Dbt.runtime.load_database_config(database)

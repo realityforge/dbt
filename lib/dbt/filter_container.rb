@@ -16,6 +16,7 @@ class Dbt #nodoc
 
   DatabaseNameFilter = ::Struct.new('DatabaseNameFilter', :pattern, :database_key, :optional)
   PropertyFilter = ::Struct.new('PropertyFilter', :pattern, :value)
+  DynamicPropertyFilter = ::Struct.new('DynamicPropertyFilter', :pattern, :value_key, :default_value)
 
   # Container class that is mixed into classes responsible for filtering sql files
   module FilterContainer
@@ -27,9 +28,14 @@ class Dbt #nodoc
       self.filters << DatabaseNameFilter.new(pattern, database_key, optional)
     end
 
-    # Filter the SQL files replacing specified pattern with specified value
+    # Filter the SQL files replacing the specified pattern with the specified value
     def add_property_filter(pattern, value)
       self.filters << PropertyFilter.new(pattern, value)
+    end
+
+    # Filter that replaces the specified pattern with a value from the dynamic property store or the default value if none-specified. 
+    def add_dynamic_property_filter(pattern, value_key, default_value = '')
+      self.filters << DynamicPropertyFilter.new(pattern, value_key, default_value)
     end
 
     # Makes the import scripts support statements such as
@@ -127,6 +133,11 @@ SQL
         elsif filter.is_a?(DatabaseNameFilter)
           filters << Proc.new do |sql|
             Dbt.runtime.filter_database_name(sql, filter.pattern, filter.database_key, environment, filter.optional)
+          end
+        elsif filter.is_a?(DynamicPropertyFilter)
+          filters << Proc.new do |sql|
+            value = Dbt::Config.get_dynamic_property(filter.value_key)
+            sql.gsub(/#{filter.pattern}/, value.nil? ? filter.default_value : value)
           end
         else
           filters << filter

@@ -42,6 +42,7 @@ class Dbt::TestCase < Minitest::Test
     Dbt::Config.default_migrations_dir_name = nil
     Dbt::Config.default_database = nil
     Dbt::Config.task_prefix = nil
+    Dbt::Config.dynamic_property_provider = nil
     ENV['IMPORT_RESUME_AT'] = nil
 
     @cwd = Dir.pwd

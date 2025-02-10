@@ -38,6 +38,7 @@ class Dbt # nodoc
     @task_prefix = nil
     @default_import_dir = nil
     @config_filename = nil
+    @dynamic_property_provider = nil
 
     class << self
       attr_writer :base_directory
@@ -250,6 +251,16 @@ class Dbt # nodoc
 
       def repository_config_file
         @repository_config_file || 'repository.yml'
+      end
+
+      attr_accessor :dynamic_property_provider
+
+      def get_dynamic_property(property_key)
+        if @dynamic_property_provider.nil?
+          nil
+        else
+          @dynamic_property_provider.call(property_key)
+        end
       end
     end
   end
