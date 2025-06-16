@@ -63,6 +63,10 @@ class Dbt
         'SET TEXTSIZE 2147483647',
         'SET CONCAT_NULL_YIELDS_NULL ON',
 
+        # Local specific stuff we have to set here as the default language is
+        # not necessarily selected when using tds
+        'SET DATEFIRST 1',
+
         # Our specific changes
         'SET ARITHABORT ON',
         'SET NUMERIC_ROUNDABORT OFF'
