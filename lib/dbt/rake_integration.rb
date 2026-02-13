@@ -26,10 +26,10 @@ class Dbt #nodoc
     def enable_domgen(options = {})
       repository_key = options[:repository_key]
       load_task_name = options[:load_task_name] || 'domgen:load'
-      generate_task_name = options[:generate_task_name] || 'domgen:sql'
       perform_analysis_checks = options[:perform_analysis_checks].nil? ? false : !!options[:perform_analysis_checks]
       task "#{task_prefix}:load_config" => load_task_name
-      task "#{task_prefix}:pre_build" => generate_task_name
+      task "#{task_prefix}:pre_build"
+      task "#{task_prefix}:pre_build" => options[:generate_task_name] if options[:generate_task_name]
 
       desc 'Verify constraints on database.'
       task "#{task_prefix}:verify_constraints" => ["#{task_prefix}:load_config"] do
