@@ -1197,7 +1197,6 @@ class TestRuntimeBasic < Dbt::TestCase
 
     hash_1 = Dbt.runtime.send(:hash_files, database, %w(databases/generated/MyModule/base.sql databases/generated/MyModule/types/typeA.sql databases/generated/MyModule/views/viewA.sql))
 
-
     # Same content, different files
     hash_2 = Dbt.runtime.send(:hash_files, database, %w(databases/generated/MyModule/base.sql databases/generated/MyModule/types/typeA.sql databases/generated/MyModule/views/viewB.sql))
     assert_not_equal(hash_1, hash_2)

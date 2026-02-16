@@ -33,7 +33,7 @@ class Dbt #nodoc
       self.filters << PropertyFilter.new(pattern, value)
     end
 
-    # Filter that replaces the specified pattern with a value from the dynamic property store or the default value if none-specified. 
+    # Filter that replaces the specified pattern with a value from the dynamic property store or the default value if none-specified.
     def add_dynamic_property_filter(pattern, value_key, default_value = '')
       self.filters << DynamicPropertyFilter.new(pattern, value_key, default_value)
     end

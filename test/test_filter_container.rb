@@ -115,7 +115,6 @@ class TestFilterContainer < Dbt::TestCase
     assert_equal expand_text('@@ENVIRONMENT@@', c), Dbt::Config.environment.to_s
   end
 
-
   def test_import_assert_filters
     c = TestFilterContainer.new
 
