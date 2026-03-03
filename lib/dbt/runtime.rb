@@ -214,7 +214,7 @@ TXT
 
     def verify_schema(database, schema_name)
       init_database(database.key) do
-        db.verify_schema schema_name
+        db.verify_schema(schema_name)
       end
     end
 

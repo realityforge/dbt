@@ -37,7 +37,7 @@ class Dbt #nodoc
         repository = get_domgen_repository(repository_key)
 
         failed_constraints = []
-        repository.data_modules.select { |data_module| data_module.sql? }.each do |data_module|
+        repository.data_modules.select { |data_module| data_module.mssql? && data_module.mssql.generate_check_constraints? }.each do |data_module|
           failed_constraints += Dbt.runtime.verify_schema(self, data_module.sql.schema)
         end
         error_message = ''
